@@ -1362,22 +1362,50 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-// ── Boot: handle password reset token or auto-restore session ──
+// ── Boot: handle Supabase password-recovery links and restore session ──
 ;(async () => {
-  const hash = window.location.hash
-  if (hash && (hash.includes('type=recovery') || hash.includes('access_token') || window.location.search.includes('type=recovery') || window.location.search.includes('access_token'))) {
-    const sb = getSupabase()
-    if (sb) {
-      try {
-        const { data } = await sb.auth.getSession()
-        if (data.session) { showScreen('screen-reset-pw'); return }
-      } catch {}
-    }
-  }
   const sb = getSupabase()
   if (!sb) { showScreen('screen-signin'); return }
+
+  const url = new URL(window.location.href)
+  const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
+  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery'
+  const code = url.searchParams.get('code')
+  const accessToken = hashParams.get('access_token')
+  const refreshToken = hashParams.get('refresh_token')
+
   try {
-    const { data } = await sb.auth.getSession()
+    // Supabase may use PKCE (?code=...) or implicit tokens (#access_token=...).
+    // Complete the exchange before checking whether a recovery session exists.
+    if (code) {
+      const { error } = await sb.auth.exchangeCodeForSession(code)
+      if (error) throw error
+      url.searchParams.delete('code')
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    } else if (accessToken && refreshToken) {
+      const { error } = await sb.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      })
+      if (error) throw error
+    }
+
+    const { data, error } = await sb.auth.getSession()
+    if (error) throw error
+    if (recoveryType || (accessToken && hashParams.get('type') === 'recovery')) {
+      if (data.session) {
+        showScreen('screen-reset-pw')
+      } else {
+        const status = document.getElementById('rp-status')
+        if (status) {
+          status.textContent = 'The recovery link could not establish a session. Request a new password-reset email and open the newest link.'
+          status.className = 'auth-status error'
+        }
+        showScreen('screen-reset-pw')
+      }
+      return
+    }
+
     if (data.session) {
       MODE.isOnline = true
       const meta = data.session.user.user_metadata || {}
@@ -1386,8 +1414,22 @@ document.addEventListener('keydown', (e) => {
       MODE.organisationName = meta.org_name || 'Workspace'
       await loadOrCreateProfile(data.session.user)
       enterApp()
-    } else { showScreen('screen-signin') }
-  } catch { showScreen('screen-signin') }
+    } else {
+      showScreen('screen-signin')
+    }
+  } catch (e) {
+    console.error('[JLIGHT] Auth/recovery link handling failed:', e)
+    if (recoveryType || code || accessToken) {
+      showScreen('screen-reset-pw')
+      const status = document.getElementById('rp-status')
+      if (status) {
+        status.textContent = (e.message || 'Could not verify this recovery link') + '. Request a new reset email if the link has expired.'
+        status.className = 'auth-status error'
+      }
+    } else {
+      showScreen('screen-signin')
+    }
+  }
 })()
 
 console.log('%c JLIGHT v10.0 ', 'background:linear-gradient(135deg,#00C9A7,#4B8EFF);color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-family:Syne,sans-serif')
