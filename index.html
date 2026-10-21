@@ -910,55 +910,165 @@ async function doSignIn() {
   if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
   if (status) { status.textContent = ''; status.className = 'auth-status' }
   const sb = getSupabase()
-  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} if(btn){btn.disabled=false;btn.textContent=MODE.signupMode?'Create workspace':'Sign in'} return }
+  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
   try {
     if (MODE.signupMode) {
-      const org     = (document.getElementById('si-org')||{}).value?.trim() || ''
-      const role    = (document.getElementById('si-role')||{}).value || 'Laboratory'
+      const org = (document.getElementById('si-org')||{}).value?.trim() || ''
+      const role = (document.getElementById('si-role')||{}).value || 'Laboratory'
       const orgCode = (document.getElementById('si-orgcode')||{}).value?.trim() || ''
-      if (!org) throw new Error('Organisation name required')
-      const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { org_name: org, role, org_code: orgCode || null } } })
+      if (!org && !orgCode) throw new Error('Organisation name or organisation code required')
+
+      const { data, error } = await sb.auth.signUp({
+        email, password: pass,
+        options: { data: { org_name: org, role, org_code: orgCode || null } }
+      })
       if (error) throw error
-      MODE.isOnline = true; MODE.organisationName = org
-      STATE.user = email; STATE.role = role
-      // Handle org code: join existing org or create new one
-      if (data.user) {
-        if (orgCode) {
-          try {
-            const { data: existingOrg } = await sb.from('jl_organisations').select('id,name').eq('org_code', orgCode).single()
-            if (existingOrg) { MODE.organisationId = existingOrg.id; MODE.organisationName = existingOrg.name; MODE.organisationCode = orgCode; await sb.auth.updateUser({ data: { org_name: existingOrg.name, org_id: existingOrg.id, org_code: orgCode, role } }) }
-          } catch {}
-        } else {
-          const newCode = org.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6) + '-' + Math.random().toString(36).slice(2,6).toUpperCase()
-          MODE.organisationCode = newCode
-          try {
-            const { data: newOrg } = await sb.from('jl_organisations').insert({ name: org, role, owner_email: email, org_code: newCode, created_at: new Date().toISOString() }).select().single()
-            if (newOrg) { MODE.organisationId = newOrg.id; await sb.auth.updateUser({ data: { org_name: org, org_id: newOrg.id, org_code: newCode, role } }) }
-          } catch {}
+      if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
+
+      // With email confirmation enabled, signUp returns no session. RLS-protected
+      // organisation creation must wait until the user confirms and signs in.
+      if (!data.session) {
+        if (status) {
+          status.textContent = 'Account created. Check your email to confirm it, then sign in to finish setting up your workspace.'
+          status.className = 'auth-status success'
         }
-        await loadOrCreateProfile(data.user)
+        MODE.signupMode = false
+        const title = document.getElementById('si-title')
+        const sub = document.getElementById('si-sub')
+        const orgRow = document.getElementById('si-org-row')
+        const roleRow = document.getElementById('si-role-row')
+        const toggle = document.getElementById('si-toggle')
+        const submit = document.getElementById('si-btn')
+        if (title) title.textContent = 'Sign in'
+        if (sub) sub.textContent = 'Confirm your email, then sign in to finish workspace setup'
+        if (orgRow) orgRow.style.display = 'none'
+        if (roleRow) roleRow.style.display = 'none'
+        if (toggle) toggle.textContent = 'Create new workspace'
+        if (submit) submit.textContent = 'Sign in'
+        return
       }
-      const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
-      if (status) { status.textContent = 'Workspace created' + codeMsg + ' · Share code with colleagues to join', status.className = 'auth-status success' }
-      setTimeout(()=>enterApp(), 1800)
+
+      MODE.isOnline = true
+      STATE.user = data.user.email || email
+      STATE.role = role
+      await ensureJlightOrganisation(data.user, { org, role, orgCode })
+      await loadOrCreateProfile(data.user)
+      if (status) {
+        const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
+        status.textContent = 'Workspace created' + codeMsg
+        status.className = 'auth-status success'
+      }
+      setTimeout(()=>enterApp(), 1200)
     } else {
       const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
       if (error) throw error
-      if (!data.session) throw new Error('Sign-in failed')
+      if (!data.session) throw new Error('Sign-in failed: no active session was returned.')
       MODE.isOnline = true
-      const meta = data.session.user.user_metadata || {}
-      STATE.user = email; STATE.role = meta.role || 'Laboratory'
-      MODE.organisationName = meta.org_name || 'Workspace'
-      await loadOrCreateProfile(data.session.user)
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      STATE.user = user.email || email
+      STATE.role = meta.role || 'Laboratory'
+      await ensureJlightOrganisation(user, {
+        org: meta.org_name || '',
+        role: meta.role || 'Laboratory',
+        orgCode: meta.org_code || ''
+      })
+      await loadOrCreateProfile(user)
       enterApp()
     }
   } catch(e) {
+    console.error('[JLIGHT] sign-in/workspace creation failed:', e)
     if (status) { status.textContent = e.message || 'Authentication failed'; status.className = 'auth-status error' }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' }
   }
 }
 
+// Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
+async function ensureJlightOrganisation(user, options = {}) {
+  const sb = getSupabase()
+  if (!sb || !user?.id) throw new Error('Cannot set up workspace: authenticated Supabase user is missing.')
+  const { data: sessionResult, error: sessionError } = await sb.auth.getSession()
+  if (sessionError) throw sessionError
+  if (!sessionResult?.session?.user?.id || sessionResult.session.user.id !== user.id) {
+    throw new Error('No active session for this account. Confirm your email if required, then sign in again.')
+  }
+
+  const meta = user.user_metadata || {}
+  const org = (options.org || meta.org_name || '').trim()
+  const role = options.role || meta.role || 'Laboratory'
+  const orgCode = (options.orgCode || meta.org_code || '').trim()
+
+  // Existing user metadata may already identify their organisation.
+  if (meta.org_id) {
+    MODE.organisationId = meta.org_id
+    MODE.organisationName = meta.org_name || org || 'Workspace'
+    MODE.organisationCode = meta.org_code || orgCode || ''
+    return
+  }
+
+  // Recover an organisation already owned by this authenticated user.
+  const { data: owned, error: lookupError } = await sb
+    .from('jl_organisations')
+    .select('id,name,org_code,role,owner_user_id,owner_email')
+    .eq('owner_user_id', user.id)
+    .maybeSingle()
+  if (lookupError) throw new Error('Could not check existing workspace: ' + lookupError.message)
+  if (owned) {
+    MODE.organisationId = owned.id
+    MODE.organisationName = owned.name
+    MODE.organisationCode = owned.org_code || ''
+    const { error } = await sb.auth.updateUser({ data: {
+      org_name: owned.name, org_id: owned.id, org_code: owned.org_code || null,
+      role: owned.role || role
+    } })
+    if (error) throw new Error('Workspace found, but account metadata could not be updated: ' + error.message)
+    return
+  }
+
+  if (orgCode) {
+    const { data: existing, error: codeError } = await sb
+      .from('jl_organisations')
+      .select('id,name,org_code,role')
+      .eq('org_code', orgCode)
+      .maybeSingle()
+    if (codeError) throw new Error('Could not verify organisation code: ' + codeError.message)
+    if (!existing) throw new Error('Organisation code not found. Check it with your administrator.')
+    MODE.organisationId = existing.id
+    MODE.organisationName = existing.name
+    MODE.organisationCode = existing.org_code || orgCode
+    const { error } = await sb.auth.updateUser({ data: {
+      org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
+    } })
+    if (error) throw new Error('Joined workspace, but account metadata could not be updated: ' + error.message)
+    return
+  }
+
+  if (!org) throw new Error('Organisation name is missing. Switch to Create new workspace and enter a name.')
+  const newCode = org.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6) + '-' + Math.random().toString(36).slice(2,6).toUpperCase()
+  const { data: created, error: insertError } = await sb
+    .from('jl_organisations')
+    .insert({
+      name: org,
+      role,
+      owner_email: user.email || '',
+      owner_user_id: user.id,
+      org_code: newCode,
+      created_at: new Date().toISOString()
+    })
+    .select('id,name,org_code,role')
+    .single()
+  if (insertError) throw new Error('Workspace creation failed: ' + insertError.message)
+  if (!created) throw new Error('Workspace creation failed: Supabase returned no organisation record.')
+
+  MODE.organisationId = created.id
+  MODE.organisationName = created.name
+  MODE.organisationCode = created.org_code || newCode
+  const { error: metadataError } = await sb.auth.updateUser({ data: {
+    org_name: created.name, org_id: created.id, org_code: created.org_code || newCode, role
+  } })
+  if (metadataError) console.warn('[JLIGHT] Workspace created but metadata update failed:', metadataError.message)
+}
 async function doForgotPassword() {
   const email = (document.getElementById('si-email')||{}).value?.trim() || ''
   const addr = prompt('Enter your account email:', email)
