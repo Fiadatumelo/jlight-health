@@ -1363,7 +1363,7 @@ document.addEventListener('keydown', (e) => {
 })
 
 // ── Boot: handle Supabase password-recovery links and restore session ──
-;(async () => {
+setTimeout(async () => {
   const sb = getSupabase()
   if (!sb) { showScreen('screen-signin'); return }
 
@@ -1430,7 +1430,7 @@ document.addEventListener('keydown', (e) => {
       showScreen('screen-signin')
     }
   }
-})()
+}, 0)
 
 console.log('%c JLIGHT v10.0 ', 'background:linear-gradient(135deg,#00C9A7,#4B8EFF);color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-family:Syne,sans-serif')
 console.log('v9.0 · Health Intelligence Platform · Production build')
