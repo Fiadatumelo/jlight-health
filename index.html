@@ -4379,7 +4379,7 @@ function getSupabase() {
   if (_sb) return _sb
   if (!window.supabase) return null
   _sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, storageKey: 'jl-auth-v9' }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jl-auth-v9' }
   })
   return _sb
 }
