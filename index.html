@@ -1369,7 +1369,7 @@ document.addEventListener('keydown', (e) => {
 
   const url = new URL(window.location.href)
   const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
-  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery'
+  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || url.searchParams.has('code')
   const code = url.searchParams.get('code')
   const accessToken = hashParams.get('access_token')
   const refreshToken = hashParams.get('refresh_token')
