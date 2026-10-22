@@ -1436,6 +1436,10 @@ async function enterApp() {
   STATE.cards   = STORAGE.loadCards(STATE.role)
   STATE.audit   = STORAGE.loadAudit(STATE.role)
   STATE.thresholds = STORAGE.loadThresholds(STATE.role) || defaultThresholds()
+  // Load organisation-scoped domain records and the report archive from the local cache
+  // before remote hydration; online remote data will then reconcile over this cache.
+  loadAllDomainData()
+  if (!Array.isArray(STATE.reportArchive)) STATE.reportArchive = []
   if (MODE.isOnline) {
     const remote = await loadFromBackend()
     if (remote) {
