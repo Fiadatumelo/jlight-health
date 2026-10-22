@@ -84,13 +84,13 @@ Deno.serve(async (req) => {
     return json({ error: "Invitation could not be sent. Check the address and try again." }, 400, headers);
   }
 
-  const { error: insertError } = await adminClient.from("jl_org_memberships").upsert({
+  const { error: insertError } = await adminClient.from("jl_org_memberships").insert({
     organisation_id: organisationId,
     user_id: inviteData.user.id,
     access_role: role,
     status: "active",
     created_by: authData.user.id,
-  }, { onConflict: "organisation_id,user_id", ignoreDuplicates: true });
+  });
 
   if (insertError) {
     // The invite may have been sent, but membership is not granted on failure.
