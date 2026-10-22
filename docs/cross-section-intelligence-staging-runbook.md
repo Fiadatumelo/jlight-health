@@ -12,6 +12,8 @@ After applying migration `202610220003_cross_section_intelligence_foundation.sql
 7. Browser clients cannot create, modify or delete membership rows.
 8. Browser clients cannot update/delete review event history.
 9. Findings retain provenance, rule version, and human-review status.
+11. Reviewers can only change finding review state through `jl_review_finding`; they cannot directly edit finding content.
+12. The review RPC creates an event with the authenticated actor and rejects unauthorised users.
 10. Confirm application signup and existing workflows still work with the new tables.
 
 If any test fails, stop; do not disable RLS or broaden policies as a workaround. Commercial release also requires automated regression tests, POPIA/legal review, incident response, monitoring, tested backups and independent penetration testing.
