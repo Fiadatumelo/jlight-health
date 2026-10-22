@@ -21,3 +21,6 @@ Function: `invite-organisation-member`
 Deploy only to a staging Supabase project first. Configure the secrets in Supabase Edge Function settings, not in GitHub or frontend JavaScript. Verify invite acceptance, duplicate email, duplicate membership, suspended/revoked caller, cross-organisation attempts, wrong-origin requests, expired tokens, mail delivery failures and rollback/recovery after an invite succeeds but membership insertion fails.
 
 **Important:** This function is a scaffold and has not been deployed or integration-tested against the live JLIGHT Supabase project. Before production, add rate limiting/abuse controls, audit logging for invitation and membership changes, a robust idempotent invite lifecycle (including pending invitations), automated tests and administrator recovery tooling. Do not claim commercial readiness until those gates pass.
+
+## Invitation activation
+New invitations are stored with status `invited`, which grants no tenant access. After the recipient signs in and confirms their email, the authenticated client must call `jl_accept_organisation_invitations()`; it activates only membership rows attached to that authenticated user. Integrate this RPC into the verified invite-acceptance route and test expired links, unconfirmed emails, duplicate invitations and revoked memberships before production.
