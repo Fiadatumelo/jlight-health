@@ -4850,17 +4850,26 @@ function getPermBadge() {
 
 async function loadOrCreateProfile(supabaseUser) {
   const key = 'jl_profile_' + (supabaseUser.id || STATE.user || 'offline')
-  const cached = localStorage.getItem(key)
-  if (cached) { try { STATE.userProfile = JSON.parse(cached); return } catch {} }
+  // Online profile data is authoritative; never let a stale browser cache choose a tenant.
   if (MODE.isOnline) {
     const sb = getSupabase()
     if (sb) {
-      try {
-        const { data } = await sb.from('jl_user_profiles').select('*').eq('user_id', supabaseUser.id).single()
-        if (data) { STATE.userProfile = data; localStorage.setItem(key, JSON.stringify(data)); return }
-      } catch {}
+      const { data, error } = await sb.from('jl_user_profiles').select('*').eq('user_id', supabaseUser.id).maybeSingle()
+      if (error) throw new Error('Could not load the authenticated workspace profile: ' + error.message)
+      if (data) {
+        if (STATE.orgId && STATE.orgId !== 'default' && String(data.org_id || '') !== String(STATE.orgId)) {
+          throw new Error('Workspace profile does not match the selected organisation. Cloud access has been stopped for safety.')
+        }
+        STATE.userProfile = data
+        localStorage.setItem(key, JSON.stringify(data))
+        return
+      }
+      STATE.userProfile = null
+      return
     }
   }
+  const cached = localStorage.getItem(key)
+  if (cached) { try { STATE.userProfile = JSON.parse(cached); return } catch {} }
   STATE.userProfile = null
 }
 
@@ -4870,9 +4879,14 @@ async function saveUserProfile(profile) {
   const supaUser = sb ? (await sb.auth.getUser()).data.user : null
   if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(profile))
   if (MODE.isOnline && sb && supaUser) {
-    try {
-      await sb.from('jl_user_profiles').upsert({ user_id: supaUser.id, ...profile }, { onConflict: 'user_id' })
-    } catch {}
+    const payload = { user_id: supaUser.id, ...profile }
+    if (STATE.orgId && STATE.orgId !== 'default') payload.org_id = STATE.orgId
+    const { error } = await sb.from('jl_user_profiles').upsert(payload, { onConflict: 'user_id' })
+    if (error) {
+      console.error('[JLIGHT] profile cloud save failed:', error.message)
+      toast('Profile cloud save failed', 'Your profile may not be synchronised. Please retry before switching workspaces.', 'crit')
+      throw error
+    }
   }
 }
 
