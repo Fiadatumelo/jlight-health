@@ -1406,6 +1406,9 @@ async function submitProfile() {
 async function enterApp() {
   const cfg = ROLES[STATE.role]
   if (!cfg) throw new Error('The selected JLIGHT module is not configured.')
+  // Resolve the active workspace before loading or syncing domain records.
+  STATE.orgId = MODE.organisationId || localStorage.getItem('jl_org_id') || 'default'
+  STATE.orgName = MODE.organisationName || localStorage.getItem('jl_org_name') || 'Workspace'
   if (!MODE.isOnline) STATE.user = cfg.user
   STATE.samples = STORAGE.loadSamples(STATE.role)
   STATE.entries = STORAGE.loadEntries(STATE.role)
