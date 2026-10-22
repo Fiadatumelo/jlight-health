@@ -1,0 +1,50 @@
+name: JLIGHT safe regression checks
+
+on:
+  pull_request:
+    paths:
+      - "index.html"
+      - "jlight-backend/**"
+      - ".github/workflows/jlight-safe-regression.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "jlight-backend/**"
+      - ".github/workflows/jlight-safe-regression.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inline frontend JavaScript syntax
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          html = pathlib.Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\b([^>]*)>([\s\S]*?)</script\s*>", html, re.I)
+          inline = [body for attrs, body in scripts if not re.search(r"\bsrc\s*=", attrs, re.I) and body.strip()]
+          if not inline:
+              raise SystemExit("No inline application JavaScript found")
+          pathlib.Path("/tmp/jlight-inline.js").write_text("\n;\n".join(inline), encoding="utf-8")
+          print(f"Checking {len(inline)} inline script block(s)")
+          PY
+          node --check /tmp/jlight-inline.js
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend dependencies
+        working-directory: jlight-backend
+        run: python -m pip install -r requirements.txt pytest
+      - name: Run analytical engine regression tests
+        working-directory: jlight-backend
+        run: python tests/test_all.py
