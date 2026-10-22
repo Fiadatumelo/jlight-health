@@ -66,4 +66,18 @@ begin
      or has_table_privilege('authenticated','public.jl_patients','truncate') then
     raise exception 'Authenticated role retains dangerous TRUNCATE privilege';
   end if;
+
+  if has_table_privilege('authenticated','public.jl_user_profiles','update') then
+    raise exception 'Authenticated role has blanket profile UPDATE privilege';
+  end if;
+
+  if exists (
+    select 1 from information_schema.column_privileges
+    where table_schema='public' and table_name='jl_user_profiles'
+      and grantee='authenticated' and privilege_type='UPDATE'
+      and column_name in ('org_id','workspace_role','active','user_id')
+  ) then raise exception 'Protected profile identity/role columns are directly updatable'; end if;
+
+  if has_table_privilege('authenticated','public.jl_organisations','update') then
+    raise exception 'Authenticated role has blanket organisation UPDATE privilege'; end if;
 end $$;
