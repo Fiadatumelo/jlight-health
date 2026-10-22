@@ -1,6 +1,6 @@
 # JLIGHT Cross-Section Intelligence — Staging Validation
 
-Do not apply directly to production. First verify the current Supabase schema, especially that `jl_organisations.id` is UUID.
+Do not apply directly to production. First verify the current Supabase schema. JLIGHT already has `public.jl_patients` with `org_id` (not `organisation_id`); the integration must reuse that table and preserve its existing `patients_org` policy.
 
 Apply migrations `202610220003` through `202610220011` in numeric order in a disposable staging project, after verifying the existing schema. Then run `supabase test db` to execute `supabase/tests/database_security_contract.sql` and perform the manual checks below.
 1. Two organisations cannot read or write each other's rows in every new table.
@@ -20,7 +20,7 @@ If any test fails, stop; do not disable RLS or broaden policies as a workaround.
 
 12. Confirm explicit authenticated grants work as intended and the anon role has no access to tenant tables.
 13. Test the invitation Edge Function against staging secrets, exact allowed origins, owner/admin role rules, duplicate memberships and invite failure recovery.
-14. Confirm migrations 003–008 apply in order on a clean staging clone and do not break existing signup or workspace flows.
+14. Confirm migrations 003–011 apply in order on a clean staging clone matching the live schema. Migration 003 must not create, replace, force RLS on, or add conflicting policies to the existing `jl_patients` table. Confirm existing signup, workspace, patient, card and offline-sync flows remain functional.
 15. Verify the Edge Function invite acceptance route and ensure membership remains inactive until the invited user has authenticated and confirmed their email.
 16. Confirm `jl_accept_organisation_invitations()` only activates invitations belonging to the current authenticated, email-confirmed user.
 18. Create an organisation through the existing `jl_create_organisation` RPC and verify the creator receives an active `owner` membership.
