@@ -995,8 +995,11 @@ async function ensureJlightOrganisation(user, options = {}) {
   }
 
   const meta = user.user_metadata || {}
-  const org = (options.org || meta.org_name || '').trim()
-  const role = options.role || meta.role || 'Laboratory'
+  // JLIGHT is the platform organisation; a first-time authenticated account
+  // without organisation metadata gets a JLIGHT workspace rather than a dead end.
+  const org = (options.org || meta.org_name || 'JLIGHT Health Intelligence Platform').trim()
+  const requestedRole = options.role || meta.role || 'Laboratory'
+  const role = ['Laboratory','Trial','Hospital'].includes(requestedRole) ? requestedRole : 'Laboratory'
   const orgCode = (options.orgCode || meta.org_code || '').trim()
 
   // Existing user metadata may already identify their organisation.
@@ -1045,7 +1048,19 @@ async function ensureJlightOrganisation(user, options = {}) {
   }
 
   if (!org) throw new Error('Organisation name is missing. Switch to Create new workspace and enter a name.')
-  const newCode = org.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,6) + '-' + Math.random().toString(36).slice(2,6).toUpperCase()
+  // Generate a readable 8-character code (JLI-XXXX) with crypto-backed
+  // randomness when available. The database unique constraint remains the
+  // final authority if a collision ever occurs.
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const randomCode = () => {
+    let suffix = ''
+    const bytes = new Uint8Array(4)
+    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes)
+    else for (let i = 0; i < 4; i++) bytes[i] = Math.floor(Math.random() * 256)
+    for (let i = 0; i < 4; i++) suffix += alphabet[bytes[i] % alphabet.length]
+    return 'JLI-' + suffix
+  }
+  const newCode = randomCode()
   const { data: created, error: insertError } = await sb
     .from('jl_organisations')
     .insert({
@@ -1152,26 +1167,28 @@ function closeWsModal() {
 
 async function doSwitchWorkspace(targetRole) {
   closeWsModal()
+  if (!ROLES[targetRole]) { toast('Unknown JLIGHT module', 'Choose a listed module.', 'error'); return }
   if (targetRole === STATE.role) { toast('Already in ' + targetRole, '', 'good'); return }
+  // JLIGHT modules belong to one authenticated organisation. Switching modules
+  // must not sign the user out or create a separate account.
   STORAGE.saveSamples(STATE.role, STATE.samples)
   STORAGE.saveEntries(STATE.role, STATE.entries)
   STORAGE.saveCards(STATE.role, STATE.cards)
   STORAGE.saveAudit(STATE.role, STATE.audit)
-  await audit('Workspace switch', STATE.role + ' -> ' + targetRole)
-  if (MODE.isOnline) {
-    const sb = getSupabase()
-    if (sb) { try { await sb.auth.signOut() } catch(e) {} }
+  await audit('Module switch', STATE.role + ' -> ' + targetRole)
+  STATE.role = targetRole
+  const sb = getSupabase()
+  if (MODE.isOnline && sb) {
+    try {
+      const { data: sessionData, error: sessionError } = await sb.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!sessionData.session) throw new Error('Your session has expired. Please sign in again.')
+    } catch (e) {
+      toast('Session check failed', e.message || 'Please sign in again.', 'error')
+      return
+    }
   }
-  MODE.isOnline = false
-  STATE.role = null; STATE.user = null; STATE.userProfile = null
-  STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
-  showScreen('screen-signin')
-  const t = document.getElementById('si-title')
-  const s = document.getElementById('si-sub')
-  const st = document.getElementById('si-status')
-  if(t) t.textContent = 'Sign in to ' + targetRole
-  if(s) s.textContent = 'Enter ' + targetRole + ' workspace credentials'
-  if(st) { st.textContent = ''; st.className = 'auth-status' }
+  await enterApp()
 }
 
 function chooseRole(r) { /* legacy — offline mode uses pin screen */ }
