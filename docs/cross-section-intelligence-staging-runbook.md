@@ -17,3 +17,7 @@ After applying migration `202610220003_cross_section_intelligence_foundation.sql
 10. Confirm application signup and existing workflows still work with the new tables.
 
 If any test fails, stop; do not disable RLS or broaden policies as a workaround. Commercial release also requires automated regression tests, POPIA/legal review, incident response, monitoring, tested backups and independent penetration testing.
+
+13. Confirm explicit authenticated grants work as intended and the anon role has no access to tenant tables.
+14. Test the invitation Edge Function against staging secrets, exact allowed origins, owner/admin role rules, duplicate memberships and invite failure recovery.
+15. Confirm migrations 003–007 apply in order on a clean staging clone and do not break existing signup or workspace flows.
