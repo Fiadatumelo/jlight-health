@@ -44,13 +44,13 @@ begin
 
   if not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname='jl_current_org_id'
+    where n.nspname='private' and p.proname='jl_current_org_id'
       and p.prosecdef and p.proconfig @> array['search_path=public, pg_temp']
   ) then raise exception 'Tenant resolver must be SECURITY DEFINER with pinned search_path'; end if;
 
   if not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
-    where n.nspname='public' and p.proname='jl_current_org_role'
+    where n.nspname='private' and p.proname='jl_current_org_role'
       and p.prosecdef and p.proconfig @> array['search_path=public, pg_temp']
   ) then raise exception 'Tenant role resolver must have pinned search_path'; end if;
 
@@ -58,7 +58,7 @@ begin
     select 1 from pg_policies
     where schemaname='public'
       and tablename in ('jl_participants','jl_visits','jl_protocols','jl_consents','jl_adverse_events','jl_deviations')
-      and (not (roles @> array['authenticated']::name[]) or qual not like '%jl_current_org_role%Trial%' or with_check not like '%jl_current_org_role%Trial%')
+      and (not (roles @> array['authenticated']::name[]) or qual not like '%private.jl_current_org_role%Trial%' or with_check not like '%private.jl_current_org_role%Trial%')
   ) then raise exception 'Clinical-trial table policy does not require a Trial organisation'; end if;
 
   if has_table_privilege('authenticated','public.jl_organisations','truncate')
