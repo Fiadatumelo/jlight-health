@@ -4879,7 +4879,19 @@ async function saveUserProfile(profile) {
   const supaUser = sb ? (await sb.auth.getUser()).data.user : null
   if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(profile))
   if (MODE.isOnline && sb && supaUser) {
-    const payload = { user_id: supaUser.id, ...profile }
+    // Only send columns that exist in jl_user_profiles. Never accept a client-selected
+    // permission level; the trusted membership RPC grants owner/admin and member/operator.
+    const payload = {
+      user_id: supaUser.id,
+      full_name: profile.full_name || STATE.userProfile?.full_name || 'JLIGHT User',
+      employee_id: profile.employee_id || null,
+      job_title: profile.job_title || null,
+      qualification: profile.qualification || null,
+      domains: profile.domains || null,
+      workspace_role: STATE.userProfile?.workspace_role || 'operator',
+      active: true,
+      last_seen: new Date().toISOString()
+    }
     if (STATE.orgId && STATE.orgId !== 'default') payload.org_id = STATE.orgId
     const { error } = await sb.from('jl_user_profiles').upsert(payload, { onConflict: 'user_id' })
     if (error) {
