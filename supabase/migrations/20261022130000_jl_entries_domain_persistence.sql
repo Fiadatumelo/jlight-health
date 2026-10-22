@@ -1,0 +1,62 @@
+-- JLIGHT domain persistence contract v1
+-- Apply only after reviewing the tenant model and testing on a non-production project.
+-- Existing records are preserved; new domain rows are scoped to the active organisation.
+
+alter table public.jl_entries
+  add column if not exists org_id uuid references public.jl_organisations(id),
+  add column if not exists domain text;
+
+alter table public.jl_entries
+  drop constraint if exists jl_entries_domain_allowed;
+
+alter table public.jl_entries
+  add constraint jl_entries_domain_allowed
+  check (domain is null or domain in (
+    'patients','labOrders','results','qcRuns','protocols','participants',
+    'visits','adverseEvents','admissions','wards','clinicalOrders',
+    'infections','bioRuns','samples','reports'
+  )) not valid;
+
+-- Preserve the existing global UNIQUE(jl_id) contract for compatibility.
+-- Do not change conflict targets until all writers and duplicate-ID assumptions
+-- have been migrated and tested. Legacy rows remain untouched.
+
+create index if not exists jl_entries_org_domain_ts_idx
+  on public.jl_entries (org_id, domain, ts desc);
+
+alter table public.jl_entries enable row level security;
+
+drop policy if exists jl_entries_org_select on public.jl_entries;
+create policy jl_entries_org_select
+  on public.jl_entries for select to authenticated
+  using (auth.uid() is not null and org_id = public.jl_current_org_id());
+
+drop policy if exists jl_entries_org_insert on public.jl_entries;
+create policy jl_entries_org_insert
+  on public.jl_entries for insert to authenticated
+  with check (
+    auth.uid() is not null
+    and user_id = auth.uid()
+    and org_id = public.jl_current_org_id()
+  );
+
+drop policy if exists jl_entries_org_update on public.jl_entries;
+create policy jl_entries_org_update
+  on public.jl_entries for update to authenticated
+  using (auth.uid() is not null and org_id = public.jl_current_org_id())
+  with check (
+    auth.uid() is not null
+    and org_id = public.jl_current_org_id()
+    and user_id is not null
+  );
+
+drop policy if exists jl_entries_org_delete on public.jl_entries;
+create policy jl_entries_org_delete
+  on public.jl_entries for delete to authenticated
+  using (auth.uid() is not null and org_id = public.jl_current_org_id());
+
+-- Shared workspace members can update records within their active organisation.
+-- Inserts must still be authored by the authenticated user. The tenant predicate
+-- remains mandatory on every read, insert, update and delete.
+-- Intentionally not applied to production by this change. Validate jl_current_org_id()
+-- membership semantics and existing RLS behavior in staging before rollout.

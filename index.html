@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --ink: #05080F; --ink-2: #0A0F1C;
@@ -26,7 +26,7 @@
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'DM Sans', sans-serif; background: var(--ink); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Manrope', sans-serif; background: var(--ink); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -41,20 +41,20 @@ a { color: var(--teal); text-decoration: none; }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
 .auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
-.auth-name { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.auth-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
 .auth-tagline { text-align: center; font-size: 11px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; font-weight: 600; }
-.auth-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; text-align: center; letter-spacing: -0.3px; }
+.auth-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; text-align: center; letter-spacing: -0.3px; }
 .auth-sub { font-size: 13px; color: var(--text-2); text-align: center; margin-bottom: 28px; }
 .role-grid { display: grid; gap: 12px; }
 .role-btn { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface-3); text-align: left; width: 100%; transition: all 0.2s ease; }
 .role-btn:hover { border-color: var(--teal); background: var(--teal-bg); transform: translateX(2px); }
-.role-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; }
+.role-icon { width: 44px; height: 44px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 13px; letter-spacing: 0.5px; }
 .role-icon.lab { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(75,142,255,0.3); }
 .role-icon.trial { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,166,35,0.3); }
 .role-icon.hospital { background: var(--red-glow); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
 .role-icon.bio { background: var(--purple-bg); color: var(--purple); border: 1px solid rgba(167,139,250,0.3); }
 .role-info { flex: 1; min-width: 0; }
-.role-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14.5px; margin-bottom: 3px; letter-spacing: -0.2px; }
+.role-name { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14.5px; margin-bottom: 3px; letter-spacing: -0.2px; }
 .role-desc { font-size: 12px; color: var(--text-2); line-height: 1.45; }
 .role-arrow { color: var(--text-3); font-size: 18px; }
 
@@ -64,7 +64,7 @@ a { color: var(--teal); text-decoration: none; }
 .pin-dot.error { background: var(--red); border-color: var(--red); animation: shake 0.4s; }
 @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
-.pin-key { height: 56px; border-radius: 10px; background: var(--surface-3); border: 1px solid var(--border); font-family: 'Syne', sans-serif; font-weight: 600; font-size: 20px; color: var(--text); transition: all 0.1s; }
+.pin-key { height: 56px; border-radius: 10px; background: var(--surface-3); border: 1px solid var(--border); font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; font-size: 20px; color: var(--text); transition: all 0.1s; }
 .pin-key:hover { background: var(--surface-4); border-color: var(--border-2); }
 .pin-key:active { transform: scale(0.95); background: var(--teal-bg); border-color: var(--teal); color: var(--teal); }
 .pin-key.empty { visibility: hidden; }
@@ -83,7 +83,7 @@ a { color: var(--teal); text-decoration: none; }
 .sb-brand { padding: 20px 22px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 11px; }
 .sb-brand-mark { width: 32px; height: 32px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
 .sb-brand-mark svg { width: 16px; height: 16px; fill: none; stroke: white; stroke-width: 2.4; }
-.sb-brand-name { font-family: 'Syne', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
+.sb-brand-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 19px; font-weight: 800; letter-spacing: -0.5px; }
 .sb-role-banner { margin: 14px 14px 8px; padding: 10px 14px; border-radius: 8px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
 .sb-role-banner.lab { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(75,142,255,0.25); }
 .sb-role-banner.trial { background: var(--amber-glow); color: var(--amber); border: 1px solid rgba(245,166,35,0.25); }
@@ -101,7 +101,7 @@ a { color: var(--teal); text-decoration: none; }
 .sb-link-badge { margin-left: auto; background: var(--red); color: white; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; min-width: 18px; text-align: center; font-family: 'DM Mono', monospace; }
 .sb-foot { padding: 14px 14px 18px; border-top: 1px solid var(--border); }
 .sb-user { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface-2); border-radius: 10px; margin-bottom: 8px; }
-.sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--teal), var(--blue)); color: white; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; flex-shrink: 0; }
+.sb-avatar { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg, var(--teal), var(--blue)); color: white; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 12px; flex-shrink: 0; }
 .sb-userinfo { flex: 1; min-width: 0; }
 .sb-username { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-userrole { font-size: 10.5px; color: var(--text-3); font-family: 'DM Mono', monospace; }
@@ -110,7 +110,7 @@ a { color: var(--teal); text-decoration: none; }
 
 .main { display: flex; flex-direction: column; min-width: 0; }
 .topbar { height: 56px; border-bottom: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; padding: 0 28px; gap: 16px; position: sticky; top: 0; z-index: 10; }
-.tb-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; flex: 1; }
+.tb-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; flex: 1; }
 .tb-status { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-2); font-family: 'DM Mono', monospace; }
 .tb-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
 .tb-btn { padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 500; background: var(--surface-3); border: 1px solid var(--border-2); transition: all 0.1s; }
@@ -123,7 +123,7 @@ a { color: var(--teal); text-decoration: none; }
 .page.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-.page-title { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
+.page-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 4px; }
 .page-sub { font-size: 13.5px; color: var(--text-2); }
 
 .btn { display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 500; background: var(--surface-3); color: var(--text); border: 1px solid var(--border-2); transition: all 0.1s; }
@@ -139,7 +139,7 @@ a { color: var(--teal); text-decoration: none; }
 .kpi.warn::after { background: var(--amber); opacity: 0.7; }
 .kpi.good::after { background: var(--green); opacity: 0.7; }
 .kpi-label { font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-3); margin-bottom: 8px; }
-.kpi-value { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; letter-spacing: -1.2px; line-height: 1; margin-bottom: 4px; }
+.kpi-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 32px; font-weight: 800; letter-spacing: -1.2px; line-height: 1; margin-bottom: 4px; }
 .kpi.crit .kpi-value { color: var(--red); }
 .kpi.warn .kpi-value { color: var(--amber); }
 .kpi.good .kpi-value { color: var(--green); }
@@ -147,7 +147,7 @@ a { color: var(--teal); text-decoration: none; }
 
 .section { margin-bottom: 32px; }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
-.section-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
+.section-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; }
 .section-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
 
 .dc-list { display: flex; flex-direction: column; gap: 12px; }
@@ -169,7 +169,7 @@ a { color: var(--teal); text-decoration: none; }
 .dc-source { font-size: 10.5px; color: var(--text-3); font-family: 'DM Mono', monospace; }
 .dc-time { font-size: 10.5px; color: var(--text-4); font-family: 'DM Mono', monospace; }
 .dc-body { padding: 0 20px 16px; }
-.dc-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 6px; }
+.dc-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 6px; }
 .dc-desc { font-size: 13px; color: var(--text-2); line-height: 1.55; }
 .dc-foot { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
 .dc-trace { font-family: 'DM Mono', monospace; font-size: 10.5px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; }
@@ -183,7 +183,7 @@ a { color: var(--teal); text-decoration: none; }
 .dc-detail-bar.info { background: linear-gradient(90deg, var(--blue), #6BA3FF); }
 .dc-detail-head { padding: 22px 28px 18px; display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid var(--border); }
 .dc-detail-body { padding: 24px 28px; }
-.dc-detail-title { font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.4px; line-height: 1.2; margin-bottom: 8px; }
+.dc-detail-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.4px; line-height: 1.2; margin-bottom: 8px; }
 .dc-detail-sub { font-size: 13.5px; color: var(--text-2); margin-bottom: 22px; }
 .dc-field { margin-bottom: 20px; }
 .dc-field-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; }
@@ -211,11 +211,11 @@ a { color: var(--teal); text-decoration: none; }
 
 .profile-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 22px 24px; margin-bottom: 16px; }
 .profile-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
-.profile-id { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
+.profile-id { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -0.2px; }
 .profile-meta { font-size: 11.5px; color: var(--text-3); font-family: 'DM Mono', monospace; margin-top: 3px; }
 .lifecycle { display: flex; align-items: center; gap: 0; flex-wrap: wrap; row-gap: 10px; padding: 8px 0; }
 .lifecycle-stage { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; min-width: 110px; max-width: 160px; }
-.lifecycle-circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; border: 2px solid; transition: all 0.2s; }
+.lifecycle-circle { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; font-size: 14px; border: 2px solid; transition: all 0.2s; }
 .lifecycle-circle.done { background: var(--green-bg); border-color: var(--green); color: var(--green); }
 .lifecycle-circle.current { background: var(--teal-bg); border-color: var(--teal); color: var(--teal); box-shadow: 0 0 16px rgba(0,201,167,0.3); }
 .lifecycle-circle.error { background: var(--red-bg); border-color: var(--red); color: var(--red); }
@@ -239,11 +239,11 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 
 .empty { background: var(--surface-2); border: 1px dashed var(--border-2); border-radius: 14px; padding: 48px 24px; text-align: center; }
 .empty-icon { font-size: 36px; color: var(--text-4); margin-bottom: 12px; }
-.empty-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.empty-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 6px; }
 .empty-desc { font-size: 13px; color: var(--text-2); margin-bottom: 18px; max-width: 380px; margin-left: auto; margin-right: auto; }
 
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 22px; flex-wrap: wrap; }
-.tab { padding: 10px 16px; font-size: 12.5px; font-weight: 500; color: var(--text-3); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: all 0.1s; font-family: 'Syne', sans-serif; letter-spacing: 0.2px; }
+.tab { padding: 10px 16px; font-size: 12.5px; font-weight: 500; color: var(--text-3); border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: all 0.1s; font-family: 'Plus Jakarta Sans', sans-serif; letter-spacing: 0.2px; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--teal); border-bottom-color: var(--teal); font-weight: 700; }
 
@@ -259,7 +259,7 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 .connector-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
 .connector { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
 .connector-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.connector-name { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.1px; }
+.connector-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: -0.1px; }
 .connector-status { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: 1px; text-transform: uppercase; font-family: 'DM Mono', monospace; }
 .connector-status.active { background: var(--green-glow); color: var(--green); border: 1px solid rgba(46,232,154,0.3); }
 .connector-status.ready { background: var(--blue-glow); color: var(--blue); border: 1px solid rgba(75,142,255,0.3); }
@@ -268,7 +268,7 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
 .chart-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; }
-.chart-title { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.1px; }
+.chart-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.1px; }
 .chart-sub { font-size: 11px; color: var(--text-3); font-family: 'DM Mono', monospace; margin-bottom: 16px; }
 
 .toast-host { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -277,7 +277,7 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 .toast.warn { border-left-color: var(--amber); }
 .toast.good { border-left-color: var(--green); }
 @keyframes toastIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-.toast-title { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; font-family: 'Syne', sans-serif; }
+.toast-title { font-size: 12.5px; font-weight: 700; margin-bottom: 2px; font-family: 'Plus Jakarta Sans', sans-serif; }
 .toast-msg { font-size: 11.5px; color: var(--text-2); }
 
 .detail-grid { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
@@ -292,13 +292,13 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 
 .predictive-card { background: linear-gradient(135deg, rgba(167,139,250,0.06), rgba(0,201,167,0.04)); border: 1px solid rgba(167,139,250,0.18); border-radius: 14px; padding: 20px 22px; margin-bottom: 16px; }
 .predictive-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-.predictive-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--purple-bg); color: var(--purple); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; border: 1px solid rgba(167,139,250,0.3); }
-.predictive-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; }
+.predictive-icon { width: 32px; height: 32px; border-radius: 8px; background: var(--purple-bg); color: var(--purple); display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 14px; border: 1px solid rgba(167,139,250,0.3); }
+.predictive-title { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; font-weight: 700; }
 .predictive-sub { font-size: 11px; color: var(--text-3); font-family: 'DM Mono', monospace; }
 .predictive-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .predictive-item { background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px 14px; }
 .predictive-item-label { font-size: 10.5px; color: var(--text-3); margin-bottom: 4px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
-.predictive-item-value { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; }
+.predictive-item-value { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 17px; font-weight: 700; }
 .predictive-item-value.crit { color: var(--red); }
 .predictive-item-value.warn { color: var(--amber); }
 .predictive-item-value.good { color: var(--green); }
@@ -891,6 +891,16 @@ const REQ_KEY = 'jl_cross_requests_v9'
 function loadReqs() { try{return JSON.parse(localStorage.getItem(REQ_KEY)||'[]')}catch{return[]} }
 function saveReqs(r) { try{localStorage.setItem(REQ_KEY,JSON.stringify(r.slice(-500)))}catch{} }
 
+async function resolveTargetLaboratoryOrg(orgCode) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) throw new Error('Online connection is required to verify the receiving laboratory.')
+  if (!MODE.organisationId) throw new Error('Your organisation membership is not verified. Please sign in again.')
+  if (!orgCode || !orgCode.trim()) throw new Error('Enter the receiving laboratory organisation code.')
+  const { data, error } = await sb.rpc('jl_resolve_lab_org', { p_org_code: orgCode.trim() })
+  if (error || !data) throw new Error(error?.message || 'Receiving laboratory could not be verified.')
+  return data
+}
+
 async function pushReqToSupa(req) {
   const sb = getSupabase()
   if (!sb || !MODE.isOnline) return
@@ -902,7 +912,8 @@ async function pushReqToSupa(req) {
       from_workspace: req.fromWorkspace,
       target_workspace: 'Laboratory',
       from_user_id: session.user.id,
-      from_organisation: MODE.organisationName,
+      from_org_id: MODE.organisationId,
+      target_org_id: req.targetOrgId,
       pseudonymous_ref: req.pseudoRef,
       local_ref: req.localRef,
       test_requested: req.test,
@@ -936,8 +947,7 @@ async function loadReqsFromSupa() {
     if (!session) return
     const { data, error } = await sb.from('jl_requests')
       .select('*')
-      .or('target_workspace.eq.Laboratory,from_workspace.eq.'+STATE.role)
-      .order('ts',{ascending:false}).limit(200)
+            .order('ts',{ascending:false}).limit(200)
     if (error || !data) return
     const all = loadReqs()
     data.forEach(r => {
@@ -1083,6 +1093,23 @@ async function doSignIn() {
 }
 
 // Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
+async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline || !user?.id) throw new Error('Cannot verify workspace membership without an authenticated online session.')
+  if (!orgId) throw new Error('Workspace ID is missing; refusing to enable cloud persistence.')
+  const cachedProfile = STATE.userProfile || {}
+  const { data, error } = await sb.rpc('jl_link_user_to_organisation', {
+    p_org_id: orgId,
+    p_org_code: orgCode || null,
+    p_full_name: cachedProfile.full_name || user.user_metadata?.full_name || null,
+    p_workspace_role: cachedProfile.workspace_role || 'operator'
+  })
+  if (error) throw new Error('Workspace membership could not be verified: ' + error.message)
+  if (String(data || '') !== String(orgId)) throw new Error('Workspace membership verification returned a different organisation.')
+  localStorage.setItem('jl_org_id', String(orgId))
+  if (MODE.organisationName) localStorage.setItem('jl_org_name', MODE.organisationName)
+}
+
 async function ensureJlightOrganisation(user, options = {}) {
   const sb = getSupabase()
   if (!sb || !user?.id) throw new Error('Cannot set up workspace: authenticated Supabase user is missing.')
@@ -1115,6 +1142,7 @@ async function ensureJlightOrganisation(user, options = {}) {
     MODE.organisationId = meta.org_id
     MODE.organisationName = meta.org_name || org || 'Workspace'
     MODE.organisationCode = meta.org_code || orgCode || ''
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1136,6 +1164,7 @@ async function ensureJlightOrganisation(user, options = {}) {
       role
     } })
     if (error) throw new Error('Workspace found, but account metadata could not be updated: ' + error.message)
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1154,6 +1183,7 @@ async function ensureJlightOrganisation(user, options = {}) {
       org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
     } })
     if (error) throw new Error('Joined workspace, but account metadata could not be updated: ' + error.message)
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1173,7 +1203,8 @@ async function ensureJlightOrganisation(user, options = {}) {
   const { error: metadataError } = await sb.auth.updateUser({ data: {
     org_name: created.name, org_id: created.id, org_code: created.org_code, role
   } })
-  if (metadataError) console.warn('[JLIGHT] Workspace created but account metadata update failed:', metadataError.message)
+  if (metadataError) throw new Error('Workspace created, but account metadata could not be updated: ' + metadataError.message)
+  await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
 }
 async function doForgotPassword() {
   const email = (document.getElementById('si-email')||{}).value?.trim() || ''
@@ -1406,12 +1437,19 @@ async function submitProfile() {
 async function enterApp() {
   const cfg = ROLES[STATE.role]
   if (!cfg) throw new Error('The selected JLIGHT module is not configured.')
+  // Resolve the active workspace before loading or syncing domain records.
+  STATE.orgId = MODE.organisationId || localStorage.getItem('jl_org_id') || 'default'
+  STATE.orgName = MODE.organisationName || localStorage.getItem('jl_org_name') || 'Workspace'
   if (!MODE.isOnline) STATE.user = cfg.user
   STATE.samples = STORAGE.loadSamples(STATE.role)
   STATE.entries = STORAGE.loadEntries(STATE.role)
   STATE.cards   = STORAGE.loadCards(STATE.role)
   STATE.audit   = STORAGE.loadAudit(STATE.role)
   STATE.thresholds = STORAGE.loadThresholds(STATE.role) || defaultThresholds()
+  // Load organisation-scoped domain records and the report archive from the local cache
+  // before remote hydration; online remote data will then reconcile over this cache.
+  loadAllDomainData()
+  if (!Array.isArray(STATE.reportArchive)) STATE.reportArchive = []
   if (MODE.isOnline) {
     const remote = await loadFromBackend()
     if (remote) {
@@ -1421,6 +1459,7 @@ async function enterApp() {
       if (remote.audit   && remote.audit.length)    STATE.audit   = remote.audit
     }
     loadReqsFromSupa()
+    await loadDomainDataFromBackend()
   }
   $('sb-username').textContent = cfg.user
   $('sb-userrole').textContent = cfg.label
@@ -3609,6 +3648,15 @@ function renderSettings() {
         ${STATE.syncConflicts && STATE.syncConflicts.length>0 ? '<div style="margin-top:10px;padding:10px 12px;background:var(--amber-bg);border:1px solid rgba(245,166,35,0.2);border-radius:8px;font-size:12px"><span style="color:var(--amber);font-weight:700">Sync:</span> '+STATE.syncConflicts.length+' conflict(s) resolved (newest wins). See audit trail.</div>' : ''}
       </div>
       <div class="form-card">
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Report Archive</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:12px;line-height:1.55">Generated compliance reports are saved in this workspace archive and can be reopened, downloaded, or deleted. Online copies sync only when the workspace database migration and tenant policies are installed.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button>
+          <button class="btn" onclick="renderReportArchive()">Refresh archive</button>
+        </div>
+        <div id="report-archive-list">${renderReportArchiveHtml()}</div>
+      </div>
+      <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Security</div>
         <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">PIN is hashed with SHA-256, salted per workspace. Resetting requires you to set a new code on next sign-in.</div>
         <button class="btn" onclick="resetPIN()">Reset PIN</button>
@@ -4082,6 +4130,9 @@ function showReqForm() {
   const isTrials = STATE.role === 'Trial'
   wrap.innerHTML = '<div class="form-card" style="max-width:none;border-color:rgba(0,201,167,0.2)">' +
     '<div style="font-family:Syne,sans-serif;font-size:15px;font-weight:700;margin-bottom:14px">New Lab Request</div>' +
+    '<div class="form-row span-2"><label class="form-label">Receiving Laboratory Organisation Code</label>' +
+    '<input class="form-input" id="nrq-target-org" type="text" placeholder="Enter verified laboratory organisation code" required />' +
+    '<div class="form-help">The database verifies the code and routes the request to that active laboratory.</div></div>' +
     '<div class="form-grid">' +
     '<div class="form-row"><label class="form-label">'+(isTrials?'Participant ID (stays in your workspace)':'Patient ID (stays in your workspace)')+'</label>' +
     '<input class="form-input" id="nrq-local" type="text" placeholder="'+(isTrials?'e.g. PTX-001':'e.g. PT-12345')+'"/>' +
@@ -4107,25 +4158,29 @@ function showReqForm() {
   wrap.style.display = 'block'
 }
 
-function submitReq() {
+async function submitReq() {
   const localRef  = (document.getElementById('nrq-local')||{}).value?.trim()||''
   const test      = (document.getElementById('nrq-test')||{}).value||''
   const stype     = (document.getElementById('nrq-stype')||{}).value||''
   const priority  = (document.getElementById('nrq-priority')||{}).value||'Routine'
   const consent   = (document.getElementById('nrq-consent')||{}).value?.trim()||''
   const notes     = (document.getElementById('nrq-notes')||{}).value?.trim()||''
+  const targetOrgCode = (document.getElementById('nrq-target-org')||{}).value?.trim()||''
 
   if (!localRef) { toast('Required', STATE.role==='Trial'?'Participant ID required':'Patient ID required','crit'); return }
   if (!test)     { toast('Required','Test required','crit'); return }
   if (!stype)    { toast('Required','Sample type required','crit'); return }
   const cv = validateConsent(consent)
   if (!cv.ok)    { toast('Invalid consent reference', cv.err, 'crit'); return }
+  let targetOrgId
+  try { targetOrgId = await resolveTargetLaboratoryOrg(targetOrgCode) }
+  catch (e) { toast('Laboratory not verified', e.message, 'crit'); return }
 
   const prefix = STATE.role==='Trial' ? 'JL-TRL' : 'JL-HOS'
   const pseudoRef = prefix + '-' + uid().toUpperCase().slice(0,8)
   const req = {
     id: uid(), ts: Date.now(), fromWorkspace: STATE.role, targetWorkspace: 'Laboratory',
-    localRef, pseudoRef, test, sampleType: stype, priority, consentRef: consent, notes,
+    targetOrgId, localRef, pseudoRef, test, sampleType: stype, priority, consentRef: consent, notes,
     status: 'pending', requestedBy: getDisplayName(),
   }
   const all = loadReqs(); all.push(req); saveReqs(all)
@@ -4710,7 +4765,8 @@ async function pushRequestToSupabase(req) {
       from_workspace: req.fromWorkspace,
       target_workspace: req.targetWorkspace,
       from_user_id: sess.data.session.user.id,
-      from_organisation: MODE.organisationName || null,
+      from_org_id: MODE.organisationId,
+      target_org_id: req.targetOrgId,
       pseudonymous_ref: req.pseudonymousRef,
       local_ref: req.localRef,
       test_requested: req.testRequested,
@@ -4739,8 +4795,7 @@ async function loadRequestsFromSupabase() {
   try {
     const { data } = await sb.from('jl_requests')
       .select('*')
-      .or('target_workspace.eq.Laboratory,from_workspace.eq.' + STATE.role)
-      .order('ts', { ascending: false })
+            .order('ts', { ascending: false })
       .limit(200)
     if (!data) return
     data.forEach(row => syncRequestFromRemote(row))
@@ -4825,29 +4880,63 @@ function getPermBadge() {
 
 async function loadOrCreateProfile(supabaseUser) {
   const key = 'jl_profile_' + (supabaseUser.id || STATE.user || 'offline')
-  const cached = localStorage.getItem(key)
-  if (cached) { try { STATE.userProfile = JSON.parse(cached); return } catch {} }
+  // Online profile data is authoritative; never let a stale browser cache choose a tenant.
   if (MODE.isOnline) {
     const sb = getSupabase()
     if (sb) {
-      try {
-        const { data } = await sb.from('jl_user_profiles').select('*').eq('user_id', supabaseUser.id).single()
-        if (data) { STATE.userProfile = data; localStorage.setItem(key, JSON.stringify(data)); return }
-      } catch {}
+      const { data, error } = await sb.from('jl_user_profiles').select('*').eq('user_id', supabaseUser.id).maybeSingle()
+      if (error) throw new Error('Could not load the authenticated workspace profile: ' + error.message)
+      if (data) {
+        if (STATE.orgId && STATE.orgId !== 'default' && String(data.org_id || '') !== String(STATE.orgId)) {
+          throw new Error('Workspace profile does not match the selected organisation. Cloud access has been stopped for safety.')
+        }
+        STATE.userProfile = data
+        localStorage.setItem(key, JSON.stringify(data))
+        return
+      }
+      STATE.userProfile = null
+      return
     }
   }
+  const cached = localStorage.getItem(key)
+  if (cached) { try { STATE.userProfile = JSON.parse(cached); return } catch {} }
   STATE.userProfile = null
 }
 
 async function saveUserProfile(profile) {
-  STATE.userProfile = profile
+  // The profile form is user-editable; preserve only the workspace role already
+  // established by the trusted membership RPC and never persist a form-selected role.
+  const trustedWorkspaceRole = STATE.userProfile?.workspace_role || null
+  const safeProfile = { ...profile }
+  delete safeProfile.workspace_role
+  STATE.userProfile = { ...safeProfile, ...(trustedWorkspaceRole ? { workspace_role: trustedWorkspaceRole } : {}) }
   const sb = getSupabase()
   const supaUser = sb ? (await sb.auth.getUser()).data.user : null
-  if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(profile))
+  if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(STATE.userProfile))
   if (MODE.isOnline && sb && supaUser) {
-    try {
-      await sb.from('jl_user_profiles').upsert({ user_id: supaUser.id, ...profile }, { onConflict: 'user_id' })
-    } catch {}
+    // Only send columns that exist in jl_user_profiles. Never accept a client-selected
+    // permission level; the trusted membership RPC grants owner/admin and member/operator.
+    const payload = {
+      full_name: safeProfile.full_name || 'JLIGHT User',
+      employee_id: profile.employee_id || null,
+      job_title: profile.job_title || null,
+      qualification: profile.qualification || null,
+      domains: profile.domains || null,
+      last_seen: new Date().toISOString()
+    }
+    // Organisation membership, role, and activation are server-managed by
+    // jl_link_user_to_organisation. Never upsert client-supplied org/role fields.
+    const { data: savedProfile, error } = await sb.from('jl_user_profiles')
+      .update(payload)
+      .eq('user_id', supaUser.id)
+      .select('user_id')
+      .maybeSingle()
+    if (error || !savedProfile) {
+      const saveError = error || new Error('No verified workspace profile exists. Reconnect your workspace and retry.')
+      console.error('[JLIGHT] profile cloud save failed:', saveError.message)
+      toast('Profile cloud save failed', 'Your profile may not be synchronised. Please reconnect your workspace and retry.', 'crit')
+      throw saveError
+    }
   }
 }
 
@@ -5338,21 +5427,24 @@ async function checkAuditIntegrity() {
 
 
 // ── CROSS-WORKSPACE REQUEST ACTIONS ──
-function submitNewRequest() {
+async function submitNewRequest() {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const localRef = get('nrq-local'), test = get('nrq-test'), stype = get('nrq-stype')
-  const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes')
+  const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes'), targetOrgCode = get('nrq-target-org')
   if (!localRef) { toast('Required', STATE.role === 'Trial' ? 'Participant ID required' : 'Patient ID required', 'crit'); return }
   if (!test)     { toast('Required', 'Test must be selected', 'crit'); return }
   if (!stype)    { toast('Required', 'Sample type required', 'crit'); return }
   if (!consent)  { toast('Required', 'Consent reference is required', 'crit'); return }
   const cv = validateConsentRef(consent)
   if (!cv.valid) { toast('Invalid consent reference', cv.error, 'crit'); return }
+  let targetOrgId
+  try { targetOrgId = await resolveTargetLaboratoryOrg(targetOrgCode) }
+  catch (e) { toast('Laboratory not verified', e.message, 'crit'); return }
   const prefix = STATE.role === 'Trial' ? 'JL-TRL' : 'JL-HOS'
   const pseudoRef = prefix + '-' + uid().toUpperCase().slice(0, 8)
   const req = {
     id: uid(), ts: Date.now(), fromWorkspace: STATE.role, targetWorkspace: 'Laboratory',
-    localRef, pseudonymousRef: pseudoRef, testRequested: test, sampleType: stype,
+    targetOrgId, localRef, pseudonymousRef: pseudoRef, testRequested: test, sampleType: stype,
     priority, consentRef: consent, notes, status: 'pending', requestedBy: getDisplayName(),
   }
   const all = loadAllRequests(); all.push(req); saveAllRequests(all)
@@ -6163,6 +6255,73 @@ function copyOrgCode() {
 }
 
 
+
+function renderReportArchiveHtml() {
+  const reports = (Array.isArray(STATE.reportArchive) ? STATE.reportArchive : [])
+    .filter(r => !MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId))
+    .slice().sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+  if (!reports.length) return '<div style="font-size:12px;color:var(--text-3)">No archived reports yet. Generate a compliance report to begin.</div>'
+  return '<div style="display:grid;gap:8px">' + reports.map(r =>
+    '<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+    '<div><div style="font-size:12.5px;font-weight:700">' + esc(r.title || r.filename || 'Archived report') + '</div>' +
+    '<div style="font-size:11px;color:var(--text-3);margin-top:3px">' + esc(r.createdAt || '') + ' · ' + esc(r.createdBy || 'Unknown') + '</div></div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn btn-sm" onclick="openArchivedReport(\'' + esc(r.id) + '\')">Open</button>' +
+    '<button class="btn btn-sm" onclick="downloadArchivedReport(\'' + esc(r.id) + '\')">Download</button>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' +
+    '</div></div>'
+  ).join('') + '</div>'
+}
+function renderReportArchive() {
+  const el = document.getElementById('report-archive-list')
+  if (el) el.innerHTML = renderReportArchiveHtml()
+}
+function findArchivedReport(id) {
+  return (STATE.reportArchive || []).find(r => String(r.id) === String(id) && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId)))
+}
+function openArchivedReport(id) {
+  const report = findArchivedReport(id)
+  if (!report || !report.html) { toast('Report unavailable', 'The archived report content could not be found.', 'crit'); return }
+  const win = window.open('', '_blank')
+  if (!win) { toast('Popup blocked', 'Allow pop-ups to open the archived report.', 'warn'); return }
+  win.document.open(); win.document.write(report.html); win.document.close()
+  audit('Archived report opened', report.id)
+}
+function downloadArchivedReport(id) {
+  const report = findArchivedReport(id)
+  if (!report || !report.html) { toast('Report unavailable', 'The archived report content could not be found.', 'crit'); return }
+  const blob = new Blob([report.html], {type:'text/html;charset=utf-8'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = report.filename || ('JLIGHT-report-' + report.id + '.html'); a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  audit('Archived report downloaded', report.id)
+}
+async function deleteArchivedReport(id) {
+  if (!requirePermission('supervisor', 'Delete archived report')) return
+  const report = findArchivedReport(id)
+  if (!report) { toast('Report not found', 'Refresh the archive and try again.', 'warn'); return }
+  if (!confirm('Delete this archived report? This cannot be undone. Download a copy first if it must be retained.')) return
+  const sb = getSupabase()
+  if (MODE.isOnline && sb && STATE.orgId && STATE.orgId !== 'default') {
+    try {
+      const { data: { session }, error: sessionError } = await sb.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!session) throw new Error('Sign in again before deleting cloud records.')
+      const { error } = await sb.from('jl_entries').delete()
+        .eq('org_id', STATE.orgId).eq('domain', 'reports').eq('jl_id', 'reports:' + String(report.id))
+      if (error) throw error
+    } catch (e) {
+      toast('Cloud delete failed', 'The report was kept. Fix the cloud permission or connection and retry.', 'crit')
+      return
+    }
+  }
+  STATE.reportArchive = (STATE.reportArchive || []).filter(r => String(r.id) !== String(id))
+  lsSet(REPORT_KEY, STATE.reportArchive)
+  await audit('Archived report deleted', report.id)
+  renderReportArchive()
+  toast('Report deleted', 'The archived report was removed.', 'good')
+}
+
 function generateComplianceReport() {
   const now = new Date()
   const cards = STATE.cards
@@ -6233,15 +6392,25 @@ function generateComplianceReport() {
     '</body></html>'
   ].join('')
 
-  const blob = new Blob([doc], { type: 'text/html' })
+  const reportId = uid()
+  const filename = 'JLIGHT-Compliance-' + STATE.role + '-' + now.toISOString().slice(0,10) + '.html'
+  const archivedReport = {
+    id: reportId, orgId: STATE.orgId || null, title: 'Compliance Summary — ' + STATE.role,
+    reportType: 'compliance', workspace: STATE.role, filename, createdAt: now.toISOString(),
+    createdBy: getDisplayName(), html: doc, archived: false
+  }
+  STATE.reportArchive = Array.isArray(STATE.reportArchive) ? STATE.reportArchive : []
+  STATE.reportArchive.push(archivedReport)
+  lsSet(REPORT_KEY, STATE.reportArchive)
+  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'JLIGHT-Compliance-' + STATE.role + '-' + now.toISOString().slice(0,10) + '.html'
+  a.download = filename
   a.click()
-  URL.revokeObjectURL(url)
-  audit('Compliance report exported', STATE.role + ' by ' + getDisplayName())
-  toast('Report exported', 'Open the HTML file and print to PDF', 'good')
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  audit('Compliance report generated and archived', STATE.role + ' by ' + getDisplayName() + ' · report ' + reportId)
+  toast('Report generated and archived', 'Downloaded HTML report; a copy has been added to the report archive.', 'good')
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -6264,9 +6433,50 @@ const WARD_KEY     = 'jl_v10_wards'
 const CORD_KEY     = 'jl_v10_clinical_orders'
 const INF_KEY      = 'jl_v10_infections'
 const BIORUN_KEY   = 'jl_v10_bio_runs'
+const REPORT_KEY   = 'jl_v10_report_archive'
 
-function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] } }
-function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val.slice ? val.slice(-2000) : val)) } catch {} }
+const JLIGHT_ORG_SCOPED_KEYS = new Set([
+  'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
+  'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
+  'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
+  'jl_v10_bio_runs','jl_v10_samples','jl_v10_report_archive'
+])
+function jlightStorageKey(key) {
+  if (JLIGHT_ORG_SCOPED_KEYS.has(key) && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
+    return key + '::org::' + String(STATE.orgId)
+  }
+  return key
+}
+function lsGet(key) {
+  try {
+    const scoped = jlightStorageKey(key)
+    const stored = localStorage.getItem(scoped)
+    if (stored !== null) return JSON.parse(stored)
+    // Legacy global cache is read-only during migration. Only adopt records already
+    // explicitly tagged for this organisation; never infer ownership of unscoped data.
+    const legacy = JSON.parse(localStorage.getItem(key) || '[]')
+    if (scoped !== key && Array.isArray(legacy)) {
+      return legacy.filter(item => item && String(item.orgId || '') === String(STATE.orgId))
+    }
+    return legacy
+  } catch { return [] }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(jlightStorageKey(key), JSON.stringify(val && val.slice ? val.slice(-2000) : val)) } catch {}
+  // Write-through for domain records: local storage remains a cache, not the source of truth.
+  const domainByKey = {
+    [PATIENT_KEY]: 'patients', [ORDERS_KEY]: 'labOrders', [RESULTS_KEY]: 'results',
+    [QC_KEY]: 'qcRuns', [PROTOCOL_KEY]: 'protocols', [PARTIC_KEY]: 'participants',
+    [VISITS_KEY]: 'visits', [AE_KEY]: 'adverseEvents', [ADMIT_KEY]: 'admissions',
+    [WARD_KEY]: 'wards', [CORD_KEY]: 'clinicalOrders', [INF_KEY]: 'infections',
+    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
+  }
+  const domain = domainByKey[key]
+  if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function'
+      && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
+    void syncDomainToBackend(domain, val)
+  }
+}
 
 function loadAllDomainData() {
   STATE.patients      = lsGet(PATIENT_KEY)
@@ -6282,6 +6492,7 @@ function loadAllDomainData() {
   STATE.clinicalOrders = lsGet(CORD_KEY)
   STATE.infections    = lsGet(INF_KEY)
   STATE.bioRuns       = lsGet(BIORUN_KEY)
+  STATE.reportArchive = lsGet(REPORT_KEY)
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
   STATE.instruments   = lsGet('jl_v10_instruments')
@@ -6303,13 +6514,15 @@ function saveAllDomainData() {
   lsSet(CORD_KEY,      STATE.clinicalOrders)
   lsSet(INF_KEY,       STATE.infections)
   lsSet(BIORUN_KEY,    STATE.bioRuns)
+  lsSet(REPORT_KEY,    STATE.reportArchive || [])
   lsSet('jl_v10_samples', STATE.samples)
 }
 
 // ── PATIENT REGISTRY PAGE ──
 function renderPatients() {
   const q = (STATE.search.patients || '').toLowerCase()
-  const all = STATE.patients.filter(p => p.orgId === STATE.orgId || !p.orgId)
+  const showArchived = !!STATE.showArchivedPatients
+  const all = STATE.patients.filter(p => (p.orgId === STATE.orgId || !p.orgId) && (!!p.archivedAt === showArchived))
   const filtered = q ? all.filter(p =>
     (p.fullName || '').toLowerCase().includes(q) ||
     (p.mrn || '').toLowerCase().includes(q) ||
@@ -6329,6 +6542,7 @@ function renderPatients() {
     '<input class="form-input" style="width:240px;padding:7px 12px" placeholder="Search by name, MRN, ID..." ' +
     'value="' + esc(STATE.search.patients) + '" ' +
     'oninput="STATE.search.patients=this.value;STATE.pagination.patients=1;renderPatients()"/>' +
+    '<button class="btn" onclick="STATE.showArchivedPatients=!STATE.showArchivedPatients;renderPatients()">' + (showArchived ? 'View active patients' : 'View archived') + '</button>' +
     '<button class="btn btn-primary" onclick="showRegisterPatient()">+ Register patient</button>' +
     '</div></div>' +
 
@@ -6366,11 +6580,62 @@ function renderPatientListCard(p) {
     (openCards > 0 ? '<span style="background:var(--red-bg);color:var(--red);border:1px solid rgba(255,77,109,0.3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:DM Mono,monospace">' + openCards + ' OPEN</span>' : '') +
     '</div></div>' +
     '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+    (p.archivedAt ? '<span style="font-size:10px;color:var(--amber);border:1px solid var(--amber);padding:3px 8px;border-radius:6px">ARCHIVED</span>' : '') +
+    '<button class="btn btn-sm" onclick="event.stopPropagation();togglePatientArchive(\'' + esc(p.id) + '\')">' + (p.archivedAt ? 'Restore' : 'Archive') + '</button>' +
+    (p.archivedAt ? '<button class="btn btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteArchivedPatient(\'' + esc(p.id) + '\')">Delete</button>' : '') +
     (labCount > 0  ? '<span style="font-size:11px;color:var(--blue);background:var(--blue-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(75,142,255,0.2)">' + labCount + ' lab</span>' : '') +
     (trialCount > 0 ? '<span style="font-size:11px;color:var(--amber);background:var(--amber-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(245,166,35,0.2)">' + trialCount + ' trial</span>' : '') +
     (admitCount > 0 ? '<span style="font-size:11px;color:var(--red);background:var(--red-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(255,77,109,0.2)">' + admitCount + ' admission</span>' : '') +
     (bioCount > 0   ? '<span style="font-size:11px;color:var(--purple);background:var(--purple-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(167,139,250,0.2)">' + bioCount + ' bio</span>' : '') +
     '</div></div>'
+}
+
+
+async function togglePatientArchive(id) {
+  const patient = (STATE.patients || []).find(p => String(p.id) === String(id) && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId)))
+  if (!patient) { toast('Patient not found', 'Refresh the registry and try again.', 'warn'); return }
+  if (!requirePermission('supervisor', patient.archivedAt ? 'Restore patient' : 'Archive patient')) return
+  if (patient.archivedAt) { delete patient.archivedAt; patient.restoredAt = new Date().toISOString() }
+  else { patient.archivedAt = new Date().toISOString(); patient.archivedBy = getDisplayName() }
+  lsSet(PATIENT_KEY, STATE.patients)
+  await audit(patient.archivedAt ? 'Patient archived' : 'Patient restored', patient.mrn || patient.id)
+  renderPatients()
+  toast(patient.archivedAt ? 'Patient archived' : 'Patient restored', patient.archivedAt ? 'Record retained; it has been moved out of the active registry.' : 'Record returned to the active registry.', 'good')
+}
+async function deleteArchivedPatient(id) {
+  const patient = (STATE.patients || []).find(p => String(p.id) === String(id) && p.archivedAt && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId)))
+  if (!patient) { toast('Archived patient not found', 'Refresh the registry and try again.', 'warn'); return }
+  if (!requirePermission('admin', 'Permanently delete patient')) return
+  const linked = [
+    ...(STATE.labOrders || []).filter(x => x.patientId === patient.id),
+    ...(STATE.results || []).filter(x => x.patientId === patient.id),
+    ...(STATE.samples || []).filter(x => x.patientId === patient.id),
+    ...(STATE.participants || []).filter(x => x.patientId === patient.id),
+    ...(STATE.visits || []).filter(x => x.patientId === patient.id),
+    ...(STATE.adverseEvents || []).filter(x => x.patientId === patient.id),
+    ...(STATE.admissions || []).filter(x => x.patientId === patient.id),
+    ...(STATE.bioRuns || []).filter(x => x.patientId === patient.id)
+  ]
+  if (linked.length) { toast('Deletion blocked', 'This patient has linked clinical or laboratory records. Keep the record archived to preserve traceability.', 'warn'); return }
+  if (!confirm('Permanently delete this archived patient record? This action cannot be undone.')) return
+  const sb = getSupabase()
+  if (MODE.isOnline && sb && STATE.orgId && STATE.orgId !== 'default') {
+    try {
+      const { data: { session }, error: sessionError } = await sb.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!session) throw new Error('Sign in again before deleting cloud records.')
+      const { error } = await sb.from('jl_entries').delete().eq('org_id', STATE.orgId).eq('domain', 'patients').eq('jl_id', 'patients:' + String(patient.id))
+      if (error) throw error
+    } catch (e) {
+      toast('Cloud delete failed', 'The patient was retained. Check cloud permissions and retry.', 'crit')
+      return
+    }
+  }
+  STATE.patients = (STATE.patients || []).filter(p => String(p.id) !== String(id))
+  lsSet(PATIENT_KEY, STATE.patients)
+  await audit('Archived patient permanently deleted', patient.mrn || patient.id)
+  renderPatients()
+  toast('Patient deleted', 'The unlinked archived record was removed.', 'good')
 }
 
 function showRegisterPatient() {
@@ -6560,29 +6825,88 @@ function editPatient(patientId) {
 // ── DOMAIN-AWARE BACKEND SYNC ──
 async function syncDomainToBackend(domain, items) {
   const sb = getSupabase()
-  if (!sb || !MODE.isOnline) return
+  if (!sb || !MODE.isOnline) return { ok: false, reason: 'offline' }
   try {
-    const sess = await sb.auth.getSession()
-    if (!sess.data.session) return
-    const uid = sess.data.session.user.id
-    const tableMap = {
-      patients:       'jl_patients_cache',
-      labOrders:      'jl_lab_orders_cache',
-      results:        'jl_lab_results_cache',
-      participants:   'jl_participants_cache',
-      admissions:     'jl_admissions_cache',
-      bioRuns:        'jl_bio_runs_cache',
-    }
-    const table = tableMap[domain] || 'jl_entries'
-    const rows = items.slice(-200).map(item => ({
-      jl_id: item.id, user_id: uid,
+    const { data: { session }, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!session) return { ok: false, reason: 'unauthenticated' }
+    if (!STATE.orgId || STATE.orgId === 'default') throw new Error('No active workspace selected')
+    const uid = session.user.id
+    const rows = (items || []).filter(item => item && item.id != null && String(item.orgId || '') === String(STATE.orgId)).slice(-200).map(item => ({
+      jl_id: domain + ':' + String(item.id), user_id: uid,
+      organisation: STATE.orgName || MODE.organisationName || 'Workspace',
+      role: STATE.role || 'operator',
       org_id: STATE.orgId, domain,
-      payload: item, ts: new Date(item.createdAt || item.ts || Date.now()).toISOString()
+      payload: { ...item, __jlight_domain: domain },
+      ts: new Date(item.createdAt || item.ts || Date.now()).toISOString()
     }))
-    if (rows.length > 0) {
-      await sb.from(table).upsert(rows, { onConflict: 'jl_id' }).catch(() => {})
+    if (!rows.length) return { ok: true, count: 0 }
+    const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'org_id,jl_id' })
+    if (error) throw error
+    return { ok: true, count: rows.length }
+  } catch (e) {
+    console.error('[JLIGHT] domain sync failed:', e.message)
+    toast('Cloud save failed', 'Your changes may only be stored on this device. Please retry before leaving this workspace.', 'crit')
+    return { ok: false, reason: e.message || 'save_failed' }
+  }
+}
+
+
+// Restore persisted domain records from the authenticated organisation's cloud store.
+// Remote rows override matching local IDs; local-only records are retained for recovery.
+async function loadDomainDataFromBackend() {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) return { ok: false, reason: 'offline' }
+  try {
+    const { data: { session }, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!session) return { ok: false, reason: 'unauthenticated' }
+    if (!STATE.orgId || STATE.orgId === 'default') return { ok: false, reason: 'no_workspace' }
+    const { data, error } = await sb.from('jl_entries')
+      .select('jl_id, domain, payload, ts')
+      .eq('org_id', STATE.orgId)
+      .not('domain', 'is', null)
+      .order('ts', { ascending: false })
+      .limit(5000)
+    if (error) throw error
+    const keys = {
+      patients: PATIENT_KEY, labOrders: ORDERS_KEY, results: RESULTS_KEY,
+      qcRuns: QC_KEY, protocols: PROTOCOL_KEY, participants: PARTIC_KEY,
+      visits: VISITS_KEY, adverseEvents: AE_KEY, admissions: ADMIT_KEY,
+      wards: WARD_KEY, clinicalOrders: CORD_KEY, infections: INF_KEY,
+      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples', reports: REPORT_KEY
     }
-  } catch (e) { console.warn('[JLIGHT] domain sync failed:', e.message) }
+    const merged = {}
+    for (const [domain, key] of Object.entries(keys)) {
+      const local = lsGet(key)
+      const byId = new Map(local.filter(x => x && x.id != null && String(x.orgId || '') === String(STATE.orgId)).map(x => [String(x.id), x]))
+      merged[domain] = byId
+    }
+    for (const row of (data || [])) {
+      const domain = row.domain
+      const key = keys[domain]
+      const payload = row.payload
+      if (!key || !payload || payload.id == null) continue
+      merged[domain].set(String(payload.id), payload)
+    }
+    for (const [domain, key] of Object.entries(keys)) {
+      const records = Array.from(merged[domain].values()).slice(-2000)
+      try { localStorage.setItem(jlightStorageKey(key), JSON.stringify(records)) } catch {}
+      const stateKey = ({
+        patients:'patients', labOrders:'labOrders', results:'results', qcRuns:'qcRuns',
+        protocols:'protocols', participants:'participants', visits:'visits',
+        adverseEvents:'adverseEvents', admissions:'admissions', wards:'wards',
+        clinicalOrders:'clinicalOrders', infections:'infections', bioRuns:'bioRuns',
+        samples:'samples', reports:'reportArchive'
+      })[domain]
+      if (stateKey) STATE[stateKey] = records
+    }
+    return { ok: true, count: (data || []).length }
+  } catch (e) {
+    console.error('[JLIGHT] cloud restore failed:', e.message)
+    toast('Cloud restore failed', 'Showing locally cached records. Do not rely on this device as the only copy.', 'crit')
+    return { ok: false, reason: e.message || 'restore_failed' }
+  }
 }
 
 
