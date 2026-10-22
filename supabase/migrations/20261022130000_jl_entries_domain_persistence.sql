@@ -14,7 +14,7 @@ alter table public.jl_entries
   check (domain is null or domain in (
     'patients','labOrders','results','qcRuns','protocols','participants',
     'visits','adverseEvents','admissions','wards','clinicalOrders',
-    'infections','bioRuns','samples'
+    'infections','bioRuns','samples','reports'
   )) not valid;
 
 create index if not exists jl_entries_org_domain_ts_idx
