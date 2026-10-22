@@ -1,47 +1,55 @@
-# JLIGHT Release-Hold Remediation — Review Specification
+# JLIGHT Release Readiness — Priority 1
 
-Status: **HOLD — staging validation required; do not deploy or apply these changes to production.**
+Status: **HOLD for production deployment pending full browser/API acceptance testing and explicit release approval.** The changes below have been applied to the isolated staging project and synthetic SQL-level tests have passed. This document does not authorize production deployment.
 
-This document records the mandatory corrections for the domain-persistence and tenant-hardening remediation. It is a review specification, not evidence that the SQL changes or tests have already been implemented.
+## Release goals
 
-## Non-negotiable safety constraints
+- Preserve stable organisation IDs and verified profile-based tenant resolution.
+- Prevent cross-organisation patient, laboratory, hospital, and bioinformatics access.
+- Route requests to an explicitly identified, active laboratory organisation.
+- Keep clinical-trial access separate and limited to active Trial organisations.
+- Preserve existing data and fail closed where the correct access contract is not yet defined.
 
-1. Preserve the existing profile-based organisation-resolution behaviour in `jl_current_org_id()`. Do not replace it with a JWT `org_id` claim unless the existing auth/org model is deliberately migrated and proven compatible.
-2. Never assign legacy `jl_entries` rows to an organisation merely because its display name matches `JLIGHT Health Intelligence Platform`. Reconcile ownership using trustworthy identifiers; leave ambiguous rows unassigned and report them for manual review.
-3. Do not trust a client-supplied requested role in `jl_upsert_membership`. Role assignment must be derived and enforced server-side from verified identity, an authorised invitation or an existing authorised administrator action. A user must not be able to grant themselves `admin` or `supervisor`.
-4. Keep clinical-trial access explicitly separated and authorised. Do not silently grant trial permissions through a default role or cross-section workflow.
-5. Preserve existing application functionality and the current schema/auth/organisation model through incremental, backwards-compatible changes.
+## Implemented in the release branch and staging
 
-## Required implementation review
+- Added organisation/domain persistence columns to `jl_entries`; legacy rows are not auto-assigned to an organisation.
+- Added `target_org_id` routing to `jl_requests`, organisation-specific sender/recipient policies, immutable request details, and guarded request state transitions.
+- Updated both request synchronization paths to use stable organisation IDs rather than workspace-only routing.
+- Made JLIGHT domain policies authenticated-only, revoked anonymous domain table access, and restricted dangerous table-level privileges.
+- Kept profile identity, organisation, role, and activation fields out of direct browser updates; ordinary profile updates are limited to approved columns.
+- Moved internal tenant helper functions into a non-exposed `private` schema.
+- Restricted Trial protocol, participant, visit, consent, adverse-event, and deviation access to active Trial organisations.
+- Blocked self-service Trial organisation creation and code-only Trial membership. Multi-user Trial access requires an approved provisioning flow.
+- Kept seven legacy/operational tables fail-closed pending explicit product access requirements.
 
-### A. Domain persistence migration
-- Confirm all new columns, constraints, indexes, and policies are compatible with the live schema and existing rows.
-- Ensure organisation identifiers are stable IDs, not display-name matches.
-- Ensure writes and reads are scoped to the authenticated user's verified organisation membership.
-- Make the migration re-runnable or fail safely with a clear diagnostic; avoid destructive rewrites and implicit data reassignment.
+## Staging validation already completed
 
-### B. Tenant-hardening migration
-- Preserve the established `jl_current_org_id()` resolution path.
-- Verify RLS policies prevent cross-tenant SELECT, INSERT, UPDATE, and DELETE.
-- Verify membership creation cannot escalate privileges through client-provided metadata, role names, or organisation IDs.
-- Audit any security-definer functions for fixed search_path, minimal grants, and explicit authorisation checks.
+Synthetic fixtures were created only inside transactions and rolled back.
 
-### C. Legacy-row reconciliation
-- Produce counts for assigned, unassigned, and ambiguous legacy records before changing ownership.
-- Do not bulk-update ambiguous records. Keep them unassigned pending verified reconciliation.
-- Include a rollback/recovery plan and a record-level audit trail for any approved ownership changes.
+- Sender/recipient/unrelated-organisation request read and update isolation.
+- Intended laboratory acceptance and result release; submitted request fields are immutable and released results cannot be changed through the tested route.
+- Patient linkage across hospital admission, clinical order, laboratory order, sample, result, bioinformatics accession, and bioinformatics run.
+- Cross-tenant denial for patient and result records.
+- Trial-vs-Hospital separation and Trial-only protocol/participant access.
+- Denial of self-service Trial organisation creation, direct Trial inserts, and code-only Trial membership.
+- Catalog checks for anonymous grants, PUBLIC policies, request routing foreign key/trigger, private helper functions, Trial policies, and restricted profile/organisation UPDATE privileges.
+- GitHub Actions safe regression workflow passed frontend JavaScript syntax and analytical-engine tests for the prior release head; rerun for the latest commit before release.
 
-## Staging acceptance gates
+## Remaining release gates
 
-- [ ] Review actual migration SQL against the live schema and current migration history.
-- [ ] Apply migrations only to a non-production staging database.
-- [ ] Test unauthenticated access and cross-organisation reads/writes for every affected table.
-- [ ] Test ordinary member, organisation administrator, supervisor, and clinical-trial permissions.
-- [ ] Attempt self-promotion to `admin` and `supervisor`; both must be denied server-side.
-- [ ] Test ambiguous legacy rows remain unassigned.
-- [ ] Run the synthetic patient journey across laboratory, hospital/health-informatics, and bioinformatics sections; verify traceability and a coherent report. Clinical trials must remain an explicitly authorised, separate journey.
-- [ ] Capture migration output, test results, RLS/security-advisor findings, and rollback evidence.
+1. Run and confirm automated checks for the latest release-branch commit.
+2. Complete browser/API end-to-end tests using the real UI and authenticated test accounts, including signup/login, organisation creation/linking, request creation/routing/acceptance/release, patient records, consent, and the cross-section report.
+3. Confirm the seven fail-closed tables (`alerts`, `audit_log`, `csv_uploads`, `decision_cards`, `jl_samples`, `profiles`, `system_health_log`) are intentionally inaccessible until table-specific policies and workflows are approved.
+4. Review the three remaining SECURITY DEFINER warnings for organisation creation, membership linking, and laboratory routing.
+5. Establish a controlled, auditable invitation/provisioning process for Trial collaborators.
+6. Review migration order and rollback/recovery instructions before production schema changes.
+7. After production deployment, create a clearly labelled synthetic user and synthetic patient, then exercise the complete intended journey. Do not use real patient information or claim clinical suitability from synthetic tests.
 
-## Release decision
+## Deployment sequence
 
-Production remains blocked until the actual SQL/code changes are reviewed, all staging gates pass, and a rollback plan is approved. This branch and checklist do not themselves constitute a release approval.
+- Keep the pull request unmerged until all release gates are met.
+- Back up/review production schema and confirm row counts before any migration.
+- Apply reviewed Supabase migrations in order in a planned maintenance/release window; do not assume a GitHub merge automatically applies database migrations.
+- Deploy the static application once through Netlify after schema compatibility is confirmed; avoid repeated preview/production deploys because deploy credits are limited.
+- Run synthetic smoke tests, verify no cross-tenant access, and keep a rollback plan ready.
+- Production changes require explicit release-owner approval.
