@@ -891,6 +891,16 @@ const REQ_KEY = 'jl_cross_requests_v9'
 function loadReqs() { try{return JSON.parse(localStorage.getItem(REQ_KEY)||'[]')}catch{return[]} }
 function saveReqs(r) { try{localStorage.setItem(REQ_KEY,JSON.stringify(r.slice(-500)))}catch{} }
 
+async function resolveTargetLaboratoryOrg(orgCode) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) throw new Error('Online connection is required to verify the receiving laboratory.')
+  if (!MODE.organisationId) throw new Error('Your organisation membership is not verified. Please sign in again.')
+  if (!orgCode || !orgCode.trim()) throw new Error('Enter the receiving laboratory organisation code.')
+  const { data, error } = await sb.rpc('jl_resolve_lab_org', { p_org_code: orgCode.trim() })
+  if (error || !data) throw new Error(error?.message || 'Receiving laboratory could not be verified.')
+  return data
+}
+
 async function pushReqToSupa(req) {
   const sb = getSupabase()
   if (!sb || !MODE.isOnline) return
@@ -902,7 +912,8 @@ async function pushReqToSupa(req) {
       from_workspace: req.fromWorkspace,
       target_workspace: 'Laboratory',
       from_user_id: session.user.id,
-      from_organisation: MODE.organisationName,
+      from_org_id: MODE.organisationId,
+      target_org_id: req.targetOrgId,
       pseudonymous_ref: req.pseudoRef,
       local_ref: req.localRef,
       test_requested: req.test,
@@ -936,8 +947,7 @@ async function loadReqsFromSupa() {
     if (!session) return
     const { data, error } = await sb.from('jl_requests')
       .select('*')
-      .or('target_workspace.eq.Laboratory,from_workspace.eq.'+STATE.role)
-      .order('ts',{ascending:false}).limit(200)
+            .order('ts',{ascending:false}).limit(200)
     if (error || !data) return
     const all = loadReqs()
     data.forEach(r => {
@@ -4120,6 +4130,9 @@ function showReqForm() {
   const isTrials = STATE.role === 'Trial'
   wrap.innerHTML = '<div class="form-card" style="max-width:none;border-color:rgba(0,201,167,0.2)">' +
     '<div style="font-family:Syne,sans-serif;font-size:15px;font-weight:700;margin-bottom:14px">New Lab Request</div>' +
+    '<div class="form-row span-2"><label class="form-label">Receiving Laboratory Organisation Code</label>' +
+    '<input class="form-input" id="nrq-target-org" type="text" placeholder="Enter verified laboratory organisation code" required />' +
+    '<div class="form-help">The database verifies the code and routes the request to that active laboratory.</div></div>' +
     '<div class="form-grid">' +
     '<div class="form-row"><label class="form-label">'+(isTrials?'Participant ID (stays in your workspace)':'Patient ID (stays in your workspace)')+'</label>' +
     '<input class="form-input" id="nrq-local" type="text" placeholder="'+(isTrials?'e.g. PTX-001':'e.g. PT-12345')+'"/>' +
@@ -4145,25 +4158,29 @@ function showReqForm() {
   wrap.style.display = 'block'
 }
 
-function submitReq() {
+async function submitReq() {
   const localRef  = (document.getElementById('nrq-local')||{}).value?.trim()||''
   const test      = (document.getElementById('nrq-test')||{}).value||''
   const stype     = (document.getElementById('nrq-stype')||{}).value||''
   const priority  = (document.getElementById('nrq-priority')||{}).value||'Routine'
   const consent   = (document.getElementById('nrq-consent')||{}).value?.trim()||''
   const notes     = (document.getElementById('nrq-notes')||{}).value?.trim()||''
+  const targetOrgCode = (document.getElementById('nrq-target-org')||{}).value?.trim()||''
 
   if (!localRef) { toast('Required', STATE.role==='Trial'?'Participant ID required':'Patient ID required','crit'); return }
   if (!test)     { toast('Required','Test required','crit'); return }
   if (!stype)    { toast('Required','Sample type required','crit'); return }
   const cv = validateConsent(consent)
   if (!cv.ok)    { toast('Invalid consent reference', cv.err, 'crit'); return }
+  let targetOrgId
+  try { targetOrgId = await resolveTargetLaboratoryOrg(targetOrgCode) }
+  catch (e) { toast('Laboratory not verified', e.message, 'crit'); return }
 
   const prefix = STATE.role==='Trial' ? 'JL-TRL' : 'JL-HOS'
   const pseudoRef = prefix + '-' + uid().toUpperCase().slice(0,8)
   const req = {
     id: uid(), ts: Date.now(), fromWorkspace: STATE.role, targetWorkspace: 'Laboratory',
-    localRef, pseudoRef, test, sampleType: stype, priority, consentRef: consent, notes,
+    targetOrgId, localRef, pseudoRef, test, sampleType: stype, priority, consentRef: consent, notes,
     status: 'pending', requestedBy: getDisplayName(),
   }
   const all = loadReqs(); all.push(req); saveReqs(all)
@@ -4748,7 +4765,8 @@ async function pushRequestToSupabase(req) {
       from_workspace: req.fromWorkspace,
       target_workspace: req.targetWorkspace,
       from_user_id: sess.data.session.user.id,
-      from_organisation: MODE.organisationName || null,
+      from_org_id: MODE.organisationId,
+      target_org_id: req.targetOrgId,
       pseudonymous_ref: req.pseudonymousRef,
       local_ref: req.localRef,
       test_requested: req.testRequested,
@@ -4777,8 +4795,7 @@ async function loadRequestsFromSupabase() {
   try {
     const { data } = await sb.from('jl_requests')
       .select('*')
-      .or('target_workspace.eq.Laboratory,from_workspace.eq.' + STATE.role)
-      .order('ts', { ascending: false })
+            .order('ts', { ascending: false })
       .limit(200)
     if (!data) return
     data.forEach(row => syncRequestFromRemote(row))
@@ -5413,18 +5430,21 @@ async function checkAuditIntegrity() {
 function submitNewRequest() {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const localRef = get('nrq-local'), test = get('nrq-test'), stype = get('nrq-stype')
-  const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes')
+  const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes'), targetOrgCode = get('nrq-target-org')
   if (!localRef) { toast('Required', STATE.role === 'Trial' ? 'Participant ID required' : 'Patient ID required', 'crit'); return }
   if (!test)     { toast('Required', 'Test must be selected', 'crit'); return }
   if (!stype)    { toast('Required', 'Sample type required', 'crit'); return }
   if (!consent)  { toast('Required', 'Consent reference is required', 'crit'); return }
   const cv = validateConsentRef(consent)
   if (!cv.valid) { toast('Invalid consent reference', cv.error, 'crit'); return }
+  let targetOrgId
+  try { targetOrgId = await resolveTargetLaboratoryOrg(targetOrgCode) }
+  catch (e) { toast('Laboratory not verified', e.message, 'crit'); return }
   const prefix = STATE.role === 'Trial' ? 'JL-TRL' : 'JL-HOS'
   const pseudoRef = prefix + '-' + uid().toUpperCase().slice(0, 8)
   const req = {
     id: uid(), ts: Date.now(), fromWorkspace: STATE.role, targetWorkspace: 'Laboratory',
-    localRef, pseudonymousRef: pseudoRef, testRequested: test, sampleType: stype,
+    targetOrgId, localRef, pseudonymousRef: pseudoRef, testRequested: test, sampleType: stype,
     priority, consentRef: consent, notes, status: 'pending', requestedBy: getDisplayName(),
   }
   const all = loadAllRequests(); all.push(req); saveAllRequests(all)
