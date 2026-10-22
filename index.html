@@ -4,25 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>JLIGHT — Health Intelligence Platform</title>
+<title>JLIGHT — Health Intelligence Masterplatform</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --ink: #05080F; --ink-2: #0A0F1C;
-  --surface: #0C1120; --surface-2: #111827; --surface-3: #161F30; --surface-4: #1A2438;
-  --teal: #00C9A7; --teal-2: #00A387;
-  --teal-glow: rgba(0,201,167,0.15); --teal-bg: rgba(0,201,167,0.06);
-  --amber: #F5A623; --amber-glow: rgba(245,166,35,0.15); --amber-bg: rgba(245,166,35,0.06);
-  --red: #FF4D6D; --red-glow: rgba(255,77,109,0.12); --red-bg: rgba(255,77,109,0.06);
-  --green: #2EE89A; --green-glow: rgba(46,232,154,0.12); --green-bg: rgba(46,232,154,0.06);
-  --blue: #4B8EFF; --blue-glow: rgba(75,142,255,0.12); --blue-bg: rgba(75,142,255,0.06);
-  --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08);
-  --border: rgba(255,255,255,0.07); --border-2: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.2);
-  --text: rgba(255,255,255,0.92); --text-2: rgba(255,255,255,0.6); --text-3: rgba(255,255,255,0.35); --text-4: rgba(255,255,255,0.22);
+  color-scheme: light;
+  --ink: #F5F7FC; --ink-2: #EEF2FA;
+  --surface: #FFFFFF; --surface-2: #FFFFFF; --surface-3: #F4F6FC; --surface-4: #E9EDFA;
+  --teal: #6D55D9; --teal-2: #5741C2;
+  --teal-glow: rgba(109,85,217,0.13); --teal-bg: rgba(109,85,217,0.07);
+  --amber: #B9670A; --amber-glow: rgba(242,140,40,0.15); --amber-bg: rgba(242,140,40,0.09);
+  --red: #C43D58; --red-glow: rgba(232,93,117,0.12); --red-bg: rgba(232,93,117,0.07);
+  --green: #18794E; --green-glow: rgba(40,155,104,0.12); --green-bg: rgba(40,155,104,0.07);
+  --blue: #245CC5; --blue-glow: rgba(52,120,246,0.12); --blue-bg: rgba(52,120,246,0.07);
+  --purple: #6D55D9; --purple-bg: rgba(109,85,217,0.08);
+  --border: #E4E8F2; --border-2: #D6DDED; --border-strong: #B8C4DC;
+  --text: #202943; --text-2: #52607A; --text-3: #68758D; --text-4: #8792A7;
+}
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -430,6 +431,22 @@ button,input,select,textarea { transition:background-color .15s ease,border-colo
 .jlight-no-results { padding:18px; text-align:center; color:#64718a; font-size:13px; }
 @media(max-width:1100px) { .jlight-quick-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:620px) { .jlight-launchpad { padding:14px; } .jlight-launchpad-head { grid-template-columns:1fr; } .jlight-search-label { grid-column:1; grid-row:auto; margin:4px 0 -6px; } .jlight-nav-search { grid-column:1; grid-row:auto; } .jlight-quick-grid { grid-template-columns:1fr; } .jlight-quick-card { padding:13px; } }
+
+
+/* JLIGHT masterplatform theme: Scientra-inspired bright, multicolour and accessible */
+body { background: var(--ink); color: var(--text); }
+body::before { display: none; }
+a { color: var(--blue); }
+.sidebar { background: #FFFFFF; border-right-color: var(--border); box-shadow: 3px 0 18px rgba(35,48,80,.035); }
+.topbar, .main-header, .page-header { background: rgba(255,255,255,.96); }
+.auth-bg-grid { background-image: linear-gradient(rgba(109,85,217,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(52,120,246,.045) 1px, transparent 1px); }
+.auth-glow { background: radial-gradient(circle, rgba(109,85,217,.10) 0%, transparent 65%); }
+.auth-glow-2 { background: radial-gradient(circle, rgba(242,140,40,.09) 0%, transparent 65%); }
+.auth-card { background: #FFFFFF; border-color: var(--border); box-shadow: 0 24px 70px rgba(40,52,90,.13); }
+.role-btn { background: #FFFFFF; border-color: var(--border-2); }
+.role-btn:hover { background: var(--teal-bg); }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #245CC5; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 
 </style>
 </head>
