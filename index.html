@@ -6633,7 +6633,7 @@ async function loadDomainDataFromBackend() {
     const merged = {}
     for (const [domain, key] of Object.entries(keys)) {
       const local = lsGet(key)
-      const byId = new Map(local.filter(x => x && x.id != null).map(x => [String(x.id), x]))
+      const byId = new Map(local.filter(x => x && x.id != null && String(x.orgId || '') === String(STATE.orgId)).map(x => [String(x.id), x]))
       merged[domain] = byId
     }
     for (const row of (data || [])) {
