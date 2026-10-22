@@ -114,3 +114,19 @@ Do not mark Priority 1 complete until all of the following are evidenced in stag
 - [ ] Security advisor re-run and evidence recorded.
 
 **Release gate:** no production migration, production deployment, or PR merge is authorised by this draft.
+
+
+## Live schema baseline observed (read-only check, 2026-10-22)
+
+This snapshot came from read-only catalog queries against the configured Supabase project. It is a baseline, **not** permission to modify production.
+
+- `jl_entries` currently has: `id`, `jl_id`, nullable `user_id`, nullable text `organisation`, required `role`, `ts`, required JSONB `payload`, and `created_at`.
+- `jl_entries` currently has a primary key on `id`, global `UNIQUE(jl_id)`, and a foreign key from `user_id` to `auth.users(id)`. The proposed `org_id` and `domain` columns are not present yet.
+- Existing organisation-scoped policies on several core tables use `org_id = jl_current_org_id()`; therefore, replacing that resolver with JWT-claim logic would be a material behaviour change.
+- The current catalog snapshot shows permissive policies on `alerts` and `system_health_log`, including public-role read/write or all-operation policies with `true` predicates. These are high-priority findings to investigate and remediate in a controlled environment.
+- Several core-table policies are declared for the PostgreSQL `public` role rather than explicitly for `authenticated`. Because policy roles and grants interact, review effective grants and anon/authenticated behaviour together; do not assume the policy name alone makes it safe.
+- No write query, migration, or production policy change was performed during this check.
+
+## Next technical action
+
+Capture effective table grants, RLS enabled/forced status, and the exact `jl_current_org_id()` definition. Then prepare a staging-only policy migration that removes anonymous access to alerts and health logs while preserving only the specific authenticated operational access the app requires. The final policy set must be tested with anon, organisation A, and organisation B sessions before any production release.
