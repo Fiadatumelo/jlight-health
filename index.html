@@ -6817,7 +6817,7 @@ async function syncDomainToBackend(domain, items) {
       ts: new Date(item.createdAt || item.ts || Date.now()).toISOString()
     }))
     if (!rows.length) return { ok: true, count: 0 }
-    const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'jl_id' })
+    const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'org_id,jl_id' })
     if (error) throw error
     return { ok: true, count: rows.length }
   } catch (e) {
