@@ -39,7 +39,7 @@ begin
   end if;
 
   v_name := coalesce(nullif(trim(p_full_name), ''), split_part(coalesce(auth.jwt()->>'email', 'JLIGHT User'), '@', 1));
-  v_role := case when p_workspace_role in ('admin','supervisor','operator','viewer') then p_workspace_role else 'operator' end;
+  v_role := case when v_org.owner_user_id = v_uid then 'admin' else 'operator' end;
 
   insert into public.jl_user_profiles
     (user_id, org_id, full_name, workspace_role, active, last_seen)
