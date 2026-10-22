@@ -913,15 +913,22 @@ async function doSignIn() {
   if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
   try {
     if (MODE.signupMode) {
-      const org = (document.getElementById('si-org')||{}).value?.trim() || ''
-      const role = (document.getElementById('si-role')||{}).value || 'Laboratory'
-      const orgCode = (document.getElementById('si-orgcode')||{}).value?.trim() || ''
-      // A new organisation may be created without a manually supplied code.
-      // If the user enters a code, they are joining an existing organisation.
+      const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
+      const org = (document.getElementById('si-org') || {}).value?.trim() || ''
+      const role = (document.getElementById('si-role') || {}).value || 'Laboratory'
+      const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
+
+      // Joining is not the same as creating. Do not silently create a new
+      // organisation when someone selected "Join existing organisation".
+      if (joinType === 'join') {
+        if (!orgCode) throw new Error('Enter the organisation code provided by your administrator, or choose “Create new organisation”.')
+        throw new Error('Joining existing organisations is being secured. For now, choose “Create new organisation” to create your own workspace; contact support before joining a shared workspace.')
+      }
+      const organisationName = org || 'JLIGHT Health Intelligence Platform'
 
       const { data, error } = await sb.auth.signUp({
         email, password: pass,
-        options: { data: { org_name: org, role, org_code: orgCode || null } }
+        options: { data: { org_name: organisationName, role, org_code: null } }
       })
       if (error) throw error
       if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
@@ -952,11 +959,11 @@ async function doSignIn() {
       MODE.isOnline = true
       STATE.user = data.user.email || email
       STATE.role = role
-      await ensureJlightOrganisation(data.user, { org, role, orgCode })
+      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: '' })
       await loadOrCreateProfile(data.user)
       if (status) {
         const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
-        status.textContent = 'Workspace created' + codeMsg
+        status.textContent = 'Workspace created successfully' + codeMsg
         status.className = 'auth-status success'
       }
       setTimeout(()=>enterApp(), 1200)
