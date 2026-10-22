@@ -41,18 +41,7 @@ CREATE POLICY jl_memberships_read_self ON public.jl_org_memberships FOR SELECT T
  USING(user_id=auth.uid());
 -- No client membership writes; invitation provisioning requires a trusted server flow.
 
-CREATE TABLE IF NOT EXISTS public.jl_patients (
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
- organisation_id uuid NOT NULL REFERENCES public.jl_organisations(id) ON DELETE CASCADE,
- local_patient_ref text NOT NULL CHECK(length(btrim(local_patient_ref)) BETWEEN 1 AND 128),
- display_label text,
- status text NOT NULL DEFAULT 'active' CHECK(status IN ('active','inactive','merged')),
- created_at timestamptz NOT NULL DEFAULT now(),
- created_by uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id),
- updated_at timestamptz NOT NULL DEFAULT now(),
- UNIQUE(organisation_id,local_patient_ref)
-);
-CREATE INDEX IF NOT EXISTS jl_patients_org_updated_idx ON public.jl_patients(organisation_id,updated_at DESC);
+-- Reuse the existing JLIGHT patient registry (org_id schema); do not replace it.
 
 CREATE TABLE IF NOT EXISTS public.jl_encounters (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -144,16 +133,11 @@ CREATE TABLE IF NOT EXISTS public.jl_trial_participants (
 CREATE INDEX IF NOT EXISTS jl_trial_participants_study_idx ON public.jl_trial_participants(organisation_id,study_id,status);
 
 DO $$ DECLARE t text; BEGIN
- FOREACH t IN ARRAY ARRAY['jl_patients','jl_encounters','jl_source_observations','jl_intelligence_findings','jl_finding_review_events','jl_trial_studies','jl_trial_participants']
+ FOREACH t IN ARRAY ARRAY['jl_encounters','jl_source_observations','jl_intelligence_findings','jl_finding_review_events','jl_trial_studies','jl_trial_participants']
  LOOP EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t); EXECUTE format('ALTER TABLE public.%I FORCE ROW LEVEL SECURITY',t); END LOOP;
 END $$;
 
-DROP POLICY IF EXISTS jl_patients_select ON public.jl_patients;
-CREATE POLICY jl_patients_select ON public.jl_patients FOR SELECT TO authenticated USING(public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin','hospital','laboratory','bioinformatics','reviewer','read_only']::text[]));
-DROP POLICY IF EXISTS jl_patients_insert ON public.jl_patients;
-CREATE POLICY jl_patients_insert ON public.jl_patients FOR INSERT TO authenticated WITH CHECK(public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin','hospital','laboratory']::text[]) AND created_by=auth.uid());
-DROP POLICY IF EXISTS jl_patients_update ON public.jl_patients;
-CREATE POLICY jl_patients_update ON public.jl_patients FOR UPDATE TO authenticated USING(public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin','hospital']::text[])) WITH CHECK(public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin','hospital']::text[]));
+-- Existing patient access policy is preserved; it uses the current org_id model.
 
 DROP POLICY IF EXISTS jl_encounters_select ON public.jl_encounters;
 CREATE POLICY jl_encounters_select ON public.jl_encounters FOR SELECT TO authenticated USING(public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin','hospital','laboratory','bioinformatics','reviewer','read_only']::text[]));
@@ -194,7 +178,7 @@ CREATE POLICY jl_trial_participants_update ON public.jl_trial_participants FOR U
 CREATE OR REPLACE FUNCTION public.jl_validate_encounter_patient_org()
 RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM public.jl_patients p WHERE p.id=NEW.patient_id AND p.organisation_id=NEW.organisation_id) THEN RAISE EXCEPTION 'Patient and encounter must belong to the same organisation'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.jl_patients p WHERE p.id=NEW.patient_id AND p.org_id=NEW.organisation_id) THEN RAISE EXCEPTION 'Patient and encounter must belong to the same organisation'; END IF;
  RETURN NEW;
 END $$;
 DROP TRIGGER IF EXISTS jl_encounter_patient_org_guard ON public.jl_encounters;
@@ -203,7 +187,7 @@ CREATE TRIGGER jl_encounter_patient_org_guard BEFORE INSERT OR UPDATE ON public.
 CREATE OR REPLACE FUNCTION public.jl_validate_observation_links()
 RETURNS trigger LANGUAGE plpgsql SET search_path=public,pg_temp AS $$
 BEGIN
- IF NOT EXISTS(SELECT 1 FROM public.jl_patients p WHERE p.id=NEW.patient_id AND p.organisation_id=NEW.organisation_id) THEN RAISE EXCEPTION 'Observation patient must belong to the same organisation'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.jl_patients p WHERE p.id=NEW.patient_id AND p.org_id=NEW.organisation_id) THEN RAISE EXCEPTION 'Observation patient must belong to the same organisation'; END IF;
  IF NEW.encounter_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.jl_encounters e WHERE e.id=NEW.encounter_id AND e.organisation_id=NEW.organisation_id AND e.patient_id=NEW.patient_id) THEN RAISE EXCEPTION 'Observation encounter must match its patient and organisation'; END IF;
  RETURN NEW;
 END $$;
