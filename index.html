@@ -6586,7 +6586,7 @@ async function syncDomainToBackend(domain, items) {
     if (!session) return { ok: false, reason: 'unauthenticated' }
     if (!STATE.orgId || STATE.orgId === 'default') throw new Error('No active workspace selected')
     const uid = session.user.id
-    const rows = (items || []).slice(-200).map(item => ({
+    const rows = (items || []).filter(item => item && item.id != null && String(item.orgId || '') === String(STATE.orgId)).slice(-200).map(item => ({
       jl_id: domain + ':' + String(item.id), user_id: uid,
       organisation: STATE.orgName || MODE.organisationName || 'Workspace',
       role: STATE.role || 'operator',
