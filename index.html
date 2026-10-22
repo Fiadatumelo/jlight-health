@@ -6497,7 +6497,8 @@ function saveAllDomainData() {
 // ── PATIENT REGISTRY PAGE ──
 function renderPatients() {
   const q = (STATE.search.patients || '').toLowerCase()
-  const all = STATE.patients.filter(p => p.orgId === STATE.orgId || !p.orgId)
+  const showArchived = !!STATE.showArchivedPatients
+  const all = STATE.patients.filter(p => (p.orgId === STATE.orgId || !p.orgId) && (!!p.archivedAt === showArchived))
   const filtered = q ? all.filter(p =>
     (p.fullName || '').toLowerCase().includes(q) ||
     (p.mrn || '').toLowerCase().includes(q) ||
@@ -6517,6 +6518,7 @@ function renderPatients() {
     '<input class="form-input" style="width:240px;padding:7px 12px" placeholder="Search by name, MRN, ID..." ' +
     'value="' + esc(STATE.search.patients) + '" ' +
     'oninput="STATE.search.patients=this.value;STATE.pagination.patients=1;renderPatients()"/>' +
+    '<button class="btn" onclick="STATE.showArchivedPatients=!STATE.showArchivedPatients;renderPatients()">' + (showArchived ? 'View active patients' : 'View archived') + '</button>' +
     '<button class="btn btn-primary" onclick="showRegisterPatient()">+ Register patient</button>' +
     '</div></div>' +
 
@@ -6554,11 +6556,62 @@ function renderPatientListCard(p) {
     (openCards > 0 ? '<span style="background:var(--red-bg);color:var(--red);border:1px solid rgba(255,77,109,0.3);font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:DM Mono,monospace">' + openCards + ' OPEN</span>' : '') +
     '</div></div>' +
     '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">' +
+    (p.archivedAt ? '<span style="font-size:10px;color:var(--amber);border:1px solid var(--amber);padding:3px 8px;border-radius:6px">ARCHIVED</span>' : '') +
+    '<button class="btn btn-sm" onclick="event.stopPropagation();togglePatientArchive(\'' + esc(p.id) + '\')">' + (p.archivedAt ? 'Restore' : 'Archive') + '</button>' +
+    (p.archivedAt ? '<button class="btn btn-sm" style="color:var(--red)" onclick="event.stopPropagation();deleteArchivedPatient(\'' + esc(p.id) + '\')">Delete</button>' : '') +
     (labCount > 0  ? '<span style="font-size:11px;color:var(--blue);background:var(--blue-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(75,142,255,0.2)">' + labCount + ' lab</span>' : '') +
     (trialCount > 0 ? '<span style="font-size:11px;color:var(--amber);background:var(--amber-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(245,166,35,0.2)">' + trialCount + ' trial</span>' : '') +
     (admitCount > 0 ? '<span style="font-size:11px;color:var(--red);background:var(--red-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(255,77,109,0.2)">' + admitCount + ' admission</span>' : '') +
     (bioCount > 0   ? '<span style="font-size:11px;color:var(--purple);background:var(--purple-bg);padding:3px 8px;border-radius:6px;border:1px solid rgba(167,139,250,0.2)">' + bioCount + ' bio</span>' : '') +
     '</div></div>'
+}
+
+
+async function togglePatientArchive(id) {
+  const patient = (STATE.patients || []).find(p => String(p.id) === String(id) && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId)))
+  if (!patient) { toast('Patient not found', 'Refresh the registry and try again.', 'warn'); return }
+  if (!requirePermission('supervisor', patient.archivedAt ? 'Restore patient' : 'Archive patient')) return
+  if (patient.archivedAt) { delete patient.archivedAt; patient.restoredAt = new Date().toISOString() }
+  else { patient.archivedAt = new Date().toISOString(); patient.archivedBy = getDisplayName() }
+  lsSet(PATIENT_KEY, STATE.patients)
+  await audit(patient.archivedAt ? 'Patient archived' : 'Patient restored', patient.mrn || patient.id)
+  renderPatients()
+  toast(patient.archivedAt ? 'Patient archived' : 'Patient restored', patient.archivedAt ? 'Record retained; it has been moved out of the active registry.' : 'Record returned to the active registry.', 'good')
+}
+async function deleteArchivedPatient(id) {
+  const patient = (STATE.patients || []).find(p => String(p.id) === String(id) && p.archivedAt && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId)))
+  if (!patient) { toast('Archived patient not found', 'Refresh the registry and try again.', 'warn'); return }
+  if (!requirePermission('admin', 'Permanently delete patient')) return
+  const linked = [
+    ...(STATE.labOrders || []).filter(x => x.patientId === patient.id),
+    ...(STATE.results || []).filter(x => x.patientId === patient.id),
+    ...(STATE.samples || []).filter(x => x.patientId === patient.id),
+    ...(STATE.participants || []).filter(x => x.patientId === patient.id),
+    ...(STATE.visits || []).filter(x => x.patientId === patient.id),
+    ...(STATE.adverseEvents || []).filter(x => x.patientId === patient.id),
+    ...(STATE.admissions || []).filter(x => x.patientId === patient.id),
+    ...(STATE.bioRuns || []).filter(x => x.patientId === patient.id)
+  ]
+  if (linked.length) { toast('Deletion blocked', 'This patient has linked clinical or laboratory records. Keep the record archived to preserve traceability.', 'warn'); return }
+  if (!confirm('Permanently delete this archived patient record? This action cannot be undone.')) return
+  const sb = getSupabase()
+  if (MODE.isOnline && sb && STATE.orgId && STATE.orgId !== 'default') {
+    try {
+      const { data: { session }, error: sessionError } = await sb.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!session) throw new Error('Sign in again before deleting cloud records.')
+      const { error } = await sb.from('jl_entries').delete().eq('org_id', STATE.orgId).eq('domain', 'patients').eq('jl_id', 'patients:' + String(patient.id))
+      if (error) throw error
+    } catch (e) {
+      toast('Cloud delete failed', 'The patient was retained. Check cloud permissions and retry.', 'crit')
+      return
+    }
+  }
+  STATE.patients = (STATE.patients || []).filter(p => String(p.id) !== String(id))
+  lsSet(PATIENT_KEY, STATE.patients)
+  await audit('Archived patient permanently deleted', patient.mrn || patient.id)
+  renderPatients()
+  toast('Patient deleted', 'The unlinked archived record was removed.', 'good')
 }
 
 function showRegisterPatient() {
