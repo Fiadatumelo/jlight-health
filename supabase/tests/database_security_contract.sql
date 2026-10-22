@@ -1,6 +1,6 @@
 -- Run with Supabase CLI: supabase test db
 BEGIN;
-SELECT plan(12);
+SELECT plan(14);
 
 SELECT ok(
   (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
@@ -49,6 +49,15 @@ SELECT ok(
 SELECT ok(
   EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_trial_participants' AND policyname='jl_trial_participants_select'),
   'trial participant access is governed by an explicit select policy'
+);
+
+SELECT ok(
+  has_function_privilege('authenticated','public.jl_accept_organisation_invitations()','EXECUTE'),
+  'authenticated users can accept their own confirmed invitations through the controlled RPC'
+);
+SELECT ok(
+  NOT has_function_privilege('anon','public.jl_accept_organisation_invitations()','EXECUTE'),
+  'anonymous users cannot activate invitations'
 );
 
 SELECT * FROM finish();
