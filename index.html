@@ -4900,21 +4900,25 @@ async function saveUserProfile(profile) {
     // Only send columns that exist in jl_user_profiles. Never accept a client-selected
     // permission level; the trusted membership RPC grants owner/admin and member/operator.
     const payload = {
-      user_id: supaUser.id,
       full_name: safeProfile.full_name || 'JLIGHT User',
       employee_id: profile.employee_id || null,
       job_title: profile.job_title || null,
       qualification: profile.qualification || null,
       domains: profile.domains || null,
-      active: true,
       last_seen: new Date().toISOString()
     }
-    if (STATE.orgId && STATE.orgId !== 'default') payload.org_id = STATE.orgId
-    const { error } = await sb.from('jl_user_profiles').upsert(payload, { onConflict: 'user_id' })
-    if (error) {
-      console.error('[JLIGHT] profile cloud save failed:', error.message)
-      toast('Profile cloud save failed', 'Your profile may not be synchronised. Please retry before switching workspaces.', 'crit')
-      throw error
+    // Organisation membership, role, and activation are server-managed by
+    // jl_link_user_to_organisation. Never upsert client-supplied org/role fields.
+    const { data: savedProfile, error } = await sb.from('jl_user_profiles')
+      .update(payload)
+      .eq('user_id', supaUser.id)
+      .select('user_id')
+      .maybeSingle()
+    if (error || !savedProfile) {
+      const saveError = error || new Error('No verified workspace profile exists. Reconnect your workspace and retry.')
+      console.error('[JLIGHT] profile cloud save failed:', saveError.message)
+      toast('Profile cloud save failed', 'Your profile may not be synchronised. Please reconnect your workspace and retry.', 'crit')
+      throw saveError
     }
   }
 }
