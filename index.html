@@ -1083,6 +1083,23 @@ async function doSignIn() {
 }
 
 // Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
+async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline || !user?.id) throw new Error('Cannot verify workspace membership without an authenticated online session.')
+  if (!orgId) throw new Error('Workspace ID is missing; refusing to enable cloud persistence.')
+  const cachedProfile = STATE.userProfile || {}
+  const { data, error } = await sb.rpc('jl_link_user_to_organisation', {
+    p_org_id: orgId,
+    p_org_code: orgCode || null,
+    p_full_name: cachedProfile.full_name || user.user_metadata?.full_name || null,
+    p_workspace_role: cachedProfile.workspace_role || 'operator'
+  })
+  if (error) throw new Error('Workspace membership could not be verified: ' + error.message)
+  if (String(data || '') !== String(orgId)) throw new Error('Workspace membership verification returned a different organisation.')
+  localStorage.setItem('jl_org_id', String(orgId))
+  if (MODE.organisationName) localStorage.setItem('jl_org_name', MODE.organisationName)
+}
+
 async function ensureJlightOrganisation(user, options = {}) {
   const sb = getSupabase()
   if (!sb || !user?.id) throw new Error('Cannot set up workspace: authenticated Supabase user is missing.')
@@ -1115,6 +1132,7 @@ async function ensureJlightOrganisation(user, options = {}) {
     MODE.organisationId = meta.org_id
     MODE.organisationName = meta.org_name || org || 'Workspace'
     MODE.organisationCode = meta.org_code || orgCode || ''
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1136,6 +1154,7 @@ async function ensureJlightOrganisation(user, options = {}) {
       role
     } })
     if (error) throw new Error('Workspace found, but account metadata could not be updated: ' + error.message)
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1154,6 +1173,7 @@ async function ensureJlightOrganisation(user, options = {}) {
       org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
     } })
     if (error) throw new Error('Joined workspace, but account metadata could not be updated: ' + error.message)
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
     return
   }
 
@@ -1173,7 +1193,8 @@ async function ensureJlightOrganisation(user, options = {}) {
   const { error: metadataError } = await sb.auth.updateUser({ data: {
     org_name: created.name, org_id: created.id, org_code: created.org_code, role
   } })
-  if (metadataError) console.warn('[JLIGHT] Workspace created but account metadata update failed:', metadataError.message)
+  if (metadataError) throw new Error('Workspace created, but account metadata could not be updated: ' + metadataError.message)
+  await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
 }
 async function doForgotPassword() {
   const email = (document.getElementById('si-email')||{}).value?.trim() || ''
@@ -6269,9 +6290,34 @@ const CORD_KEY     = 'jl_v10_clinical_orders'
 const INF_KEY      = 'jl_v10_infections'
 const BIORUN_KEY   = 'jl_v10_bio_runs'
 
-function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] } }
+const JLIGHT_ORG_SCOPED_KEYS = new Set([
+  'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
+  'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
+  'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
+  'jl_v10_bio_runs','jl_v10_samples'
+])
+function jlightStorageKey(key) {
+  if (JLIGHT_ORG_SCOPED_KEYS.has(key) && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
+    return key + '::org::' + String(STATE.orgId)
+  }
+  return key
+}
+function lsGet(key) {
+  try {
+    const scoped = jlightStorageKey(key)
+    const stored = localStorage.getItem(scoped)
+    if (stored !== null) return JSON.parse(stored)
+    // Legacy global cache is read-only during migration. Only adopt records already
+    // explicitly tagged for this organisation; never infer ownership of unscoped data.
+    const legacy = JSON.parse(localStorage.getItem(key) || '[]')
+    if (scoped !== key && Array.isArray(legacy)) {
+      return legacy.filter(item => item && String(item.orgId || '') === String(STATE.orgId))
+    }
+    return legacy
+  } catch { return [] }
+}
 function lsSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val && val.slice ? val.slice(-2000) : val)) } catch {}
+  try { localStorage.setItem(jlightStorageKey(key), JSON.stringify(val && val.slice ? val.slice(-2000) : val)) } catch {}
   // Write-through for domain records: local storage remains a cache, not the source of truth.
   const domainByKey = {
     [PATIENT_KEY]: 'patients', [ORDERS_KEY]: 'labOrders', [RESULTS_KEY]: 'results',
@@ -6645,7 +6691,7 @@ async function loadDomainDataFromBackend() {
     }
     for (const [domain, key] of Object.entries(keys)) {
       const records = Array.from(merged[domain].values()).slice(-2000)
-      try { localStorage.setItem(key, JSON.stringify(records)) } catch {}
+      try { localStorage.setItem(jlightStorageKey(key), JSON.stringify(records)) } catch {}
       const stateKey = ({
         patients:'patients', labOrders:'labOrders', results:'results', qcRuns:'qcRuns',
         protocols:'protocols', participants:'participants', visits:'visits',
