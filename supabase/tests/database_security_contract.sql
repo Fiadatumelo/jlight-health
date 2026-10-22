@@ -1,10 +1,15 @@
 -- Run with Supabase CLI: supabase test db
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
 
 SELECT ok(
   (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
   'patient table has RLS enabled and forced'
+);
+
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='public.jl_org_memberships'::regclass AND conname='jl_org_memberships_org_user_role_key'),
+  'organisation membership supports separately granted roles per user'
 );
 SELECT ok(
   (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.jl_source_observations'::regclass),
