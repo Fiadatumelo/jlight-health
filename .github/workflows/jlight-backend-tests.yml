@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - "jlight-backend/**"
+      - "supabase/**"
+      - "index.html"
       - ".github/workflows/jlight-backend-tests.yml"
   push:
     branches: ["main"]
     paths:
       - "jlight-backend/**"
+      - "supabase/**"
+      - "index.html"
       - ".github/workflows/jlight-backend-tests.yml"
 
 permissions:
@@ -21,6 +25,23 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inline frontend JavaScript syntax
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          html = pathlib.Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\\b([^>]*)>([\\s\\S]*?)</script\\s*>", html, re.I)
+          inline = [body for attrs, body in scripts if not re.search(r"\\bsrc\\s*=", attrs, re.I) and body.strip()]
+          if not inline:
+              raise SystemExit("No inline application JavaScript found")
+          pathlib.Path("/tmp/jlight-inline.js").write_text("\\n;\\n".join(inline), encoding="utf-8")
+          print(f"Checking {len(inline)} inline script block(s)")
+          PY
+          node --check /tmp/jlight-inline.js
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
