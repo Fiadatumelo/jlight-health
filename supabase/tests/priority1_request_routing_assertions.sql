@@ -43,7 +43,7 @@ begin
 
   if not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.proname = 'jl_current_org_id'
+    where n.nspname = 'private' and p.proname = 'jl_current_org_id'
       and p.prosecdef and p.proconfig @> array['search_path=public, pg_temp']
   ) then raise exception 'Tenant resolver must be SECURITY DEFINER with pinned search_path'; end if;
 end $$;
