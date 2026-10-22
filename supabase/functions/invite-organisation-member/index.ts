@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
     organisation_id: organisationId,
     user_id: inviteData.user.id,
     access_role: role,
-    status: "active",
+    status: "invited",
     created_by: authData.user.id,
   });
 
