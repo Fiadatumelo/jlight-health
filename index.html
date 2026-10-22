@@ -916,7 +916,8 @@ async function doSignIn() {
       const org = (document.getElementById('si-org')||{}).value?.trim() || ''
       const role = (document.getElementById('si-role')||{}).value || 'Laboratory'
       const orgCode = (document.getElementById('si-orgcode')||{}).value?.trim() || ''
-      if (!org && !orgCode) throw new Error('Organisation name or organisation code required')
+      // A new organisation may be created without a manually supplied code.
+      // If the user enters a code, they are joining an existing organisation.
 
       const { data, error } = await sb.auth.signUp({
         email, password: pass,
@@ -1054,41 +1055,22 @@ async function ensureJlightOrganisation(user, options = {}) {
   }
 
   if (!org) throw new Error('Organisation name is missing. Switch to Create new workspace and enter a name.')
-  // Generate a readable 8-character code (JLI-XXXX) with crypto-backed
-  // randomness when available. The database unique constraint remains the
-  // final authority if a collision ever occurs.
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  const randomCode = () => {
-    let suffix = ''
-    const bytes = new Uint8Array(4)
-    if (window.crypto && window.crypto.getRandomValues) window.crypto.getRandomValues(bytes)
-    else for (let i = 0; i < 4; i++) bytes[i] = Math.floor(Math.random() * 256)
-    for (let i = 0; i < 4; i++) suffix += alphabet[bytes[i] % alphabet.length]
-    return 'JLI-' + suffix
-  }
-  const newCode = randomCode()
-  const { data: created, error: insertError } = await sb
-    .from('jl_organisations')
-    .insert({
-      name: org,
-      role,
-      owner_email: user.email || '',
-      owner_user_id: user.id,
-      org_code: newCode,
-      created_at: new Date().toISOString()
-    })
-    .select('id,name,org_code,role')
-    .single()
-  if (insertError) throw new Error('Workspace creation failed: ' + insertError.message)
-  if (!created) throw new Error('Workspace creation failed: Supabase returned no organisation record.')
+  // Organisation creation and code generation happen in a single database
+  // function so browser-side code generation cannot collide or bypass RLS.
+  const { data: created, error: createError } = await sb.rpc('jl_create_organisation', {
+    p_name: org || 'JLIGHT Health Intelligence Platform',
+    p_role: role
+  })
+  if (createError) throw new Error('Workspace creation failed: ' + createError.message)
+  if (!created?.id || !created?.org_code) throw new Error('Workspace creation failed: the database did not return an organisation code.')
 
   MODE.organisationId = created.id
   MODE.organisationName = created.name
-  MODE.organisationCode = created.org_code || newCode
+  MODE.organisationCode = created.org_code
   const { error: metadataError } = await sb.auth.updateUser({ data: {
-    org_name: created.name, org_id: created.id, org_code: created.org_code || newCode, role
+    org_name: created.name, org_id: created.id, org_code: created.org_code, role
   } })
-  if (metadataError) console.warn('[JLIGHT] Workspace created but metadata update failed:', metadataError.message)
+  if (metadataError) console.warn('[JLIGHT] Workspace created but account metadata update failed:', metadataError.message)
 }
 async function doForgotPassword() {
   const email = (document.getElementById('si-email')||{}).value?.trim() || ''
