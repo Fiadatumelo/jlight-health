@@ -4,7 +4,7 @@
 Create a tenant-isolated data foundation for linking authorised Hospital Operations, Laboratory and Bioinformatics records and producing explainable findings. Clinical Trials is a separate data domain.
 
 ## Migration
-`supabase/migrations/202610220003_cross_section_intelligence_foundation.sql`
+`supabase/migrations/202610220003_cross_section_intelligence_foundation.sql` through `202610220006_controlled_finding_review_workflow.sql`
 
 It creates explicit organisation memberships, patient and encounter references, source observations with provenance, explainable findings, review events, and separate trial studies/participants. Existing organisation owners are backfilled as owner members.
 
@@ -15,6 +15,7 @@ It creates explicit organisation memberships, patient and encounter references, 
 - Organisation codes are identifiers, not credentials; never allow code-only membership.
 - Trial data uses separate tables and role-specific policies; routine roles do not automatically gain participant access.
 - Findings reference source observations and are advisory; no automatic clinical decisions.
+- Reviewer actions use the controlled `jl_review_finding` RPC; broad edits are limited to authorised operational roles.
 - Do not send identifiable health data to external AI providers without privacy, legal, security and vendor approval.
 
 ## Required before production
