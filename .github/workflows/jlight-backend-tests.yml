@@ -42,6 +42,22 @@ jobs:
           print(f"Checking {len(inline)} inline script block(s)")
           PY
           node --check /tmp/jlight-inline.js
+      - name: Guard existing patient schema compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          foundation = Path("supabase/migrations/202610220003_cross_section_intelligence_foundation.sql").read_text(encoding="utf-8")
+          integrity = Path("supabase/migrations/202610220004_cross_section_integrity_guards.sql").read_text(encoding="utf-8")
+          if "CREATE TABLE IF NOT EXISTS public.jl_patients" in foundation:
+              raise SystemExit("Integration must reuse the existing jl_patients table")
+          if "'jl_patients'" in foundation:
+              raise SystemExit("Integration must not force RLS on the existing jl_patients table")
+          if "p.organisation_id" in foundation or "p.organisation_id" in integrity:
+              raise SystemExit("Existing jl_patients uses org_id, not organisation_id")
+          if "p.org_id" not in foundation or "p.org_id" not in integrity:
+              raise SystemExit("Patient organisation-integrity guards must validate against org_id")
+          print("Existing patient schema compatibility checks passed")
+          PY
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
