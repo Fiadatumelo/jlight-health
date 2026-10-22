@@ -1282,14 +1282,30 @@ async function doSwitchWorkspace(targetRole) {
           MODE.organisationName = meta.org_name || 'JLIGHT Health Intelligence Platform'
           MODE.organisationCode = meta.org_code || ''
         } else {
-          await ensureJlightOrganisation(data.session.user, {
-            org: 'JLIGHT Health Intelligence Platform',
-            role: data.session.user.user_metadata?.role || 'Laboratory',
-            orgCode: data.session.user.user_metadata?.org_code || ''
-          })
+          throw new Error('No organisation is linked to this session. Finish workspace setup or ask your organisation administrator before switching modules.')
         }
       }
       if (!MODE.organisationId) throw new Error('Your organisation could not be resolved. No module changes were made.')
+
+      // Resolve permissions from trusted database membership, never user metadata
+      // or the visible module picker. Trial access requires its explicit role.
+      const { data: memberships, error: membershipError } = await sb
+        .from('jl_org_memberships')
+        .select('access_role,status')
+        .eq('organisation_id', MODE.organisationId)
+        .eq('user_id', data.session.user.id)
+        .eq('status', 'active')
+      if (membershipError) throw new Error('Could not verify your module permissions. No module changes were made.')
+      const requiredRole = ({ Hospital: 'hospital', Laboratory: 'laboratory', Bioinformatics: 'bioinformatics', Trial: 'clinical_trial' })[targetRole]
+      const activeRoles = (memberships || []).map(m => m.access_role)
+      const hasExplicitRole = activeRoles.includes(requiredRole)
+      const hasRoutineAdmin = activeRoles.includes('owner') || activeRoles.includes('org_admin')
+      const authorised = targetRole === 'Trial'
+        ? hasExplicitRole
+        : (hasExplicitRole || hasRoutineAdmin)
+      if (!authorised) {
+        throw new Error('Your account is not authorised for ' + ROLES[targetRole].label + '. Ask your organisation administrator to grant access.')
+      }
     } catch (e) {
       toast('Cannot open module', e.message || 'Please sign in again.', 'error')
       return
