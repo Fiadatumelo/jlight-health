@@ -5427,7 +5427,7 @@ async function checkAuditIntegrity() {
 
 
 // ── CROSS-WORKSPACE REQUEST ACTIONS ──
-function submitNewRequest() {
+async function submitNewRequest() {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const localRef = get('nrq-local'), test = get('nrq-test'), stype = get('nrq-stype')
   const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes'), targetOrgCode = get('nrq-target-org')
