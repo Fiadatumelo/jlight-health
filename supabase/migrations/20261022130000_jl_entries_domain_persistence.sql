@@ -7,9 +7,14 @@ alter table public.jl_entries
   add column if not exists domain text;
 
 alter table public.jl_entries
+  drop constraint if exists jl_entries_domain_allowed;
+
+alter table public.jl_entries
   add constraint jl_entries_domain_allowed
   check (domain is null or domain in (
-    'patients','labOrders','results','participants','admissions','bioRuns'
+    'patients','labOrders','results','qcRuns','protocols','participants',
+    'visits','adverseEvents','admissions','wards','clinicalOrders',
+    'infections','bioRuns','samples'
   )) not valid;
 
 create index if not exists jl_entries_org_domain_ts_idx
