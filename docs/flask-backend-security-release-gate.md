@@ -7,8 +7,7 @@ Reviewed: `jlight-backend/api/app.py` in the masterplatform development branch.
 1. **Authentication middleware added in this branch.** All API routes except `/api/health` require a verified Supabase bearer token. This is code-reviewed but not yet deployed or runtime-tested.
 2. **Client-supplied role is trusted.** Several handlers read `X-Role` or a JSON `role` field. These values are user-controlled and must never determine permissions.
 3. **Audit and decision-card routes now fail closed.** `/api/audit`, `/api/cards`, and `/api/cards/acknowledge` return 503 even for authenticated users until tenant-scoped authorization is implemented. This is a temporary safety gate, not a completed feature.
-4. **Decision-card acknowledgement is not authorised or tenant-scoped.** `POST /api/cards/acknowledge` updates a card by card number without verifying organisation membership or permission.
-5. **Decision cards have no tenant boundary in their query.** `GET /api/cards` filters by a caller-supplied role label, not a verified membership.
+4. **Tenant authorization is not implemented for the legacy card/audit schema.** These endpoints are therefore blocked with HTTP 503 until organisation membership checks and tenant-scoped database queries are implemented.
 6. **Errors can disclose implementation details.** Some bioinformatics handlers return raw exception messages to callers.
 7. **The app accepts large uploads.** A 50 MB request limit alone is not sufficient abuse protection for CPU-intensive sequence and spreadsheet processing.
 8. **Optional database mode silently degrades.** Audit persistence failures are swallowed; health output reports a generic status that can be mistaken for full operational readiness.
@@ -17,7 +16,7 @@ Reviewed: `jlight-backend/api/app.py` in the masterplatform development branch.
 ## Required remediation order
 
 1. Runtime-test Supabase access-token verification (issuer, audience, signature and expiry); keep only `/api/health` public.
-2. Derive user identity from verified token claims. Ignore client-provided role fields for authorisation.
+2. Keep identity derived from verified token claims; remove client-supplied role fields from all permission decisions.
 3. Add organisation membership checks for every read/write route; require organisation IDs and scope every query by authorised membership.
 4. Make audit records user/organisation scoped and append-only; protect acknowledgement with role checks and audit events.
 5. Apply per-route request-size, sequence-length, row-count and timeout limits; add rate limiting and safe generic errors.
