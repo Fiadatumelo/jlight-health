@@ -1421,6 +1421,7 @@ async function enterApp() {
       if (remote.audit   && remote.audit.length)    STATE.audit   = remote.audit
     }
     loadReqsFromSupa()
+    await loadDomainDataFromBackend()
   }
   $('sb-username').textContent = cfg.user
   $('sb-userrole').textContent = cfg.label
@@ -6266,7 +6267,21 @@ const INF_KEY      = 'jl_v10_infections'
 const BIORUN_KEY   = 'jl_v10_bio_runs'
 
 function lsGet(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] } }
-function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val.slice ? val.slice(-2000) : val)) } catch {} }
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val && val.slice ? val.slice(-2000) : val)) } catch {}
+  // Write-through for domain records: local storage remains a cache, not the source of truth.
+  const domainByKey = {
+    [PATIENT_KEY]: 'patients', [ORDERS_KEY]: 'labOrders', [RESULTS_KEY]: 'results',
+    [QC_KEY]: 'qcRuns', [PROTOCOL_KEY]: 'protocols', [PARTIC_KEY]: 'participants',
+    [VISITS_KEY]: 'visits', [AE_KEY]: 'adverseEvents', [ADMIT_KEY]: 'admissions',
+    [WARD_KEY]: 'wards', [CORD_KEY]: 'clinicalOrders', [INF_KEY]: 'infections',
+    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples'
+  }
+  const domain = domainByKey[key]
+  if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function') {
+    void syncDomainToBackend(domain, val)
+  }
+}
 
 function loadAllDomainData() {
   STATE.patients      = lsGet(PATIENT_KEY)
@@ -6568,7 +6583,7 @@ async function syncDomainToBackend(domain, items) {
     if (!STATE.orgId || STATE.orgId === 'default') throw new Error('No active workspace selected')
     const uid = session.user.id
     const rows = (items || []).slice(-200).map(item => ({
-      jl_id: String(item.id), user_id: uid,
+      jl_id: domain + ':' + String(item.id), user_id: uid,
       organisation: STATE.orgName || MODE.organisationName || 'Workspace',
       role: STATE.role || 'operator',
       org_id: STATE.orgId, domain,
@@ -6583,6 +6598,64 @@ async function syncDomainToBackend(domain, items) {
     console.error('[JLIGHT] domain sync failed:', e.message)
     toast('Cloud save failed', 'Your changes may only be stored on this device. Please retry before leaving this workspace.', 'crit')
     return { ok: false, reason: e.message || 'save_failed' }
+  }
+}
+
+
+// Restore persisted domain records from the authenticated organisation's cloud store.
+// Remote rows override matching local IDs; local-only records are retained for recovery.
+async function loadDomainDataFromBackend() {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) return { ok: false, reason: 'offline' }
+  try {
+    const { data: { session }, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!session) return { ok: false, reason: 'unauthenticated' }
+    if (!STATE.orgId || STATE.orgId === 'default') return { ok: false, reason: 'no_workspace' }
+    const { data, error } = await sb.from('jl_entries')
+      .select('jl_id, domain, payload, ts')
+      .eq('org_id', STATE.orgId)
+      .not('domain', 'is', null)
+      .order('ts', { ascending: false })
+      .limit(5000)
+    if (error) throw error
+    const keys = {
+      patients: PATIENT_KEY, labOrders: ORDERS_KEY, results: RESULTS_KEY,
+      qcRuns: QC_KEY, protocols: PROTOCOL_KEY, participants: PARTIC_KEY,
+      visits: VISITS_KEY, adverseEvents: AE_KEY, admissions: ADMIT_KEY,
+      wards: WARD_KEY, clinicalOrders: CORD_KEY, infections: INF_KEY,
+      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples'
+    }
+    const merged = {}
+    for (const [domain, key] of Object.entries(keys)) {
+      const local = lsGet(key)
+      const byId = new Map(local.filter(x => x && x.id != null).map(x => [String(x.id), x]))
+      merged[domain] = byId
+    }
+    for (const row of (data || [])) {
+      const domain = row.domain
+      const key = keys[domain]
+      const payload = row.payload
+      if (!key || !payload || payload.id == null) continue
+      merged[domain].set(String(payload.id), payload)
+    }
+    for (const [domain, key] of Object.entries(keys)) {
+      const records = Array.from(merged[domain].values()).slice(-2000)
+      try { localStorage.setItem(key, JSON.stringify(records)) } catch {}
+      const stateKey = ({
+        patients:'patients', labOrders:'labOrders', results:'results', qcRuns:'qcRuns',
+        protocols:'protocols', participants:'participants', visits:'visits',
+        adverseEvents:'adverseEvents', admissions:'admissions', wards:'wards',
+        clinicalOrders:'clinicalOrders', infections:'infections', bioRuns:'bioRuns',
+        samples:'samples'
+      })[domain]
+      if (stateKey) STATE[stateKey] = records
+    }
+    return { ok: true, count: (data || []).length }
+  } catch (e) {
+    console.error('[JLIGHT] cloud restore failed:', e.message)
+    toast('Cloud restore failed', 'Showing locally cached records. Do not rely on this device as the only copy.', 'crit')
+    return { ok: false, reason: e.message || 'restore_failed' }
   }
 }
 
