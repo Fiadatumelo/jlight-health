@@ -3,7 +3,7 @@
 -- Existing records are preserved; new domain rows are scoped to the active organisation.
 
 alter table public.jl_entries
-  add column if not exists org_id uuid references public.jl_organisations(id) on delete cascade,
+  add column if not exists org_id uuid references public.jl_organisations(id),
   add column if not exists domain text;
 
 alter table public.jl_entries
@@ -17,17 +17,9 @@ alter table public.jl_entries
     'infections','bioRuns','samples','reports'
   )) not valid;
 
--- Tenant-safe idempotency: legacy rows keep NULL org_id and remain untouched.
--- A globally unique jl_id can let one organisation block another organisation's
--- same logical record ID. Scope uniqueness to the organisation instead.
-alter table public.jl_entries
-  drop constraint if exists jl_entries_jl_id_key;
-
-alter table public.jl_entries
-  drop constraint if exists jl_entries_org_id_jl_id_key;
-
-alter table public.jl_entries
-  add constraint jl_entries_org_id_jl_id_key unique (org_id, jl_id);
+-- Preserve the existing global UNIQUE(jl_id) contract for compatibility.
+-- Do not change conflict targets until all writers and duplicate-ID assumptions
+-- have been migrated and tested. Legacy rows remain untouched.
 
 create index if not exists jl_entries_org_domain_ts_idx
   on public.jl_entries (org_id, domain, ts desc);
