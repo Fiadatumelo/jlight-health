@@ -49,6 +49,7 @@ begin
     set org_id = excluded.org_id,
         full_name = case when nullif(trim(p_full_name), '') is not null
                          then excluded.full_name else public.jl_user_profiles.full_name end,
+        workspace_role = excluded.workspace_role,
         active = true,
         last_seen = now();
 
