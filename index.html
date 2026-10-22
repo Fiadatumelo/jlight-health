@@ -993,6 +993,12 @@ async function ensureJlightOrganisation(user, options = {}) {
   if (!sessionResult?.session?.user?.id || sessionResult.session.user.id !== user.id) {
     throw new Error('No active session for this account. Confirm your email if required, then sign in again.')
   }
+  // Verify the access token against Supabase, not just the browser's local
+  // session cache, before attempting an RLS-protected insert.
+  const { data: verifiedUser, error: verifyError } = await sb.auth.getUser()
+  if (verifyError || verifiedUser?.user?.id !== user.id) {
+    throw new Error('Supabase could not verify your active login. Sign out, sign in again, then retry workspace setup.')
+  }
 
   const meta = user.user_metadata || {}
   // JLIGHT is the platform organisation; a first-time authenticated account
