@@ -3634,6 +3634,15 @@ function renderSettings() {
         ${STATE.syncConflicts && STATE.syncConflicts.length>0 ? '<div style="margin-top:10px;padding:10px 12px;background:var(--amber-bg);border:1px solid rgba(245,166,35,0.2);border-radius:8px;font-size:12px"><span style="color:var(--amber);font-weight:700">Sync:</span> '+STATE.syncConflicts.length+' conflict(s) resolved (newest wins). See audit trail.</div>' : ''}
       </div>
       <div class="form-card">
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Report Archive</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:12px;line-height:1.55">Generated compliance reports are saved in this workspace archive and can be reopened, downloaded, or deleted. Online copies sync only when the workspace database migration and tenant policies are installed.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button>
+          <button class="btn" onclick="renderReportArchive()">Refresh archive</button>
+        </div>
+        <div id="report-archive-list">${renderReportArchiveHtml()}</div>
+      </div>
+      <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Security</div>
         <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">PIN is hashed with SHA-256, salted per workspace. Resetting requires you to set a new code on next sign-in.</div>
         <button class="btn" onclick="resetPIN()">Reset PIN</button>
@@ -6218,6 +6227,73 @@ function copyOrgCode() {
 }
 
 
+
+function renderReportArchiveHtml() {
+  const reports = (Array.isArray(STATE.reportArchive) ? STATE.reportArchive : [])
+    .filter(r => !MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId))
+    .slice().sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+  if (!reports.length) return '<div style="font-size:12px;color:var(--text-3)">No archived reports yet. Generate a compliance report to begin.</div>'
+  return '<div style="display:grid;gap:8px">' + reports.map(r =>
+    '<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+    '<div><div style="font-size:12.5px;font-weight:700">' + esc(r.title || r.filename || 'Archived report') + '</div>' +
+    '<div style="font-size:11px;color:var(--text-3);margin-top:3px">' + esc(r.createdAt || '') + ' · ' + esc(r.createdBy || 'Unknown') + '</div></div>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+    '<button class="btn btn-sm" onclick="openArchivedReport(\'' + esc(r.id) + '\')">Open</button>' +
+    '<button class="btn btn-sm" onclick="downloadArchivedReport(\'' + esc(r.id) + '\')">Download</button>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' +
+    '</div></div>'
+  ).join('') + '</div>'
+}
+function renderReportArchive() {
+  const el = document.getElementById('report-archive-list')
+  if (el) el.innerHTML = renderReportArchiveHtml()
+}
+function findArchivedReport(id) {
+  return (STATE.reportArchive || []).find(r => String(r.id) === String(id) && (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId)))
+}
+function openArchivedReport(id) {
+  const report = findArchivedReport(id)
+  if (!report || !report.html) { toast('Report unavailable', 'The archived report content could not be found.', 'crit'); return }
+  const win = window.open('', '_blank')
+  if (!win) { toast('Popup blocked', 'Allow pop-ups to open the archived report.', 'warn'); return }
+  win.document.open(); win.document.write(report.html); win.document.close()
+  audit('Archived report opened', report.id)
+}
+function downloadArchivedReport(id) {
+  const report = findArchivedReport(id)
+  if (!report || !report.html) { toast('Report unavailable', 'The archived report content could not be found.', 'crit'); return }
+  const blob = new Blob([report.html], {type:'text/html;charset=utf-8'})
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = report.filename || ('JLIGHT-report-' + report.id + '.html'); a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  audit('Archived report downloaded', report.id)
+}
+async function deleteArchivedReport(id) {
+  if (!requirePermission('supervisor', 'Delete archived report')) return
+  const report = findArchivedReport(id)
+  if (!report) { toast('Report not found', 'Refresh the archive and try again.', 'warn'); return }
+  if (!confirm('Delete this archived report? This cannot be undone. Download a copy first if it must be retained.')) return
+  const sb = getSupabase()
+  if (MODE.isOnline && sb && STATE.orgId && STATE.orgId !== 'default') {
+    try {
+      const { data: { session }, error: sessionError } = await sb.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!session) throw new Error('Sign in again before deleting cloud records.')
+      const { error } = await sb.from('jl_entries').delete()
+        .eq('org_id', STATE.orgId).eq('domain', 'reports').eq('jl_id', 'reports:' + String(report.id))
+      if (error) throw error
+    } catch (e) {
+      toast('Cloud delete failed', 'The report was kept. Fix the cloud permission or connection and retry.', 'crit')
+      return
+    }
+  }
+  STATE.reportArchive = (STATE.reportArchive || []).filter(r => String(r.id) !== String(id))
+  lsSet(REPORT_KEY, STATE.reportArchive)
+  await audit('Archived report deleted', report.id)
+  renderReportArchive()
+  toast('Report deleted', 'The archived report was removed.', 'good')
+}
+
 function generateComplianceReport() {
   const now = new Date()
   const cards = STATE.cards
@@ -6288,15 +6364,25 @@ function generateComplianceReport() {
     '</body></html>'
   ].join('')
 
-  const blob = new Blob([doc], { type: 'text/html' })
+  const reportId = uid()
+  const filename = 'JLIGHT-Compliance-' + STATE.role + '-' + now.toISOString().slice(0,10) + '.html'
+  const archivedReport = {
+    id: reportId, orgId: STATE.orgId || null, title: 'Compliance Summary — ' + STATE.role,
+    reportType: 'compliance', workspace: STATE.role, filename, createdAt: now.toISOString(),
+    createdBy: getDisplayName(), html: doc, archived: false
+  }
+  STATE.reportArchive = Array.isArray(STATE.reportArchive) ? STATE.reportArchive : []
+  STATE.reportArchive.push(archivedReport)
+  lsSet(REPORT_KEY, STATE.reportArchive)
+  const blob = new Blob([doc], { type: 'text/html;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = 'JLIGHT-Compliance-' + STATE.role + '-' + now.toISOString().slice(0,10) + '.html'
+  a.download = filename
   a.click()
-  URL.revokeObjectURL(url)
-  audit('Compliance report exported', STATE.role + ' by ' + getDisplayName())
-  toast('Report exported', 'Open the HTML file and print to PDF', 'good')
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  audit('Compliance report generated and archived', STATE.role + ' by ' + getDisplayName() + ' · report ' + reportId)
+  toast('Report generated and archived', 'Downloaded HTML report; a copy has been added to the report archive.', 'good')
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -6319,12 +6405,13 @@ const WARD_KEY     = 'jl_v10_wards'
 const CORD_KEY     = 'jl_v10_clinical_orders'
 const INF_KEY      = 'jl_v10_infections'
 const BIORUN_KEY   = 'jl_v10_bio_runs'
+const REPORT_KEY   = 'jl_v10_report_archive'
 
 const JLIGHT_ORG_SCOPED_KEYS = new Set([
   'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
   'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
   'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
-  'jl_v10_bio_runs','jl_v10_samples'
+  'jl_v10_bio_runs','jl_v10_samples','jl_v10_report_archive'
 ])
 function jlightStorageKey(key) {
   if (JLIGHT_ORG_SCOPED_KEYS.has(key) && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
@@ -6354,7 +6441,7 @@ function lsSet(key, val) {
     [QC_KEY]: 'qcRuns', [PROTOCOL_KEY]: 'protocols', [PARTIC_KEY]: 'participants',
     [VISITS_KEY]: 'visits', [AE_KEY]: 'adverseEvents', [ADMIT_KEY]: 'admissions',
     [WARD_KEY]: 'wards', [CORD_KEY]: 'clinicalOrders', [INF_KEY]: 'infections',
-    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples'
+    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
   }
   const domain = domainByKey[key]
   if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function'
@@ -6377,6 +6464,7 @@ function loadAllDomainData() {
   STATE.clinicalOrders = lsGet(CORD_KEY)
   STATE.infections    = lsGet(INF_KEY)
   STATE.bioRuns       = lsGet(BIORUN_KEY)
+  STATE.reportArchive = lsGet(REPORT_KEY)
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
   STATE.instruments   = lsGet('jl_v10_instruments')
@@ -6398,6 +6486,7 @@ function saveAllDomainData() {
   lsSet(CORD_KEY,      STATE.clinicalOrders)
   lsSet(INF_KEY,       STATE.infections)
   lsSet(BIORUN_KEY,    STATE.bioRuns)
+  lsSet(REPORT_KEY,    STATE.reportArchive || [])
   lsSet('jl_v10_samples', STATE.samples)
 }
 
@@ -6704,7 +6793,7 @@ async function loadDomainDataFromBackend() {
       qcRuns: QC_KEY, protocols: PROTOCOL_KEY, participants: PARTIC_KEY,
       visits: VISITS_KEY, adverseEvents: AE_KEY, admissions: ADMIT_KEY,
       wards: WARD_KEY, clinicalOrders: CORD_KEY, infections: INF_KEY,
-      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples'
+      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples', reports: REPORT_KEY
     }
     const merged = {}
     for (const [domain, key] of Object.entries(keys)) {
@@ -6727,7 +6816,7 @@ async function loadDomainDataFromBackend() {
         protocols:'protocols', participants:'participants', visits:'visits',
         adverseEvents:'adverseEvents', admissions:'admissions', wards:'wards',
         clinicalOrders:'clinicalOrders', infections:'infections', bioRuns:'bioRuns',
-        samples:'samples'
+        samples:'samples', reports:'reportArchive'
       })[domain]
       if (stateKey) STATE[stateKey] = records
     }
