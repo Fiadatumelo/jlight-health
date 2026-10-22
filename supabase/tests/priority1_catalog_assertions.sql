@@ -37,7 +37,7 @@ begin
     raise exception 'FAIL: org_id foreign key is missing or cascades deletes';
   end if;
 
-  select pg_get_functiondef('public.jl_current_org_id()'::regprocedure) into v_def;
+  select pg_get_functiondef('private.jl_current_org_id()'::regprocedure) into v_def;
   if v_def not ilike '%jl_user_profiles%' or v_def not ilike '%auth.uid()%' then
     raise exception 'FAIL: current organisation resolver no longer uses the verified profile';
   end if;
