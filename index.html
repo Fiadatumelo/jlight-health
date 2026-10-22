@@ -341,6 +341,71 @@ select.form-input option { background: var(--surface-3); color: var(--text); }
 ::-webkit-scrollbar-track { background: var(--ink); }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* JLIGHT accessible white + multicolour refresh */
+:root {
+  --ink:#f5f7fb; --ink-2:#ffffff;
+  --surface:#ffffff; --surface-2:#ffffff; --surface-3:#f5f7ff; --surface-4:#edf2ff;
+  --teal:#087f8c; --teal-2:#066b76; --teal-glow:rgba(8,127,140,.13); --teal-bg:rgba(8,127,140,.07);
+  --amber:#b86b00; --amber-glow:rgba(245,166,35,.16); --amber-bg:rgba(245,166,35,.09);
+  --red:#c73552; --red-glow:rgba(199,53,82,.12); --red-bg:rgba(199,53,82,.07);
+  --green:#16794b; --green-glow:rgba(22,121,75,.12); --green-bg:rgba(22,121,75,.07);
+  --blue:#285bc5; --blue-glow:rgba(40,91,197,.12); --blue-bg:rgba(40,91,197,.07);
+  --purple:#7044b8; --purple-bg:rgba(112,68,184,.09);
+  --border:rgba(28,43,72,.10); --border-2:rgba(28,43,72,.16); --border-strong:rgba(28,43,72,.25);
+  --text:#182338; --text-2:#526078; --text-3:#6d7890; --text-4:#8993a7;
+}
+body { background:#f5f7fb; color:var(--text); }
+body::before { display:none; }
+a { color:var(--blue); }
+.sidebar,.topbar { background:#fff; border-color:#e5eaf2; }
+.sidebar { box-shadow:2px 0 16px rgba(22,37,65,.035); }
+.sb-brand,.sb-foot { border-color:#e8edf5; }
+.sb-brand-mark,.auth-mark { box-shadow:0 5px 14px rgba(40,91,197,.14); }
+.sb-link { color:#526078; }
+.sb-link:hover { background:#f3f6fc; color:#1e2a42; }
+.sb-link.active { background:linear-gradient(90deg,rgba(8,127,140,.10),rgba(40,91,197,.06)); color:#087f8c; }
+.sb-link.active::before { background:linear-gradient(180deg,#087f8c,#7044b8); }
+.sb-user,.role-btn,.pin-key,.tb-btn { background:#f6f8fc; border-color:#e3e9f3; color:#24314a; }
+.role-btn:hover { background:#f1f7ff; border-color:#8ca9e7; }
+.auth-screen { background:#f5f7fb; }
+.auth-bg-grid { background-image:linear-gradient(rgba(40,91,197,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(40,91,197,.045) 1px,transparent 1px); }
+.auth-glow { background:radial-gradient(circle,rgba(8,127,140,.09) 0%,transparent 65%); }
+.auth-glow-2 { background:radial-gradient(circle,rgba(112,68,184,.07) 0%,transparent 65%); }
+.auth-card { background:#fff; border-color:#e4eaf3; box-shadow:0 24px 70px rgba(28,43,72,.10); }
+.auth-name,.auth-title,.role-name,.sb-brand-name,.tb-title { color:#182338; }
+.auth-tagline,.auth-sub,.role-desc,.sb-userrole,.auth-back { color:#64718a; }
+.auth-card input,.auth-card select,.auth-card textarea { color:#182338; }
+.auth-card input:not([type=checkbox]),.auth-card select,.auth-card textarea { background:#f7f9fd; border:1px solid #dce4f0; border-radius:9px; }
+.auth-card input::placeholder { color:#8993a7; }
+.pin-key:hover,.tb-btn:hover { background:#edf2fa; border-color:#c5d2e7; }
+.tb-btn.primary { background:#087f8c; color:#fff; border-color:#087f8c; }
+.tb-btn.primary:hover { background:#066b76; }
+.sb-signout { color:#526078; border-color:#e0e6f0; }
+.sb-signout:hover { background:#fff0f3; color:#b42343; }
+.sb-section { color:#7c879c; }
+.sb-link-badge { color:#fff; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0,1fr); }
+  .sidebar { position:relative; top:auto; width:100%; height:auto; max-height:none; border-right:0; border-bottom:1px solid #e5eaf2; }
+  .sb-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; }
+  .sb-section { grid-column:1/-1; }
+  .sb-foot { padding:10px 14px; }
+  .topbar { padding:0 14px; }
+  .main-content,.content,.page-content { padding-left:14px!important; padding-right:14px!important; }
+}
+@media (max-width: 520px) {
+  .auth-screen { padding:12px; }
+  .auth-card { padding:24px 18px; border-radius:16px; }
+  .sb-nav { grid-template-columns:1fr 1fr; padding:8px; }
+  .sb-link { padding:10px 8px; font-size:12px; gap:7px; }
+  .tb-status { display:none; }
+  .topbar { gap:8px; }
+  .tb-title { font-size:14px; }
+}
+:focus-visible { outline:3px solid rgba(40,91,197,.42); outline-offset:2px; }
+button,input,select,textarea { transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease; }
+
 </style>
 </head>
 <body>
