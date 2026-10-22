@@ -62,19 +62,19 @@ Deno.serve(async (req) => {
     return json({ error: "Organisation, email or role is invalid" }, 400, headers);
   }
 
-  const { data: callerMembership, error: membershipError } = await adminClient
+  const { data: callerMemberships, error: membershipError } = await adminClient
     .from("jl_org_memberships")
     .select("access_role,status")
     .eq("organisation_id", organisationId)
     .eq("user_id", authData.user.id)
-    .maybeSingle();
+    .eq("status", "active");
 
   if (membershipError) return json({ error: "Could not verify organisation permissions" }, 500, headers);
-  if (!callerMembership || callerMembership.status !== "active" ||
-      !["owner", "org_admin"].includes(callerMembership.access_role)) {
+  const callerRoles = (callerMemberships ?? []).map((membership) => membership.access_role);
+  if (!callerRoles.some((accessRole) => ["owner", "org_admin"].includes(accessRole))) {
     return json({ error: "You are not authorised to invite members to this organisation" }, 403, headers);
   }
-  if (role === "org_admin" && callerMembership.access_role !== "owner") {
+  if (role === "org_admin" && !callerRoles.includes("owner")) {
     return json({ error: "Only an organisation owner can appoint an organisation administrator" }, 403, headers);
   }
 
