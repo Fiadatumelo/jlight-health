@@ -4874,21 +4874,25 @@ async function loadOrCreateProfile(supabaseUser) {
 }
 
 async function saveUserProfile(profile) {
-  STATE.userProfile = profile
+  // The profile form is user-editable; preserve only the workspace role already
+  // established by the trusted membership RPC and never persist a form-selected role.
+  const trustedWorkspaceRole = STATE.userProfile?.workspace_role || null
+  const safeProfile = { ...profile }
+  delete safeProfile.workspace_role
+  STATE.userProfile = { ...safeProfile, ...(trustedWorkspaceRole ? { workspace_role: trustedWorkspaceRole } : {}) }
   const sb = getSupabase()
   const supaUser = sb ? (await sb.auth.getUser()).data.user : null
-  if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(profile))
+  if (supaUser) localStorage.setItem('jl_profile_' + supaUser.id, JSON.stringify(STATE.userProfile))
   if (MODE.isOnline && sb && supaUser) {
     // Only send columns that exist in jl_user_profiles. Never accept a client-selected
     // permission level; the trusted membership RPC grants owner/admin and member/operator.
     const payload = {
       user_id: supaUser.id,
-      full_name: profile.full_name || STATE.userProfile?.full_name || 'JLIGHT User',
+      full_name: safeProfile.full_name || 'JLIGHT User',
       employee_id: profile.employee_id || null,
       job_title: profile.job_title || null,
       qualification: profile.qualification || null,
       domains: profile.domains || null,
-      workspace_role: STATE.userProfile?.workspace_role || 'operator',
       active: true,
       last_seen: new Date().toISOString()
     }
