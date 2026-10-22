@@ -1030,12 +1030,19 @@ function toggleSignupMode() {
   const r = document.getElementById('si-role-row')
   const b = document.getElementById('si-btn')
   const g = document.getElementById('si-toggle')
+  // A fresh registration defaults to creating a new organisation. Joining is
+  // an explicit choice for users who already have a code from an administrator.
+  if (MODE.signupMode) {
+    const joinType = document.getElementById('si-join-type')
+    if (joinType) joinType.value = 'new'
+  }
   if (t) t.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
-  if (s) s.textContent = MODE.signupMode ? 'New organisation — choose your workspace role' : 'Access your workspace'
+  if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
   if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
   if (b) b.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
   if (g) g.textContent = MODE.signupMode ? 'I already have an account' : 'Create new workspace'
+  toggleJoinType()
 }
 
 async function doSignIn() {
@@ -1103,10 +1110,11 @@ async function doSignIn() {
       await loadOrCreateProfile(data.user)
       if (status) {
         const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
-        status.textContent = 'Workspace created successfully' + codeMsg
+        status.textContent = 'Workspace created successfully' + codeMsg + (MODE.organisationCode ? ' — you can find and copy this code later in Settings → Organisation.' : '')
         status.className = 'auth-status success'
       }
-      setTimeout(()=>enterApp(), 1200)
+      // Give the owner time to read the generated code before entering the app.
+      setTimeout(()=>enterApp(), 4500)
     } else {
       const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
       if (error) throw error
