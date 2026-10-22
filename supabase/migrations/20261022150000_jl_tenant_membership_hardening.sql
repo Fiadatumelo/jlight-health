@@ -39,6 +39,8 @@ begin
   end if;
 
   v_name := coalesce(nullif(trim(p_full_name), ''), split_part(coalesce(auth.jwt()->>'email', 'JLIGHT User'), '@', 1));
+  -- p_workspace_role is retained for RPC signature compatibility only.
+  -- Never trust a client-requested role; derive it from verified ownership.
   v_role := case when v_org.owner_user_id = v_uid then 'admin' else 'operator' end;
 
   insert into public.jl_user_profiles
@@ -60,7 +62,14 @@ $$;
 revoke all on function public.jl_link_user_to_organisation(uuid, text, text, text) from public, anon;
 grant execute on function public.jl_link_user_to_organisation(uuid, text, text, text) to authenticated;
 
--- Prevent direct client writes from assigning arbitrary tenant IDs to profiles.
+-- Prevent direct client updates from changing role, organisation, or activation state.
+-- Profile membership/role/activation are managed by the SECURITY DEFINER RPC above.
+-- Column-level grants are required because RLS alone does not restrict which columns
+-- a user may update on their own row.
+revoke update on table public.jl_user_profiles from authenticated;
+grant update (full_name, employee_id, job_title, qualification, domains, last_seen)
+  on table public.jl_user_profiles to authenticated;
+
 -- Trusted tenant linking must happen through the SECURITY DEFINER RPC above.
 drop policy if exists profiles_all on public.jl_user_profiles;
 drop policy if exists profiles_select_self_or_org on public.jl_user_profiles;
