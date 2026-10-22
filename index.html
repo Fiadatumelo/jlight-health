@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
   --ink: #05080F; --ink-2: #0A0F1C;
@@ -26,7 +26,7 @@
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'Manrope', sans-serif; background: var(--ink); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', 'Manrope', sans-serif; background: var(--ink); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -430,6 +430,44 @@ button,input,select,textarea { transition:background-color .15s ease,border-colo
 .jlight-no-results { padding:18px; text-align:center; color:#64718a; font-size:13px; }
 @media(max-width:1100px) { .jlight-quick-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:620px) { .jlight-launchpad { padding:14px; } .jlight-launchpad-head { grid-template-columns:1fr; } .jlight-search-label { grid-column:1; grid-row:auto; margin:4px 0 -6px; } .jlight-nav-search { grid-column:1; grid-row:auto; } .jlight-quick-grid { grid-template-columns:1fr; } .jlight-quick-card { padding:13px; } }
+
+
+/* JLIGHT visual refresh: high-contrast, multicolour, keyboard-friendly */
+:root {
+  --ink:#071326; --ink-2:#0b1a31;
+  --surface:#0c1b32; --surface-2:#11233d; --surface-3:#172c49; --surface-4:#203958;
+  --teal:#31d6c5; --teal-2:#16b8aa; --teal-glow:rgba(49,214,197,.17); --teal-bg:rgba(49,214,197,.09);
+  --amber:#ffc15a; --amber-glow:rgba(255,193,90,.17); --amber-bg:rgba(255,193,90,.09);
+  --red:#ff6685; --red-glow:rgba(255,102,133,.16); --red-bg:rgba(255,102,133,.09);
+  --green:#4de2a3; --green-glow:rgba(77,226,163,.15); --green-bg:rgba(77,226,163,.08);
+  --blue:#70a7ff; --blue-glow:rgba(112,167,255,.17); --blue-bg:rgba(112,167,255,.09);
+  --purple:#c1a3ff; --purple-bg:rgba(193,163,255,.12);
+  --border:rgba(173,198,235,.13); --border-2:rgba(173,198,235,.22); --border-strong:rgba(173,198,235,.34);
+  --text:rgba(245,249,255,.96); --text-2:rgba(218,229,245,.78); --text-3:rgba(191,207,231,.62); --text-4:rgba(191,207,231,.48);
+}
+body { font-family:'Inter','Manrope',sans-serif; background:radial-gradient(ellipse at 82% -10%,rgba(112,83,255,.14),transparent 36%),radial-gradient(ellipse at -10% 40%,rgba(49,214,197,.09),transparent 34%),var(--ink); letter-spacing:.005em; }
+.auth-screen { background:radial-gradient(ellipse at 15% 15%,rgba(49,214,197,.09),transparent 36%),radial-gradient(ellipse at 85% 80%,rgba(193,163,255,.12),transparent 34%); }
+.sb-brand-mark,.auth-mark { background:linear-gradient(135deg,#31d6c5 0%,#5c8dff 52%,#b18aff 100%); box-shadow:0 5px 22px rgba(92,141,255,.2); }
+.sb-link.active { background:linear-gradient(90deg,rgba(49,214,197,.15),rgba(112,167,255,.08)); color:#78f1e2; }
+.sb-link.active::before { background:linear-gradient(180deg,#31d6c5,#70a7ff,#c1a3ff); }
+.sb-link:hover,.role-btn:hover { border-color:rgba(112,167,255,.55); }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible { outline:2px solid #70a7ff; outline-offset:3px; }
+button,.btn,.sb-link,.role-btn { transition:background-color .16s ease,border-color .16s ease,color .16s ease,transform .16s ease; }
+.btn-primary { background:linear-gradient(110deg,#087f8c,#456ee8 62%,#7756d8); border-color:transparent; color:#fff; }
+.btn-primary:hover { filter:brightness(1.12); }
+.form-card,.kpi-card,.panel,.stat-card { border-color:rgba(173,198,235,.16); }
+.jlight-launchpad { border-color:rgba(112,167,255,.25); }
+.jlight-quick-card:nth-child(4n+1) { border-top:2px solid #31d6c5; }
+.jlight-quick-card:nth-child(4n+2) { border-top:2px solid #70a7ff; }
+.jlight-quick-card:nth-child(4n+3) { border-top:2px solid #c1a3ff; }
+.jlight-quick-card:nth-child(4n+4) { border-top:2px solid #ffc15a; }
+.section-title,.page-title,.auth-title,.sb-brand-name { font-family:'Plus Jakarta Sans','Inter',sans-serif; letter-spacing:-.025em; }
+.section-title { color:#f4f7ff; }
+.form-label,.sb-section { letter-spacing:.07em; }
+input,select,textarea { font-size:14px; }
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
+}
 
 </style>
 </head>
@@ -1018,17 +1056,19 @@ async function doSignIn() {
       const role = (document.getElementById('si-role') || {}).value || 'Laboratory'
       const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
 
-      // Joining is not the same as creating. Do not silently create a new
-      // organisation when someone selected "Join existing organisation".
-      if (joinType === 'join') {
-        if (!orgCode) throw new Error('Enter the organisation code provided by your administrator, or choose “Create new organisation”.')
-        throw new Error('Joining existing organisations is being secured. For now, choose “Create new organisation” to create your own workspace; contact support before joining a shared workspace.')
+      // Shared-workspace membership is verified by the server-side
+      // jl_link_user_to_organisation RPC after email confirmation/sign-in.
+      // The client never assigns org_id or elevated workspace permissions.
+      if (joinType === 'join' && !orgCode) {
+        throw new Error('Enter the organisation code supplied by your administrator.')
       }
-      const organisationName = org || 'JLIGHT Health Intelligence Platform'
+      const organisationName = joinType === 'join'
+        ? ''
+        : (org || 'JLIGHT Health Intelligence Platform')
 
       const { data, error } = await sb.auth.signUp({
         email, password: pass,
-        options: { data: { org_name: organisationName, role, org_code: null } }
+        options: { data: { org_name: organisationName, role, org_code: joinType === 'join' ? orgCode : null } }
       })
       if (error) throw error
       if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
@@ -1059,7 +1099,7 @@ async function doSignIn() {
       MODE.isOnline = true
       STATE.user = data.user.email || email
       STATE.role = role
-      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: '' })
+      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
       await loadOrCreateProfile(data.user)
       if (status) {
         const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
@@ -6334,13 +6374,13 @@ function generateComplianceReport() {
   const doc = [
     '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">',
     '<title>JLIGHT Compliance Report — ' + STATE.role + ' — ' + now.toLocaleDateString() + '</title>',
-    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Times New Roman,serif;font-size:11pt;color:#000;background:#fff;padding:40px;max-width:900px;margin:0 auto}',
-    'h1{font-size:18pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:20px}',
-    'h2{font-size:14pt;border-bottom:1px solid #666;padding-bottom:4px;margin:28px 0 12px}',
-    'table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:10pt}',
-    'th{background:#f0f0f0;border:1px solid #999;padding:6px 10px;text-align:left;font-weight:bold}',
-    'td{border:1px solid #ccc;padding:6px 10px}',
-    '.hdr{border:2px solid #000;padding:16px;margin-bottom:28px}',
+    '<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,Manrope,Arial,sans-serif;font-size:10.5pt;line-height:1.55;color:#17243a;background:#fff;padding:36px;max-width:960px;margin:0 auto}',
+    'h1{font-size:20pt;color:#173b70;border-bottom:3px solid #6c5ce7;padding-bottom:10px;margin-bottom:20px}',
+    'h2{font-size:14pt;color:#087f8c;border-bottom:1px solid #d9e2f2;padding-bottom:6px;margin:28px 0 12px}',
+    'table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:9.5pt}',
+    'th{background:#eaf0ff;border:1px solid #c9d6ef;padding:8px 10px;text-align:left;font-weight:700;color:#243b65}',
+    'td{border:1px solid #dbe3ef;padding:7px 10px}',
+    '.hdr{border:1px solid #cbd7ef;border-top:5px solid #6c5ce7;border-radius:10px;padding:18px;margin-bottom:28px;background:linear-gradient(120deg,#f1f6ff,#f5fffc)}',
     '.sig{border:1px solid #000;padding:16px;margin-top:20px}',
     '.sl{border-bottom:1px solid #000;margin:20px 0 4px;width:300px;display:inline-block}',
     '@media print{body{padding:20px}}</style></head><body>',
