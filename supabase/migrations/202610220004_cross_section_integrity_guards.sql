@@ -13,7 +13,7 @@ DECLARE
 BEGIN
   IF NEW.patient_id IS NOT NULL AND NOT EXISTS (
     SELECT 1 FROM public.jl_patients p
-    WHERE p.id = NEW.patient_id AND p.organisation_id = NEW.organisation_id
+    WHERE p.id = NEW.patient_id AND p.org_id = NEW.organisation_id
   ) THEN
     RAISE EXCEPTION 'Finding patient must belong to the same organisation';
   END IF;
