@@ -42,8 +42,8 @@ create policy jl_entries_org_update
   using (auth.uid() is not null and org_id = public.jl_current_org_id())
   with check (
     auth.uid() is not null
-    and user_id = auth.uid()
     and org_id = public.jl_current_org_id()
+    and user_id is not null
   );
 
 drop policy if exists jl_entries_org_delete on public.jl_entries;
@@ -51,5 +51,8 @@ create policy jl_entries_org_delete
   on public.jl_entries for delete to authenticated
   using (auth.uid() is not null and org_id = public.jl_current_org_id());
 
+-- Shared workspace members can update records within their active organisation.
+-- Inserts must still be authored by the authenticated user. The tenant predicate
+-- remains mandatory on every read, insert, update and delete.
 -- Intentionally not applied to production by this change. Validate jl_current_org_id()
 -- membership semantics and existing RLS behavior in staging before rollout.
