@@ -1,6 +1,6 @@
 -- Run with Supabase CLI: supabase test db
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 
 SELECT ok(
   (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
@@ -58,6 +58,11 @@ SELECT ok(
 SELECT ok(
   NOT has_function_privilege('anon','public.jl_accept_organisation_invitations()','EXECUTE'),
   'anonymous users cannot activate invitations'
+);
+
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='jl_organisation_owner_membership_seed' AND NOT tgisinternal),
+  'new organisations automatically receive an owner membership'
 );
 
 SELECT * FROM finish();
