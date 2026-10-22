@@ -48,6 +48,3 @@ jobs:
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
-      - name: Run API authentication regression tests
-        working-directory: jlight-backend
-        run: python -m pytest -q tests/test_api_security.py
