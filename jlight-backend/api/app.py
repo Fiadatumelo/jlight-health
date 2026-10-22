@@ -73,6 +73,13 @@ def require_verified_supabase_session():
             return jsonify({"success": False, "error": "Invalid session"}), 401
         g.auth_claims = claims
         g.auth_user_id = claims["sub"]
+        # These legacy tables have no demonstrated organisation-scoped access
+        # model yet. Fail closed rather than expose global audit/card records.
+        if request.path in {"/api/audit", "/api/cards", "/api/cards/acknowledge"}:
+            return jsonify({
+                "success": False,
+                "error": "This endpoint is temporarily unavailable until organisation-scoped permissions are configured."
+            }), 503
     except RuntimeError:
         app.logger.exception("Supabase JWT verification is not configured")
         return jsonify({"success": False, "error": "Authentication service unavailable"}), 503
