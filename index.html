@@ -6278,7 +6278,8 @@ function lsSet(key, val) {
     [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples'
   }
   const domain = domainByKey[key]
-  if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function') {
+  if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function'
+      && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
     void syncDomainToBackend(domain, val)
   }
 }
