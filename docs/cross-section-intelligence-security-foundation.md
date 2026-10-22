@@ -9,7 +9,7 @@ Create a tenant-isolated data foundation for linking authorised Hospital Operati
 It creates explicit organisation memberships, patient and encounter references, source observations with provenance, explainable findings, review events, and separate trial studies/participants. Existing organisation owners are backfilled as owner members.
 
 ## Security model
-- RLS is enabled and forced on all new tables.
+- RLS is enabled on the membership lookup table and enabled plus forced on all new tenant data tables; membership provisioning is server-side only.
 - Every record is scoped to an organisation; membership and role checks use the authenticated Supabase user.
 - Browser clients cannot write membership rows. A reviewed trusted-server invitation flow is required.
 - Organisation codes are identifiers, not credentials; never allow code-only membership.
