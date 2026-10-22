@@ -32,10 +32,13 @@ REVOKE ALL ON FUNCTION public.jl_has_org_role(uuid,text[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.jl_has_org_role(uuid,text[]) TO authenticated;
 
 ALTER TABLE public.jl_org_memberships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.jl_org_memberships FORCE ROW LEVEL SECURITY;
+-- Do not FORCE RLS on this lookup table: the narrowly scoped SECURITY DEFINER
+-- membership-check functions must read it without recursive policy evaluation.
+-- Clients can only list their own memberships; no browser writes are granted.
 DROP POLICY IF EXISTS jl_memberships_read_self_or_admin ON public.jl_org_memberships;
-CREATE POLICY jl_memberships_read_self_or_admin ON public.jl_org_memberships FOR SELECT TO authenticated
- USING(user_id=auth.uid() OR public.jl_has_org_role(organisation_id,ARRAY['owner','org_admin']::text[]));
+DROP POLICY IF EXISTS jl_memberships_read_self ON public.jl_org_memberships;
+CREATE POLICY jl_memberships_read_self ON public.jl_org_memberships FOR SELECT TO authenticated
+ USING(user_id=auth.uid());
 -- No client membership writes; invitation provisioning requires a trusted server flow.
 
 CREATE TABLE IF NOT EXISTS public.jl_patients (
