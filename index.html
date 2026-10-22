@@ -406,6 +406,31 @@ a { color:var(--blue); }
 :focus-visible { outline:3px solid rgba(40,91,197,.42); outline-offset:2px; }
 button,input,select,textarea { transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease; }
 
+
+/* Dashboard quick navigation: large targets, clear hierarchy, colour-coded */
+.jlight-launchpad { margin:20px 0 24px; padding:20px; background:#fff; border:1px solid #e3e9f3; border-radius:16px; box-shadow:0 6px 22px rgba(28,43,72,.035); }
+.jlight-launchpad-head { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,280px); gap:8px 18px; align-items:end; margin-bottom:16px; }
+.jlight-search-label { grid-column:2; grid-row:1; font-size:11px; font-weight:700; color:#526078; margin-bottom:48px; }
+.jlight-nav-search { grid-column:2; grid-row:1; align-self:end; margin-bottom:0; min-height:42px; background:#f7f9fd!important; color:#182338!important; border:1px solid #dce4f0!important; border-radius:10px!important; padding:10px 12px!important; }
+.jlight-quick-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.jlight-quick-card { min-width:0; display:flex; align-items:center; gap:11px; padding:15px 12px; text-align:left; border:1px solid #e3e9f3; border-radius:12px; background:#fff; color:#182338; cursor:pointer; transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease; }
+.jlight-quick-card:hover { transform:translateY(-2px); box-shadow:0 8px 22px rgba(28,43,72,.08); border-color:#b9c9e2; }
+.jlight-quick-card:focus-visible { outline:3px solid rgba(40,91,197,.42); outline-offset:2px; }
+.jlight-quick-card[hidden] { display:none; }
+.jlight-quick-card>span:nth-child(2) { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
+.jlight-quick-card strong { font-size:12px; line-height:1.35; }
+.jlight-quick-card small { color:#64718a; font-size:10px; line-height:1.45; }
+.jlight-quick-icon { display:flex; flex:0 0 38px; width:38px; height:38px; align-items:center; justify-content:center; border-radius:11px; font-size:12px; font-weight:800; background:#e8f1ff; color:#285bc5; }
+.jlight-quick-arrow { color:#8993a7; font-size:17px; }
+.quick-blue { border-top:3px solid #285bc5; } .quick-blue .jlight-quick-icon { background:#e8f1ff;color:#285bc5; }
+.quick-purple { border-top:3px solid #7044b8; } .quick-purple .jlight-quick-icon { background:#efe8fb;color:#7044b8; }
+.quick-green { border-top:3px solid #16794b; } .quick-green .jlight-quick-icon { background:#e4f6ed;color:#16794b; }
+.quick-amber { border-top:3px solid #b86b00; } .quick-amber .jlight-quick-icon { background:#fff0da;color:#9a5900; }
+.quick-teal { border-top:3px solid #087f8c; } .quick-teal .jlight-quick-icon { background:#e0f5f4;color:#087f8c; }
+.jlight-no-results { padding:18px; text-align:center; color:#64718a; font-size:13px; }
+@media(max-width:1100px) { .jlight-quick-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:620px) { .jlight-launchpad { padding:14px; } .jlight-launchpad-head { grid-template-columns:1fr; } .jlight-search-label { grid-column:1; grid-row:auto; margin:4px 0 -6px; } .jlight-nav-search { grid-column:1; grid-row:auto; } .jlight-quick-grid { grid-template-columns:1fr; } .jlight-quick-card { padding:13px; } }
+
 </style>
 </head>
 <body>
@@ -1552,6 +1577,19 @@ console.log('v9.0 · Health Intelligence Platform · Production build')
 // ═══════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════
+function filterJlightQuickLinks(query) {
+  const q = String(query || '').trim().toLowerCase()
+  const cards = Array.from(document.querySelectorAll('#jlight-quick-grid [data-search]'))
+  let visible = 0
+  cards.forEach(card => {
+    const show = !q || (card.dataset.search + ' ' + card.textContent).toLowerCase().includes(q)
+    card.hidden = !show
+    if (show) visible++
+  })
+  const empty = document.getElementById('jlight-no-quick-results')
+  if (empty) empty.hidden = visible !== 0
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -1619,6 +1657,24 @@ function renderDashboard() {
       </div>
     </div>
     <div class="kpis">${kpiHTML}</div>
+    <section class="jlight-launchpad" aria-label="Quick navigation">
+      <div class="jlight-launchpad-head">
+        <div><div class="section-title">Quick access</div><div class="section-sub">Start a task or move to another JLIGHT module</div></div>
+        <label class="jlight-search-label" for="jlight-nav-search">Find a tool</label>
+        <input id="jlight-nav-search" class="form-input jlight-nav-search" type="search" placeholder="Search tools…" oninput="filterJlightQuickLinks(this.value)" autocomplete="off"/>
+      </div>
+      <div class="jlight-quick-grid" id="jlight-quick-grid">
+        <button class="jlight-quick-card quick-blue" data-search="register sample new sample result laboratory" onclick="goPage('register')"><span class="jlight-quick-icon">＋</span><span><strong>${newLabel}</strong><small>Start a new workflow</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-purple" data-search="decision cards alerts errors review" onclick="goPage('cards')"><span class="jlight-quick-icon">◎</span><span><strong>Review decisions</strong><small>See alerts and recommended actions</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-green" data-search="analytics reports trends" onclick="goPage('analytics')"><span class="jlight-quick-icon">▥</span><span><strong>View analytics</strong><small>Explore trends and summaries</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-amber" data-search="settings profile organisation account" onclick="goPage('settings')"><span class="jlight-quick-icon">⚙</span><span><strong>Settings</strong><small>Manage your workspace preferences</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-teal" data-search="laboratory samples" onclick="doSwitchWorkspace('Laboratory')"><span class="jlight-quick-icon">LAB</span><span><strong>Laboratory</strong><small>Laboratory intelligence tools</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-blue" data-search="hospital operations patients wards orders" onclick="doSwitchWorkspace('Hospital')"><span class="jlight-quick-icon">HOS</span><span><strong>Hospital Operations</strong><small>Patient and operational workflows</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-purple" data-search="bioinformatics pipeline genomic data" onclick="doSwitchWorkspace('Bioinformatics')"><span class="jlight-quick-icon">BIO</span><span><strong>Bioinformatics</strong><small>Data pipelines and analysis</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-amber" data-search="clinical trial study participant visits" onclick="doSwitchWorkspace('Trial')"><span class="jlight-quick-icon">CTL</span><span><strong>Clinical Trials</strong><small>Study workflows with restricted access</small></span><span class="jlight-quick-arrow">↗</span></button>
+      </div>
+      <div class="jlight-no-results" id="jlight-no-quick-results" hidden>No matching tools. Try another search.</div>
+    </section>
     <div class="section">
       <div class="section-head">
         <div>
