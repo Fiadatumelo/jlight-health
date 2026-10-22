@@ -45,3 +45,23 @@ def test_protected_route_accepts_verified_session():
 def test_protected_route_rejects_empty_bearer_token():
     response = app.test_client().get("/api/audit", headers={"Authorization": "Bearer "})
     assert response.status_code == 401
+
+
+def test_unscoped_audit_endpoint_fails_closed_even_for_authenticated_user():
+    claims = {"sub": "00000000-0000-4000-8000-000000000001", "aud": "authenticated"}
+    with patch("api.app.verify_access_token", return_value=claims):
+        response = app.test_client().get(
+            "/api/audit",
+            headers={"Authorization": "Bearer verified-test-token"},
+        )
+    assert response.status_code == 503
+
+
+def test_unscoped_decision_cards_fail_closed_even_for_authenticated_user():
+    claims = {"sub": "00000000-0000-4000-8000-000000000001", "aud": "authenticated"}
+    with patch("api.app.verify_access_token", return_value=claims):
+        response = app.test_client().get(
+            "/api/cards",
+            headers={"Authorization": "Bearer verified-test-token"},
+        )
+    assert response.status_code == 503
