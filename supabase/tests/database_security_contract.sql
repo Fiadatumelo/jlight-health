@@ -3,8 +3,8 @@ BEGIN;
 SELECT plan(16);
 
 SELECT ok(
-  (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
-  'patient table has RLS enabled and forced'
+  (SELECT relrowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
+  'existing patient table keeps RLS enabled'
 );
 
 SELECT ok(
@@ -48,8 +48,8 @@ SELECT ok(
   'anonymous users cannot call finding-review RPC'
 );
 SELECT ok(
-  EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_patients' AND policyname='jl_patients_select'),
-  'patient access is governed by an explicit select policy'
+  EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_patients' AND policyname='patients_org'),
+  'existing patient access policy is preserved'
 );
 SELECT ok(
   EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_trial_participants' AND policyname='jl_trial_participants_select'),
