@@ -6232,21 +6232,32 @@ function generateOrgCode(prefix) {
 }
 
 async function createOrganisation(orgName, role, email) {
+  // Legacy compatibility wrapper: never write directly to jl_organisations.
+  // The database RPC owns code generation, creator identity, role restrictions,
+  // and owner-membership creation. Do not fabricate a local workspace on failure.
   const sb = getSupabase()
-  const code = generateOrgCode(role.slice(0, 3).toUpperCase())
-  const org = { name: orgName, role, owner_email: email, org_code: code, created_at: new Date().toISOString() }
-  if (sb && MODE.isOnline) {
-    try {
-      await sb.from('jl_organisations').insert(org)
-    } catch (e) { console.warn('[JLIGHT] org create failed:', e.message) }
+  if (!sb || !MODE.isOnline) {
+    throw new Error('Workspace creation requires an online, authenticated session.')
   }
-  // Also store locally so admin can see the code
-  try {
-    const orgs = JSON.parse(localStorage.getItem('jl_orgs') || '[]')
-    orgs.push(org)
-    localStorage.setItem('jl_orgs', JSON.stringify(orgs))
-  } catch {}
-  return org
+  const roleMap = {
+    'Laboratory': 'Laboratory',
+    'Hospital': 'Hospital',
+    'Hospital Operations': 'Hospital',
+    'Bioinformatics': 'Laboratory'
+  }
+  const organisationRole = roleMap[String(role || '').trim()]
+  if (!organisationRole) {
+    throw new Error('This workspace type must be provisioned through the approved organisation setup workflow.')
+  }
+  const { data: created, error } = await sb.rpc('jl_create_organisation', {
+    p_name: String(orgName || '').trim() || 'JLIGHT Health Intelligence Platform',
+    p_role: organisationRole
+  })
+  if (error) throw new Error('Workspace creation failed: ' + error.message)
+  if (!created?.id || !created?.org_code) {
+    throw new Error('Workspace creation failed: the database did not return a valid organisation.')
+  }
+  return created
 }
 
 async function joinOrganisation(orgCode) {
