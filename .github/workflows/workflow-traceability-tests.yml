@@ -5,8 +5,10 @@ on:
     paths:
       - "jlight-backend/engine/workflow_traceability.py"
       - "jlight-backend/engine/domain_persistence.py"
+      - "index.html"
       - "jlight-backend/engine/source_adapters.py"
       - "jlight-backend/engine/decision_cards.py"
+      - "jlight-backend/tests/test_frontend_syntax.py"
       - "jlight-backend/tests/test_source_adapters.py"
       - "jlight-backend/tests/test_decision_cards.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
@@ -46,3 +48,5 @@ jobs:
       - name: Test workflow traceability, persistence, and authentication safety
         working-directory: jlight-backend
         run: python -m unittest tests.test_workflow_traceability tests.test_domain_persistence tests.test_source_workflow_auth tests.test_source_adapters tests.test_decision_cards -v
+      - name: Check frontend JavaScript syntax
+        run: python jlight-backend/tests/test_frontend_syntax.py -v
