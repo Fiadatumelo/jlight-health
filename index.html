@@ -776,7 +776,7 @@ const ROLES = {
       { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
-      { key: 'predictive', label: 'Predictive Engine', icon: '◉' },
+      { key: 'predictive', label: 'Data Trends & Signals', icon: '◉' },
       { key: 'analytics',  label: 'Retention',         icon: '◊' },
       { key: 'connectors', label: 'Data Sources',      icon: '⇆' },
       { key: 'audit',      label: 'Audit Trail',       icon: '☷' },
@@ -795,7 +795,7 @@ const ROLES = {
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'wards',      label: 'Ward Registry',      icon: '⊞' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
-      { key: 'predictive', label: 'Predictive Engine',   icon: '◉' },
+      { key: 'predictive', label: 'Data Trends & Signals', icon: '◉' },
       { key: 'analytics',  label: 'Ward Intelligence',   icon: '◊' },
       { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
       { key: 'audit',      label: 'Audit Trail',         icon: '☷' },
@@ -806,19 +806,16 @@ const ROLES = {
   Bioinformatics: {
     label: 'Bioinformatics', short: 'BIO', iconClass: 'bio', user: 'Bioinformatician',
     nav: [
-      { key: 'dashboard',    label: 'Dashboard',          icon: '&#9671;' },
-      { key: 'cards',        label: 'Decision Cards',     icon: '&#9672;' },
-      { key: 'journey',      label: 'Patient Journey',    icon: '↗' },
-      { key: 'register',     label: 'Review Imported Data', icon: '+' },
-      { key: 'bio-pipeline', label: 'Pipeline Queue',     icon: '&#9633;' },
-      { key: 'bio-report',   label: 'Reports',            icon: '&#8801;' },
-      { key: 'connectors',   label: 'Data Sources',       icon: '&#8646;' },
-      { key: 'import',       label: 'Import Data',        icon: '&#8593;' },
-      { key: 'thresholds',   label: 'Thresholds',         icon: '&#9681;' },
-      { key: 'audit',        label: 'Audit Trail',        icon: '&#9783;' },
-      { key: 'settings',     label: 'Settings',           icon: '&#9881;' },
+      { key: 'dashboard',  label: 'Dashboard',           icon: '◇' },
+      { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
+      { key: 'journey',    label: 'Patient Journey',     icon: '↗' },
+      { key: 'register',   label: 'Review Imported Data', icon: '+' },
+      { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
+      { key: 'analytics',  label: 'Analytics',            icon: '◊' },
+      { key: 'audit',      label: 'Audit Trail',          icon: '☷' },
+      { key: 'settings',   label: 'Settings',             icon: '⚙' },
     ],
-    intro: 'NGS pipeline QC · variant calling · AMR detection · contamination screening · full reports',
+    intro: 'Review imported bioinformatics outputs, quality metrics and traceability signals',
   },
 }
 
@@ -2019,6 +2016,15 @@ function renderRegister() {
   if (STATE.role === 'Laboratory') return renderLabRegister()
   if (STATE.role === 'Trial')      return renderTrialRegister()
   if (STATE.role === 'Hospital')   return renderHospitalRegister()
+  if (STATE.role === 'Bioinformatics') return renderBioinformaticsReview()
+}
+function renderBioinformaticsReview() {
+  const page = document.getElementById('page-register')
+  if (!page) return
+  const runs = STATE.bioRuns || []
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Review Imported Bioinformatics Data</div><div class="page-sub">JLIGHT analyses supplied outputs; it does not run sequencing or wet-lab pipelines.</div></div></div>' +
+    '<div class="kpis"><div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">' + runs.length + '</div><div class="kpi-trend">Records currently loaded</div></div><div class="kpi"><div class="kpi-label">Open Decisions</div><div class="kpi-value">' + (STATE.cards || []).filter(c => !c.acknowledged).length + '</div><div class="kpi-trend">Signals for professional review</div></div></div>' +
+    '<div class="form-card"><p style="color:var(--text-2);line-height:1.7">Connect a validated source or approved export to review existing analysis outputs. Imports require documented field mapping, access controls, patient-ID matching, error handling and auditability. JLIGHT does not sequence samples or perform wet-lab processing.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button><button class="btn" onclick="goPage(\'journey\')">View Patient Journey</button><button class="btn" onclick="goPage(\'cards\')">Review Decision Cards</button></div></div>'
 }
 
 function renderLabRegister() {
