@@ -36,6 +36,14 @@ class SourceWorkflowAuthTests(unittest.TestCase):
         response = self.client.get("/api/connector-freshness")
         self.assertEqual(response.status_code, 401)
 
+    def test_patient_link_routes_require_bearer_token(self):
+        response = self.client.post("/api/patient-links", json={})
+        self.assertEqual(response.status_code, 401)
+        response = self.client.post("/api/patient-keys", json={})
+        self.assertEqual(response.status_code, 401)
+        response = self.client.get("/api/patient-journeys")
+        self.assertEqual(response.status_code, 401)
+
     @patch.dict("os.environ", {"SUPABASE_URL": "", "SUPABASE_JWT_SECRET": ""}, clear=False)
     def test_auth_missing_configuration_fails_closed(self):
         response = self.client.get("/api/workflow-timelines",
