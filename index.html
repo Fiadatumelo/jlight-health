@@ -1050,12 +1050,23 @@ async function doSignIn() {
       STATE.role = role
       await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: '' })
       await loadOrCreateProfile(data.user)
+      let codeDelivery = ''
+      if (MODE.organisationCode) {
+        try {
+          await sendOrganisationCodeEmail()
+          codeDelivery = ' Organisation code emailed to your account address.'
+        } catch (mailError) {
+          console.warn('[JLIGHT] Organisation-code email was not sent:', mailError.message)
+          codeDelivery = ' Email delivery is not configured yet; copy the code from Settings.'
+        }
+      }
       if (status) {
-        const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
-        status.textContent = 'Workspace created successfully' + codeMsg
+        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
+        status.textContent = 'Workspace created successfully.' + codeMsg + codeDelivery
         status.className = 'auth-status success'
       }
-      setTimeout(()=>enterApp(), 1200)
+      if (MODE.organisationCode) toast('Organisation code', MODE.organisationCode + (codeDelivery ? ' · ' + codeDelivery.trim() : ''), 'good')
+      setTimeout(()=>enterApp(), 1800)
     } else {
       const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
       if (error) throw error
@@ -1065,12 +1076,24 @@ async function doSignIn() {
       const meta = user.user_metadata || {}
       STATE.user = user.email || email
       STATE.role = meta.role || 'Laboratory'
+      const hadWorkspaceMetadata = !!meta.org_id
       await ensureJlightOrganisation(user, {
         org: meta.org_name || '',
         role: meta.role || 'Laboratory',
         orgCode: meta.org_code || ''
       })
       await loadOrCreateProfile(user)
+      if (!hadWorkspaceMetadata && MODE.organisationCode) {
+        try {
+          await sendOrganisationCodeEmail()
+          if (status) { status.textContent = 'Workspace ready. Your organisation code has been emailed to your account address.'; status.className = 'auth-status success' }
+          toast('Organisation code sent', 'Check your account email', 'good')
+        } catch (mailError) {
+          console.warn('[JLIGHT] Organisation-code email was not sent:', mailError.message)
+          if (status) { status.textContent = 'Workspace ready. Your organisation code is ' + MODE.organisationCode + '. Email delivery is not configured yet; you can resend it from Settings.'; status.className = 'auth-status success' }
+          toast('Organisation code', MODE.organisationCode, 'good')
+        }
+      }
       enterApp()
     }
   } catch(e) {
@@ -1176,20 +1199,33 @@ async function ensureJlightOrganisation(user, options = {}) {
 }
 async function doForgotPassword() {
   const email = (document.getElementById('si-email')||{}).value?.trim() || ''
-  const addr = prompt('Enter your account email:', email)
+  const addr = (email || prompt('Enter your account email:', '') || '').trim()
   if (!addr) return
   const sb = getSupabase()
-  if (!sb) { alert('Backend unavailable'); return }
+  const status = document.getElementById('si-status')
+  if (!sb) {
+    if (status) { status.textContent = 'Password reset is unavailable because the authentication service could not be reached.'; status.className = 'auth-status error' }
+    return
+  }
   try {
-    const { error } = await sb.auth.resetPasswordForEmail(addr.trim(), {
-      redirectTo: window.location.origin + window.location.pathname
-    })
+    if (status) { status.textContent = 'Requesting password-reset email…'; status.className = 'auth-status' }
+    const redirectTo = window.location.origin + window.location.pathname
+    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo })
     if (error) throw error
-    const status = document.getElementById('si-status')
-    if (status) { status.textContent = 'Reset email sent to ' + addr.trim(); status.className = 'auth-status success' }
-    toast('Reset email sent', 'Check your inbox', 'good')
+    // Supabase deliberately uses a generic response to avoid revealing whether
+    // an account exists. SMTP delivery must be configured in Supabase Auth.
+    if (status) {
+      status.textContent = 'If an account exists for that address, a password-reset email has been requested. Check spam and use the newest link.'
+      status.className = 'auth-status success'
+    }
+    toast('Reset requested', 'Check your inbox and spam folder', 'good')
   } catch(e) {
-    toast('Reset failed', e.message, 'crit')
+    console.error('[JLIGHT] Password reset request failed:', e)
+    if (status) {
+      status.textContent = 'Could not request a reset email. Please try again later or contact support.'
+      status.className = 'auth-status error'
+    }
+    toast('Reset request failed', e.message || 'Authentication email service error', 'crit')
   }
 }
 
@@ -1203,23 +1239,22 @@ async function doResetPassword() {
   if (!sb) { if (st) { st.textContent = 'Backend unavailable'; st.className = 'auth-status error' } return }
   if (st) { st.textContent = 'Setting password...'; st.className = 'auth-status' }
   try {
-    // Exchange URL token for session if needed
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const at = params.get('access_token')
-      const rt = params.get('refresh_token') || ''
-      if (at) { try { await sb.auth.setSession({ access_token: at, refresh_token: rt }) } catch {} }
-    }
+    // The boot handler exchanges Supabase PKCE codes or recovery tokens.
+    // Do not swallow setSession errors: updateUser must never appear successful
+    // unless a valid recovery session is present and the password was changed.
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!sessionData?.session) throw new Error('The recovery link is invalid or expired. Request a new reset email.')
     const { error } = await sb.auth.updateUser({ password: np })
     if (error) throw error
-    if (st) { st.textContent = 'Password updated. Redirecting to sign in...'; st.className = 'auth-status success' }
+    if (st) { st.textContent = 'Password updated successfully. Returning to sign in…'; st.className = 'auth-status success' }
+    await sb.auth.signOut()
     window.history.replaceState(null, '', window.location.pathname)
     setTimeout(() => {
       showScreen('screen-signin')
       const si = document.getElementById('si-status')
       if (si) { si.textContent = 'Password updated — sign in with your new password'; si.className = 'auth-status success' }
-    }, 1500)
+    }, 800)
   } catch (e) {
     if (st) { st.textContent = (e.message || 'Reset failed') + ' — link may have expired. Request a new one.'; st.className = 'auth-status error' }
   }
@@ -6166,9 +6201,24 @@ function renderOrgInfo() {
     '<span class="detail-row-value" style="display:flex;align-items:center;gap:8px">' +
     '<code style="font-family:DM Mono,monospace;font-size:14px;font-weight:700;color:var(--teal);background:var(--teal-bg);padding:4px 10px;border-radius:6px;border:1px solid rgba(0,201,167,0.2)">' + esc(MODE.organisationCode) + '</code>' +
     (isAdmin ? '<button class="btn btn-sm" onclick="copyOrgCode()">Copy</button>' : '') +
+    (isAdmin ? '<button class="btn btn-sm" onclick="sendOrganisationCodeEmail()">Email code</button>' : '') +
     '</span></div>' +
-    (isAdmin ? '<div style="font-size:12px;color:var(--text-2);margin-top:10px;line-height:1.55">Share this code with team members. They sign up with "Join existing organisation" and enter this code. All members share the same workspace data with individual logins and audit trails.</div>' : '') +
+    (isAdmin ? '<div style="font-size:12px;color:var(--text-2);margin-top:10px;line-height:1.55">Share this code only with authorised colleagues. It identifies the workspace but does not grant access by itself; use approved invitations and individual accounts.</div>' : '') +
     '</div>'
+}
+
+async function sendOrganisationCodeEmail() {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline || !MODE.organisationId || !MODE.organisationCode) {
+    throw new Error('Sign in to the workspace owner account before emailing the organisation code.')
+  }
+  const { data, error } = await sb.functions.invoke('send-organisation-code', {
+    body: { organisation_id: MODE.organisationId }
+  })
+  if (error) throw new Error(error.message || 'Email service unavailable')
+  if (!data?.success) throw new Error(data?.error || 'Email service could not send the organisation code')
+  toast('Organisation code emailed', 'Sent to ' + (data.sent_to || 'your account email'), 'good')
+  return data
 }
 
 function copyOrgCode() {
