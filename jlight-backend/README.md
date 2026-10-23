@@ -164,3 +164,24 @@ python3 tests/test_all.py
 
 ---
 Team JLIGHT · Fiada Mothapo · Gauteng, South Africa · 2026
+
+
+## Source-system interoperability (staging foundation)
+
+The source-workflow API is a **read-only integration layer** over events and records exported by existing Hospital, Laboratory, and Bioinformatics systems. It does not replace those systems, operate analysers, process specimens, or write back into source systems. Clinical Trials remains a separate participant workflow.
+
+New authenticated endpoints:
+- `POST /api/source-records` — append an immutable, versioned source record.
+- `POST /api/workflow-events` — append a source-observed workflow event.
+- `GET /api/workflow-timelines` — read the tenant's event timeline.
+
+All three endpoints require a valid Supabase Auth bearer token and an `X-JLIGHT-Organization` UUID. The API verifies active membership against `jlight_organization_memberships`. Viewer memberships are read-only. Client-supplied patient IDs are deliberately not accepted as verified links; records remain unlinked until a separate trusted patient-linking workflow is implemented.
+
+Before staging use:
+1. Configure `SUPABASE_URL` and `DATABASE_URL` in the backend environment.
+2. Apply `migrations/20261023110000_cross_section_persistence.sql` and `migrations/20261023123000_organization_memberships.sql` to a **non-production** PostgreSQL database.
+3. Provision an organization and membership using a trusted administrative process; never expose membership self-assignment to clients.
+4. Use a restricted runtime database role, not the table owner or a `BYPASSRLS` role. Grant only the required table privileges and verify row-level security with two synthetic organizations.
+5. Run the synthetic tests and exercise the endpoints with synthetic Hospital/Laboratory/Bioinformatics records before connecting real systems.
+
+These migrations are not automatically applied by the API. No live source-system connector or production deployment is implied by these endpoints.
