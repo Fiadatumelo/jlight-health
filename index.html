@@ -1623,6 +1623,8 @@ document.addEventListener('keydown', (e) => {
 
 // ── Boot: handle Supabase password-recovery links and restore session ──
 setTimeout(async () => {
+  // Every fresh app load requires an explicit workspace-path choice.
+  sessionStorage.removeItem('jl_selected_path')
   const sb = getSupabase()
   if (!sb) { showScreen('screen-signin'); return }
 
@@ -1775,6 +1777,16 @@ function renderDashboard() {
       <div class="kpi ${critical>0?'crit':''}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical retention risks</div></div>
       <div class="kpi ${noShow > 3 ? 'warn' : ''}"><div class="kpi-label">No-Shows</div><div class="kpi-value">${noShow}</div><div class="kpi-trend">Recent missed visits</div></div>
       <div class="kpi"><div class="kpi-label">Active Participants</div><div class="kpi-value">${new Set(STATE.entries.map(e => e.participantId).filter(Boolean)).size}</div><div class="kpi-trend">Tracked</div></div>
+    `
+  } else if (STATE.role === 'Bioinformatics') {
+    const runs = STATE.bioRuns || []
+    const qc = STATE.bioQc || []
+    const failedQc = qc.filter(q => /fail|flag|review|error/i.test(String(q.status || q.outcome || '')))
+    kpiHTML = `
+      <div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">${runs.length}</div><div class="kpi-trend">Source-system records</div></div>
+      <div class="kpi"><div class="kpi-label">Quality Records</div><div class="kpi-value">${qc.length}</div><div class="kpi-trend">Imported quality metrics</div></div>
+      <div class="kpi ${failedQc.length ? 'warn' : 'good'}"><div class="kpi-label">Quality Items to Review</div><div class="kpi-value">${failedQc.length}</div><div class="kpi-trend">Based on source status labels</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else {
     const events = STATE.entries.length
@@ -5761,8 +5773,7 @@ function loadAllDomainData() {
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
   STATE.instruments   = lsGet('jl_v10_instruments')
-  STATE.entries       = STATE.samples  // legacy compat
-  STATE.entries       = STATE.samples
+  // Keep role-scoped STATE.entries loaded by enterApp; trial events must not be overwritten by legacy sample cache.
 }
 
 function saveAllDomainData() {
