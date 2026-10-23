@@ -11,8 +11,8 @@ CREATE OR REPLACE FUNCTION public.jl_accept_organisation_invitations()
 RETURNS integer
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public, pg_temp
-AS $$
+SET search_path = pg_catalog, auth
+AS $function$
 DECLARE
   actor uuid := auth.uid();
   confirmed_at timestamptz;
@@ -22,23 +22,25 @@ BEGIN
     RAISE EXCEPTION 'Authentication required' USING ERRCODE = '42501';
   END IF;
 
-  SELECT email_confirmed_at INTO confirmed_at
-  FROM auth.users
-  WHERE id = actor;
+  SELECT u.email_confirmed_at
+    INTO confirmed_at
+  FROM auth.users AS u
+  WHERE u.id = actor;
 
   IF confirmed_at IS NULL THEN
     RAISE EXCEPTION 'Confirm your email before accepting organisation invitations' USING ERRCODE = '42501';
   END IF;
 
   UPDATE public.jl_org_memberships
-  SET status = 'active'
-  WHERE user_id = actor AND status = 'invited';
+     SET status = 'active'
+   WHERE user_id = actor
+     AND status = 'invited';
 
   GET DIAGNOSTICS activated_count = ROW_COUNT;
   RETURN activated_count;
 END;
-$$;
+$function$;
 
-REVOKE ALL ON FUNCTION public.jl_accept_organisation_invitations() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.jl_accept_organisation_invitations() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.jl_accept_organisation_invitations() TO authenticated;
 COMMIT;
