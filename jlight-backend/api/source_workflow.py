@@ -279,6 +279,8 @@ def ingest_source_export():
         return _error("Clinical Trials uses its separate participant workflow", 400)
     if domain not in {"hospital", "laboratory", "bioinformatics"}:
         return _error("domain must be hospital, laboratory, or bioinformatics", 400)
+    if domain != g.jlight_domain:
+        return _error("Source export domain must match the authorised workspace", 403)
     try:
         events = parse_source_export(
             body.get("format"), body.get("payload"),
@@ -337,6 +339,9 @@ def queue_source_export():
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return _error("JSON object required", 400)
+    domain = str(body.get("domain") or "").strip().lower()
+    if domain != g.jlight_domain:
+        return _error("Queue domain must match the authorised workspace", 403)
     key = str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "").strip()
     try:
         with _db() as conn:
