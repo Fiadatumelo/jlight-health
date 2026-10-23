@@ -187,7 +187,7 @@ All listed API endpoints require a valid Supabase Auth bearer token and an `X-JL
 
 Before staging use:
 1. Configure `SUPABASE_URL`, `DATABASE_URL`, and a random `JLIGHT_LINKING_SECRET` of at least 32 characters in the backend environment. Keep the linking secret identical across API instances and rotate it only through a planned re-hash migration.
-2. Apply `migrations/20261023110000_cross_section_persistence.sql`, `migrations/20261023123000_organization_memberships.sql`, `migrations/20261023160000_trusted_patient_linking.sql`, and `migrations/20261023180000_durable_ingestion_queue.sql` to a **non-production** PostgreSQL database.
+2. Apply `migrations/20261023110000_cross_section_persistence.sql`, `migrations/20261023123000_organization_memberships.sql`, `migrations/20261023160000_trusted_patient_linking.sql`, and `migrations/20261023180000_durable_ingestion_queue.sql` and `migrations/20261023183000_secure_ingestion_queue_grants.sql` to a **non-production** PostgreSQL database.
 3. Provision an organization and membership using a trusted administrative process; never expose membership self-assignment to clients.
 4. Configure `DATABASE_URL` with a dedicated database login that is explicitly granted membership in the non-login `jlight_runtime` role. The API executes `SET ROLE jlight_runtime` on every connection. Do not use the table-owner or a `BYPASSRLS` login for the deployed API.
 5. Verify row-level security with two synthetic organizations, then run the synthetic tests and exercise the endpoints with synthetic Hospital/Laboratory/Bioinformatics records before connecting real systems.
