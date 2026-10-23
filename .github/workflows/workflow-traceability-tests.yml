@@ -18,6 +18,7 @@ on:
       - "jlight-backend/tests/test_synthetic_fhir_interop.py"
       - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
       - "jlight-backend/scripts/validate_fhir_export.py"
+      - "jlight-backend/scripts/validate_synthea_archive.py"
       - "jlight-backend/tests/test_decision_cards.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
       - "jlight-backend/tests/test_domain_persistence.py"
@@ -67,5 +68,7 @@ jobs:
       - name: Test workflow traceability, persistence, and authentication safety
         working-directory: jlight-backend
         run: python -m unittest tests.test_workflow_traceability tests.test_domain_persistence tests.test_ingestion_queue tests.test_facility_spool tests.test_source_workflow_auth tests.test_source_adapters tests.test_synthetic_fhir_interop tests.test_decision_cards -v
+      - name: Check archive validator syntax
+        run: python -m py_compile jlight-backend/scripts/validate_synthea_archive.py
       - name: Check frontend JavaScript syntax
         run: python jlight-backend/tests/test_frontend_syntax.py -v
