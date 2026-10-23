@@ -80,13 +80,16 @@ def claim_exports(connection: Any, organization_id: str, *, limit: int = 10,
         raise ValueError("limit must be between 1 and 100")
     if not isinstance(lease_seconds, int) or not 10 <= lease_seconds <= 3600:
         raise ValueError("lease_seconds must be between 10 and 3600")
+    if domain is not None and domain not in SUPPORTED_DOMAINS:
+        raise ValueError("unsupported queue domain")
     token = str(uuid4())
     with connection.cursor() as cur:
         cur.execute("SELECT set_config('jlight.organization_id', %s, true)", (org_id,))
         cur.execute(
             """WITH candidates AS (
                  SELECT id FROM jlight_ingestion_queue
-                 WHERE organization_id = %s AND attempts < max_attempts
+                 WHERE organization_id = %s AND (%s IS NULL OR domain = %s)
+                   AND attempts < max_attempts
                    AND (status IN ('pending', 'retry') OR
                         (status = 'processing' AND lease_expires_at < now()))
                    AND available_at <= now()
@@ -101,7 +104,7 @@ def claim_exports(connection: Any, organization_id: str, *, limit: int = 10,
                RETURNING q.id, q.idempotency_key, q.source_system, q.domain,
                          q.export_format, q.payload, q.attempts, q.max_attempts,
                          q.lease_token""",
-            (org_id, limit, token, lease_seconds),
+            (org_id, domain, domain, limit, token, lease_seconds),
         )
         rows = cur.fetchall()
     connection.commit()
