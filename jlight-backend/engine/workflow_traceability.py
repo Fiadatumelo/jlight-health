@@ -67,7 +67,7 @@ def normalize_workflow_event(raw: Mapping[str, Any]) -> dict[str, Any]:
 
     observed_at = _timestamp(raw["observed_at"])
     patient_id = str(raw.get("jlight_patient_id") or "").strip() or None
-    link_status = "verified" if patient_id else "unlinked"
+    link_status = "verified" if (patient_id and raw.get("patient_link_verified") is True) else "unlinked"
 
     return {
         "event_id": event_id,
