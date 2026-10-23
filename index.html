@@ -772,7 +772,7 @@ const ROLES = {
     nav: [
       { key: 'dashboard',  label: 'Dashboard',         icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',    icon: '◈' },
-      { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
+      // Trial participant identity stays in the dedicated trial registry.
       { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
@@ -1774,6 +1774,19 @@ function renderDashboard() {
       <div class="kpi ${critical>0?'crit':''}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical retention risks</div></div>
       <div class="kpi ${noShow > 3 ? 'warn' : ''}"><div class="kpi-label">No-Shows</div><div class="kpi-value">${noShow}</div><div class="kpi-trend">Recent missed visits</div></div>
       <div class="kpi"><div class="kpi-label">Active Participants</div><div class="kpi-value">${new Set(STATE.entries.map(e => e.participantId).filter(Boolean)).size}</div><div class="kpi-trend">Tracked</div></div>
+    `
+  } else if (STATE.role === 'Hospital') {
+    const admissions = STATE.admissions || []
+    const activeAdmissions = admissions.filter(a => !/discharged|closed|completed/i.test(String(a.status || '')))
+    const orders = STATE.clinicalOrders || []
+    const missingLinks = admissions.filter(a => !a.patientId).length + orders.filter(o => !o.patientId).length
+    const openOrders = orders.filter(o => !/completed|cancelled|closed/i.test(String(o.status || '')))
+    kpiHTML = `
+      <div class="kpi"><div class="kpi-label">Active Admissions</div><div class="kpi-value">${activeAdmissions.length}</div><div class="kpi-trend">Based on source status</div></div>
+      <div class="kpi"><div class="kpi-label">Hospital Orders</div><div class="kpi-value">${orders.length}</div><div class="kpi-trend">Authorised records loaded</div></div>
+      <div class="kpi ${openOrders.length ? 'warn' : 'good'}"><div class="kpi-label">Orders Not Marked Complete</div><div class="kpi-value">${openOrders.length}</div><div class="kpi-trend">Review operational status</div></div>
+      <div class="kpi ${missingLinks ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingLinks}</div><div class="kpi-trend">Review source mapping</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else if (STATE.role === 'Bioinformatics') {
     const runs = STATE.bioRuns || []
@@ -5618,7 +5631,7 @@ function generateComplianceReport() {
 // ═══════════════════════════════════════════════════════════════════
 // JLIGHT v10.0 — PATIENT REGISTRY
 // Central entity that links Laboratory, Trial, Hospital, and Bio
-// A patient registered once is available across all four domains
+// Shared patient identity spans Hospital, Laboratory and Bioinformatics; Clinical Trials use a separate participant registry.
 // ═══════════════════════════════════════════════════════════════════
 
 // ── PATIENT STORAGE ──
@@ -5738,7 +5751,7 @@ function renderPatients() {
   $('page-patients').innerHTML =
     '<div class="page-head">' +
     '<div><div class="page-title">Patient Registry</div>' +
-    '<div class="page-sub">' + filtered.length + ' patients · central identity across all domains</div></div>' +
+    '<div class="page-sub">' + filtered.length + ' patients · shared identity for non-trial care domains</div></div>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<input class="form-input" style="width:240px;padding:7px 12px" placeholder="Search by name, MRN, ID..." ' +
     'value="' + esc(STATE.search.patients) + '" ' +
@@ -5751,7 +5764,7 @@ function renderPatients() {
 
     (filtered.length === 0 ? renderEmpty(
       q ? 'No patients match your search' : 'No patients registered',
-      q ? 'Try a different search term' : 'Register your first patient to begin. Patients are linked across all four domains.',
+      q ? 'Try a different search term' : 'Register a patient to begin the shared Hospital–Laboratory–Bioinformatics journey. Clinical Trials use a separate participant registry.',
       null, null
     ) :
     '<div class="section"><div style="display:grid;gap:10px">' +
