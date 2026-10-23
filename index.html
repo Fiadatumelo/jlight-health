@@ -662,6 +662,7 @@ input,select,textarea { font-size:14px; }
         <div id="page-audit" class="page"></div>
         <div id="page-settings" class="page"></div>
         <div id="page-patients" class="page"></div>
+        <div id="page-journey" class="page"></div>
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
         <div id="page-hl7" class="page"></div>
@@ -744,7 +745,8 @@ const ROLES = {
       { key: 'dashboard',  label: 'Dashboard',          icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',     icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
-      { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' },
+      { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
+      { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' }
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'requests',   label: 'Sample Requests',    icon: '⇄' },
       { key: 'predictive', label: 'Predictive Engine',  icon: '◉' },
@@ -778,7 +780,8 @@ const ROLES = {
       { key: 'dashboard',  label: 'Dashboard',           icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
-      { key: 'register',   label: 'Log Event',           icon: '+' },
+      { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
+      { key: 'register',   label: 'Log Event',           icon: '+' }
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'wards',      label: 'Ward Registry',      icon: '⊞' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
@@ -795,8 +798,9 @@ const ROLES = {
     nav: [
       { key: 'dashboard',    label: 'Dashboard',          icon: '&#9671;' },
       { key: 'cards',        label: 'Decision Cards',     icon: '&#9672;' },
-      { key: 'register',     label: 'New Analysis',       icon: '+' },
-      { key: 'bio-pipeline', label: 'Pipeline Queue',     icon: '&#9633;' },
+      { key: 'journey',      label: 'Patient Journey',    icon: '↗' },
+      { key: 'register',     label: 'Review Imported Data', icon: '+' },
+      { key: 'bio-pipeline', label: 'Pipeline Queue',     icon: '&#9633;' }
       { key: 'bio-report',   label: 'Reports',            icon: '&#8801;' },
       { key: 'connectors',   label: 'Data Sources',       icon: '&#8646;' },
       { key: 'import',       label: 'Import Data',        icon: '&#8593;' },
@@ -1560,7 +1564,7 @@ function goPage(page) {
   const target = $(`page-${page}`)
   if (target) target.classList.add('active')
   const titles = {
-    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail',
+    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     process: 'Source Data Review', samples: 'Laboratory Data Traceability', 'sample-detail': 'Source Data Detail',
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
@@ -1583,6 +1587,7 @@ function goPage(page) {
     case 'audit':     renderAudit(); break
     case 'settings':    renderSettings(); break
     case 'patients':      renderPatients(); break
+    case 'journey':       renderJourney(); break
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
     case 'hl7':           renderHL7Receiver(); break
@@ -1696,6 +1701,39 @@ function filterJlightQuickLinks(query) {
   if (empty) empty.hidden = visible !== 0
 }
 
+function buildJourneyReport() {
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)))
+  const ids=new Set(patients.map(p=>String(p.id))), touched=new Map()
+  const domains=[
+    {key:"hospital",label:"Hospital admissions",rows:STATE.admissions||[]},
+    {key:"hospitalOrders",label:"Hospital orders",rows:STATE.clinicalOrders||[]},
+    {key:"laboratory",label:"Laboratory orders",rows:STATE.labOrders||[]},
+    {key:"labResults",label:"Imported laboratory results",rows:STATE.results||[]},
+    {key:"bioinformatics",label:"Bioinformatics outputs",rows:STATE.bioRuns||[]}
+  ]
+  const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {...d,total:d.rows.length,linked,missing,unmatched}})
+  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,trialRecords:(STATE.participants||[]).length+(STATE.visits||[]).length+(STATE.adverseEvents||[]).length,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.","Clinical Trials remain a separate workflow and are excluded from the shared non-trial patient journey.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
+}
+function renderJourney() {
+  const page=document.getElementById("page-journey");if(!page)return
+  const report=buildJourneyReport()
+  const metric=(label,value,tone,note)=>'<div class="journey-metric '+tone+'"><span>'+esc(label)+'</span><strong>'+value+'</strong><small>'+esc(note)+'</small></div>'
+  const rows=report.counts.map(c=>'<tr><td>'+esc(c.label)+'</td><td>'+c.total+'</td><td>'+c.linked+'</td><td>'+c.unmatched+'</td><td>'+c.missing+'</td><td>'+(c.total?Math.round(c.linked/c.total*100):0)+'%</td></tr>').join("")
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Cross-Domain Patient Journey</div><div class="page-sub">One traceable view across Hospital / Health Informatics, Laboratory and Bioinformatics. Clinical Trials remain separate.</div></div><button class="btn btn-primary" onclick="generateJourneyReport()">Generate traceability report</button></div>'+
+    '<div class="journey-banner"><div><span class="journey-eyebrow">WORKSPACE SNAPSHOT</span><h3>'+esc(report.workspace)+'</h3><p>Mode: '+esc(report.mode.toUpperCase())+' · Generated '+esc(new Date(report.generatedAt).toLocaleString())+'</p></div><span class="journey-badge">'+(report.mode==="online"?"Online session":"Device-only data")+'</span></div>'+
+    '<div class="journey-metrics">'+metric("Active patients",report.patients,"tone-blue","Shared patient registry")+metric("Patients in 2+ domains",report.crossDomainPatients,"tone-purple","Matched by patient ID")+metric("Unmatched references",report.unmatchedReferences,report.unmatchedReferences?"tone-amber":"tone-green","Review source mapping")+metric("Missing patient IDs",report.missingPatientReference,report.missingPatientReference?"tone-amber":"tone-green","Cannot be linked automatically")+'</div>'+
+    '<div class="journey-panel"><div class="section-title">Traceability by compartment</div><p class="journey-footnote">Counts use records currently loaded in this workspace. Empty compartments are not evidence of a failed integration.</p><div class="journey-table-wrap"><table class="journey-table"><thead><tr><th>Compartment</th><th>Records</th><th>Matched</th><th>Unmatched</th><th>Missing ID</th><th>Match rate</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'+
+    '<div class="journey-panel"><div class="section-title">Interpretation and boundaries</div><ul class="journey-notes">'+report.notes.map(n=>'<li>'+esc(n)+'</li>').join("")+'</ul><p class="journey-footnote">This is an operational traceability report, not a diagnostic result or proof that external connectors are live.</p></div>'+
+    '<div id="journey-report-output" class="journey-panel" aria-live="polite"><div class="section-title">Generated report</div><p class="journey-footnote">Generate a fresh snapshot to record an audit event and download aggregate JSON results.</p></div>'
+}
+async function generateJourneyReport() {
+  const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
+  if(output)output.innerHTML='<div class="section-title">Report generated</div><p class="journey-footnote">Generated '+esc(new Date(report.generatedAt).toLocaleString())+'. Download contains aggregate counts, not patient names.</p><pre class="journey-json">'+esc(JSON.stringify(report,null,2))+'</pre>'
+  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.crossDomainPatients+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a")
+  link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
+  toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
+}
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -5572,6 +5610,9 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .path-picker{margin:0 0 24px;padding:16px;background:linear-gradient(135deg,#f8fbff,#f9f6ff);border:1px solid #e1e8f5;border-radius:16px}.path-picker-title{font-size:17px;font-weight:800;color:#182338;margin-bottom:4px}.path-picker-sub{color:#64718a;font-size:12px;margin-bottom:13px}.path-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.path-choice{display:flex;align-items:center;gap:10px;text-align:left;min-width:0;padding:12px;border:1px solid #dfe6f2;border-radius:12px;background:#fff;color:#182338}.path-choice:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(28,43,72,.08)}.path-choice.selected{box-shadow:0 0 0 2px currentColor,0 8px 18px rgba(28,43,72,.07)}.path-choice-icon{display:flex;flex:0 0 42px;width:42px;height:42px;align-items:center;justify-content:center;border-radius:12px;font-size:10px;font-weight:900}.path-choice-copy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.path-choice-copy strong{font-size:12px;color:#182338}.path-choice-copy small{color:#64718a;font-size:10px;line-height:1.45}.path-choice-check{opacity:0;font-weight:900}.path-choice.selected .path-choice-check{opacity:1}
 .path-lab{border-top:3px solid #285bc5;color:#285bc5}.path-lab .path-choice-icon{background:#e8f1ff;color:#285bc5}.path-hospital{border-top:3px solid #c73552;color:#b42343}.path-hospital .path-choice-icon{background:#ffebef;color:#b42343}.path-bio{border-top:3px solid #7044b8;color:#7044b8}.path-bio .path-choice-icon{background:#efe8fb;color:#7044b8}.path-trial{border-top:3px solid #a65d00;color:#a65d00}.path-trial .path-choice-icon{background:#fff0da;color:#9a5900}.btn-primary,.tb-btn.primary{background:linear-gradient(110deg,#087f8c,#456ee8 62%,#7756d8);border-color:transparent;color:#fff}.kpi,.dc,.form-card,.panel,.stat-card{background:#fff;border-color:#e2e9f4;box-shadow:0 5px 18px rgba(28,43,72,.035)}.section-title,.page-title{color:#182338}
 @media(max-width:700px){.auth-card{padding:22px 16px}.path-picker-grid{grid-template-columns:1fr}}
+.journey-banner{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:22px;margin-bottom:16px;border-radius:16px;color:#fff;background:linear-gradient(115deg,#087f8c,#285bc5 58%,#7044b8);box-shadow:0 12px 28px rgba(40,91,197,.15)}.journey-banner h3{margin:5px 0;font-size:20px}.journey-banner p{font-size:12px;opacity:.9}.journey-eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;opacity:.8}.journey-badge{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.18);white-space:nowrap}
+.journey-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.journey-metric{display:flex;flex-direction:column;gap:8px;padding:17px;background:#fff;border:1px solid #e2e9f4;border-radius:14px;border-top:3px solid #285bc5}.journey-metric span{color:#526078;font-size:11px;font-weight:700}.journey-metric strong{color:#182338;font-size:29px}.journey-metric small{color:#6d7890;font-size:10px;line-height:1.45}.journey-metric.tone-purple{border-top-color:#7044b8}.journey-metric.tone-amber{border-top-color:#b86b00}.journey-metric.tone-green{border-top-color:#16794b}
+.journey-panel{padding:18px;border:1px solid #e2e9f4;border-radius:14px;margin-bottom:14px;background:#fff}.journey-table-wrap{overflow-x:auto}.journey-table{width:100%;border-collapse:collapse;font-size:12px}.journey-table th,.journey-table td{text-align:left;padding:11px 12px;border-bottom:1px solid #e8edf5;white-space:nowrap}.journey-table th{color:#64718a;background:#f7f9fd;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.journey-table td{color:#26354e}.journey-notes{margin:12px 0 10px 18px;color:#526078;font-size:12px;line-height:1.8}.journey-footnote{margin-top:10px;color:#64718a;font-size:11px;line-height:1.6}.journey-json{margin-top:12px;padding:12px;max-height:320px;overflow:auto;background:#f5f8fd;border:1px solid #e1e8f3;border-radius:10px;color:#26354e;font:11px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:700px){.journey-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-banner{align-items:flex-start;flex-direction:column}}
 </style></head><body>',
 
     '<div class="hdr">',
