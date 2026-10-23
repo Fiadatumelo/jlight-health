@@ -577,12 +577,15 @@ def get_patient_journeys():
             with conn.cursor() as cur:
                 cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
                             (g.jlight_actor["organization_id"],))
+                cur.execute("SELECT set_config('jlight.auth_subject', %s, true)",
+                            (g.jlight_actor["subject"],))
                 cur.execute(
                     """SELECT event_id, source_system, source_record_id, domain, event_type,
                               observed_at, source_status, jlight_patient_id,
                               patient_link_verified, source_values_modified
                        FROM jlight_workflow_events
                        WHERE organization_id = %s AND patient_link_verified = TRUE
+                         AND domain IN ('hospital', 'laboratory', 'bioinformatics')
                        ORDER BY observed_at, event_id LIMIT 10000""",
                     (g.jlight_actor["organization_id"],),
                 )
