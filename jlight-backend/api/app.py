@@ -44,13 +44,23 @@ from api.source_workflow import source_workflow_bp
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-CORS(app, origins=[
+_DEFAULT_CORS_ORIGINS = [
     "https://jlight-health.co.za",
     "https://www.jlight-health.co.za",
     "http://localhost:3000",
     "http://localhost:5000",
     "http://127.0.0.1:5500",  # VS Code Live Server
-])
+]
+# Add exact origins for staging/preview deployments via ALLOWED_ORIGINS (comma-separated).
+# Never use a wildcard: this API handles authenticated health-data workflows.
+_configured_origins = [
+    value.strip().rstrip("/")
+    for value in os.environ.get("ALLOWED_ORIGINS", "").split(",")
+    if value.strip()
+]
+if "*" in _configured_origins:
+    raise RuntimeError("ALLOWED_ORIGINS must contain explicit origins, not '*'.")
+CORS(app, origins=list(dict.fromkeys(_DEFAULT_CORS_ORIGINS + _configured_origins)))
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max upload
 
