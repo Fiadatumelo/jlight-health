@@ -638,7 +638,7 @@ input,select,textarea { font-size:14px; }
           <span class="dot"></span>
           <span>Local · Encrypted</span>
         </div>
-        <button class="tb-btn primary" onclick="goPage('register')">+ New Sample</button>
+        <button class="tb-btn primary" onclick="goPage('connectors')">+ Connect Data Source</button>
       </header>
       <div class="content">
         <div id="page-dashboard" class="page active"></div>
@@ -735,14 +735,10 @@ const ROLES = {
     label: 'Laboratory', short: 'LAB', iconClass: 'lab', user: 'Laboratory User',
     nav: [
       { key: 'dashboard',  label: 'Dashboard',          icon: '◇' },
-      { key: 'samples',    label: 'Sample Profiles',    icon: '⊡' },
       { key: 'cards',      label: 'Decision Cards',     icon: '◈' },
-      { key: 'register',   label: 'Register Sample',    icon: '+' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
       { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' },
-      { key: 'process',    label: 'Record Result',      icon: '▶' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
-      { key: 'instruments', label: 'Instruments',        icon: '⚙' },
       { key: 'requests',   label: 'Sample Requests',    icon: '⇄' },
       { key: 'predictive', label: 'Predictive Engine',  icon: '◉' },
       { key: 'analytics',  label: 'Lab Analytics',      icon: '◊' },
@@ -750,7 +746,7 @@ const ROLES = {
       { key: 'audit',      label: 'Audit Trail',        icon: '☷' },
       { key: 'settings',   label: 'Settings',           icon: '⚙' },
     ],
-    intro: 'Sample lifecycle · QC · contamination · false positives/negatives · predictive failure detection',
+    intro: 'Laboratory data traceability · workflow visibility · data-quality and turnaround-time intelligence',
   },
   Trial: {
     label: 'Clinical Trial', short: 'TRL', iconClass: 'trial', user: 'Trial Coordinator',
@@ -1947,6 +1943,8 @@ function renderRegister() {
 }
 
 function renderLabRegister() {
+  $('page-register').innerHTML = `<div class="page-head"><div><div class="page-title">Laboratory Data Intake</div><div class="page-sub">JLIGHT analyses existing data; it does not register or process physical specimens.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Use Data Sources to review ingestion options. Any integration must be implemented and validated before operational use. Laboratory results must originate from an authorised source system.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
+  return;
   $('page-register').innerHTML = `
     <div class="page-head">
       <div>
@@ -3563,7 +3561,7 @@ function renderConnectors() {
     </div>
     <div class="connector-grid">
       <div class="connector"><div class="connector-head"><div class="connector-name">Manual Entry</div><div class="connector-status active">Active</div></div><div class="connector-desc">The simplest pathway. Operators register samples / log visits / log events directly in JLIGHT. Useful for facilities without LIMS, paper-based workflows, or as backup during system downtime.</div><div class="connector-detail">PATHWAY · Forms in this app · zero infrastructure required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Upload</div><div class="connector-status ready">Ready</div></div><div class="connector-desc">Bulk import from any system that exports tabular data. JLIGHT auto-maps columns, validates, and runs analysis on every row. Works with QC logs, instrument exports, trial visit registers.</div><div class="connector-detail">PATHWAY · Settings → Import CSV · supports .csv, .xlsx, .tsv</div></div>
+      <div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Upload</div><div class="connector-status ready">Validation required</div></div><div class="connector-desc">Intended for importing supported tabular data from existing systems. Verify field mapping, validation, error handling, and audit trail in the target environment before operational use.</div><div class="connector-detail">PATHWAY · Settings → Import CSV · supports .csv, .xlsx, .tsv</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">Instrument / LIS Data Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">JLIGHT may be integrated with an instrument middleware service or an existing LIS to receive results and QC data. A vendor-specific connection, interface configuration, security review and end-to-end test are required before any connection can be described as operational. JLIGHT does not control or operate the analyser.</div><div class="connector-detail">INTEGRATION · Interface and vendor requirements must be confirmed per site</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">HL7 v2.5 Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Potential standards-based exchange with an LIS or hospital system. Message handling, secure transport, acknowledgement, error recovery and end-to-end mapping must be implemented and tested before this is used operationally. The interface label alone does not mean a live listener is running.</div><div class="connector-detail">STANDARD · HL7 v2.5 · site-specific interface and security review required</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">FHIR R4 Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Potential standards-based exchange with compatible hospital systems. Resource mapping, authentication, consent/authorisation, synchronisation and error handling must be implemented and tested for each deployment. Do not assume live FHIR ingestion until verified.</div><div class="connector-detail">STANDARD · FHIR R4 · REST/JSON · secure authorisation required</div></div>
@@ -8655,6 +8653,25 @@ async function enrichCriticalCardsOnLoad() {
 function renderEmpty(title, desc, page, btnLabel) {
   return `<div class="empty"><div class="empty-icon">◌</div><div class="empty-title">${esc(title)}</div>${desc ? `<div class="empty-desc">${esc(desc)}</div>` : ''}${page && btnLabel ? `<button class="btn btn-primary" onclick="goPage('${page}')">${esc(btnLabel)}</button>` : ''}</div>`
 }
+
+function renderSamples() {
+  if (STATE.role !== 'Laboratory') return;
+  $('page-samples').innerHTML = `<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review imported or recorded source-system data and its audit trail.</div></div></div><div class="form-card"><div class="page-title" style="font-size:16px">JLIGHT does not process specimens</div><p style="color:var(--text-2);line-height:1.7">JLIGHT analyses data supplied by existing laboratory systems. It does not perform diagnostic tests, generate laboratory measurements, operate analysers, or replace the laboratory information system. Configure a validated data source under Data Sources to use intelligence features.</p><div class="form-actions"><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button><button class="btn" onclick="goPage('cards')">View Decision Cards</button></div></div>`;
+}
+function renderProcess() {
+  $('page-process').innerHTML = `<div class="page-head"><div><div class="page-title">Source Result Data</div><div class="page-sub">Results must originate from an authorised laboratory system or qualified laboratory personnel.</div></div></div><div class="form-card"><div class="page-title" style="font-size:16px">Result entry is not a JLIGHT testing function</div><p style="color:var(--text-2);line-height:1.7">JLIGHT does not run tests or create laboratory results. Import existing results through a configured and validated data source. Any source-system integration must be verified before being treated as live.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
+}
+function submitSampleRegistration() { toast('Use an existing source system', 'JLIGHT does not register or process physical specimens. Connect or import authorised source data.', 'warn'); goPage('connectors'); }
+function submitResult() { toast('Result entry disabled', 'JLIGHT does not perform laboratory testing or generate results. Use authorised source-system data.', 'warn'); goPage('connectors'); }
+function renderInstruments() {
+  const page = document.getElementById('page-instruments');
+  if (page) page.innerHTML = `<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">JLIGHT analyses data from existing systems; it does not operate laboratory instruments.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Instrument registration and control are outside JLIGHT scope. Use Data Sources to configure supported data ingestion. Integrations must be implemented, tested, and validated before being described as operational.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
+}
+function showInstrumentForm() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
+function saveInstrument() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
+function enterResult() { toast('Use an authorised laboratory system', 'JLIGHT analyses supplied data; it does not create or validate laboratory results.', 'warn'); goPage('connectors'); }
+function submitResults() { toast('Result entry disabled', 'Import results from an authorised, validated source system instead.', 'warn'); goPage('connectors'); }
+
 </script>
 </body>
 </html>
