@@ -1775,6 +1775,19 @@ function renderDashboard() {
       <div class="kpi ${noShow > 3 ? 'warn' : ''}"><div class="kpi-label">No-Shows</div><div class="kpi-value">${noShow}</div><div class="kpi-trend">Recent missed visits</div></div>
       <div class="kpi"><div class="kpi-label">Active Participants</div><div class="kpi-value">${new Set(STATE.entries.map(e => e.participantId).filter(Boolean)).size}</div><div class="kpi-trend">Tracked</div></div>
     `
+  } else if (STATE.role === 'Hospital') {
+    const admissions = STATE.admissions || []
+    const activeAdmissions = admissions.filter(a => !/discharged|closed|completed/i.test(String(a.status || '')))
+    const orders = STATE.clinicalOrders || []
+    const missingLinks = admissions.filter(a => !a.patientId).length + orders.filter(o => !o.patientId).length
+    const openOrders = orders.filter(o => !/completed|cancelled|closed/i.test(String(o.status || '')))
+    kpiHTML = `
+      <div class="kpi"><div class="kpi-label">Active Admissions</div><div class="kpi-value">${activeAdmissions.length}</div><div class="kpi-trend">Based on source status</div></div>
+      <div class="kpi"><div class="kpi-label">Hospital Orders</div><div class="kpi-value">${orders.length}</div><div class="kpi-trend">Authorised records loaded</div></div>
+      <div class="kpi ${openOrders.length ? 'warn' : 'good'}"><div class="kpi-label">Orders Not Marked Complete</div><div class="kpi-value">${openOrders.length}</div><div class="kpi-trend">Review operational status</div></div>
+      <div class="kpi ${missingLinks ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingLinks}</div><div class="kpi-trend">Review source mapping</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
+    `
   } else if (STATE.role === 'Bioinformatics') {
     const runs = STATE.bioRuns || []
     const flagged = runs.filter(r => /fail|flag|review|error/i.test(String(r.status || r.qcStatus || r.qualityStatus || '')))
