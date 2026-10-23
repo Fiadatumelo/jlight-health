@@ -559,7 +559,7 @@ class JLIGHTMLPipeline:
         summary_parts = [
             f"Analysed {len(values)} observations in the {self.domain} domain.",
             f"Trend: {regression.trend_label} (slope={regression.slope:+.3f}/period, R²={regression.r_squared:.3f}).",
-            f"Anomalies: {z_scores.anomaly_count} windows above {self.iso_threshold}SD.",
+            f"Anomalies: {z_scores.anomaly_count} observations outside the configured z-score threshold ({self.zscore_engine.threshold} SD).",
         ]
         if westgard.violations:
             summary_parts.append(f"Westgard: {', '.join(westgard.violations[:2])}.")
