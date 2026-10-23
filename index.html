@@ -2813,14 +2813,15 @@ function analyseJourneyGap(e) {
 // ═══════════════════════════════════════════════════════════
 const SOURCE_IMPORT_SCHEMAS = {
   patients: { label: 'Patient registry', stateKey: 'patients', storageKey: () => PATIENT_KEY, backendDomain: 'patients', required: ['patientId'], fields: ['id','patientId','mrn','fullName','gender','dateOfBirth','ageGroup','site','externalPatientId','sourceSystem','createdAt','ts'] },
-  labOrders: { label: 'Laboratory order status', stateKey: 'labOrders', storageKey: () => ORDERS_KEY, backendDomain: 'labOrders', required: ['patientId','status'], fields: ['id','patientId','orderCode','testRequested','testName','priority','status','orderedAt','completedAt','turnaroundHours','sourceSystem','sourceRecordId','createdAt','ts'] },
-  results: { label: 'Imported laboratory result records', stateKey: 'results', storageKey: () => RESULTS_KEY, backendDomain: 'results', required: ['patientId','testName','resultValue'], fields: ['id','patientId','orderId','testName','resultValue','resultUnit','interpretation','referenceRange','resultedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
-  admissions: { label: 'Hospital admissions', stateKey: 'admissions', storageKey: () => ADMIT_KEY, backendDomain: 'admissions', required: ['patientId','status'], fields: ['id','patientId','admissionId','ward','status','admittedAt','dischargedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
-  clinicalOrders: { label: 'Hospital orders', stateKey: 'clinicalOrders', storageKey: () => CORD_KEY, backendDomain: 'clinicalOrders', required: ['patientId','status'], fields: ['id','patientId','orderType','status','orderedAt','completedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
-  bioRuns: { label: 'Imported bioinformatics outputs', stateKey: 'bioRuns', storageKey: () => BIORUN_KEY, backendDomain: 'bioRuns', required: ['analysisType'], fields: ['id','patientId','analysisType','outputType','status','qualityStatus','summary','createdAt','sourceSystem','sourceRecordId','ts'] }
+  labOrders: { label: 'Laboratory order status', stateKey: 'labOrders', storageKey: () => ORDERS_KEY, backendDomain: 'labOrders', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','orderCode','testRequested','testName','priority','status','orderedAt','completedAt','turnaroundHours','sourceSystem','sourceRecordId','createdAt','ts'] },
+  results: { label: 'Imported laboratory result records', stateKey: 'results', storageKey: () => RESULTS_KEY, backendDomain: 'results', required: ['patientId','testName','resultValue','sourceRecordId'], fields: ['id','patientId','orderId','testName','resultValue','resultUnit','interpretation','referenceRange','resultedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  admissions: { label: 'Hospital admissions', stateKey: 'admissions', storageKey: () => ADMIT_KEY, backendDomain: 'admissions', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','admissionId','ward','status','admittedAt','dischargedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  clinicalOrders: { label: 'Hospital orders', stateKey: 'clinicalOrders', storageKey: () => CORD_KEY, backendDomain: 'clinicalOrders', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','orderType','status','orderedAt','completedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  bioRuns: { label: 'Imported bioinformatics outputs', stateKey: 'bioRuns', storageKey: () => BIORUN_KEY, backendDomain: 'bioRuns', required: ['analysisType','sourceRecordId'], fields: ['id','patientId','analysisType','outputType','status','qualityStatus','summary','createdAt','sourceSystem','sourceRecordId','ts'] }
 }
 const SOURCE_IMPORT_ALIASES = {
   id:'id', recordid:'sourceRecordId', sourcerecordid:'sourceRecordId', patientid:'patientId', patient:'patientId',
+  idnumber:'idNumber', nationalid:'idNumber', identitynumber:'idNumber', passportnumber:'idNumber', email:'email', phone:'phone', address:'address',
   mrn:'mrn', medicalrecordnumber:'mrn', fullname:'fullName', patientname:'fullName', name:'fullName',
   gender:'gender', sex:'gender', dateofbirth:'dateOfBirth', dob:'dateOfBirth', agegroup:'ageGroup',
   externalpatientid:'externalPatientId', sourcepatientid:'externalPatientId', site:'site', sourcesystem:'sourceSystem',
@@ -2929,7 +2930,7 @@ async function previewSourceCsv() {
   try {
     const parsed = parseSourceCSV(text)
     const headers = new Set(parsed.headers)
-    const missingHeaders = schema.required.filter(h => !headers.has(h) && !(h === 'patientId' && headers.has('id')))
+    const missingHeaders = schema.required.filter(h => !headers.has(h) && !(h === 'patientId' && headers.has('id')) && !(h === 'sourceRecordId' && headers.has('id')))
     if (missingHeaders.length) throw new Error('Required column(s) missing: ' + missingHeaders.join(', '))
     if (!MODE.isOnline && domain === 'patients') throw new Error('Patient-registry imports require an authenticated online workspace. Offline mode must not store identifiable patient details.')
     const sensitive = ['fullName','mrn','dateOfBirth','gender','phone','idNumber','address','email']
@@ -2945,7 +2946,7 @@ async function previewSourceCsv() {
     const errors = []
     parsed.rows.forEach((row, i) => {
       schema.required.forEach(field => {
-        const value = field === 'patientId' ? (row.patientId || (domain === 'patients' ? row.id : '')) : row[field]
+        const value = field === 'patientId' ? (row.patientId || (domain === 'patients' ? row.id : '')) : (field === 'sourceRecordId' ? (row.sourceRecordId || row.id) : row[field])
         if (!String(value || '').trim()) errors.push('Row ' + (i + 2) + ': ' + field + ' is empty.')
       })
     })
