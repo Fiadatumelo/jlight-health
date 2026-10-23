@@ -20,6 +20,8 @@ on:
       - "jlight-backend/engine/domain_persistence.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
       - "jlight-backend/tests/test_domain_persistence.py"
+      - "jlight-backend/api/source_workflow.py"
+      - "jlight-backend/tests/test_source_workflow_auth.py"
       - "jlight-backend/migrations/**"
       - ".github/workflows/workflow-traceability-tests.yml"
 
