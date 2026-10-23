@@ -258,6 +258,8 @@ def ingest_source_export():
             "source_values_modified": False,
             "source_system_remains_authoritative": True,
         }), 201 if inserted else 200
+    except RuntimeError as exc:
+        return _error(str(exc), 503)
     except ValueError as exc:
         return _error(str(exc), 400)
     except Exception:
