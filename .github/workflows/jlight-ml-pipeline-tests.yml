@@ -20,7 +20,9 @@ on:
       - "jlight-backend/engine/csv_engine.py"
       - "jlight-backend/engine/bio_engine.py"
       - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/api/source_workflow.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_authorization.py"
       - "jlight-backend/tests/test_all.py"
       - ".github/workflows/jlight-ml-pipeline-tests.yml"
 
