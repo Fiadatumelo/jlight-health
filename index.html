@@ -2976,8 +2976,8 @@ async function refreshInteropInsights() {
       jlightInteropRequest('/api/decision-cards'),
       jlightInteropRequest('/api/workflow-timelines'),
       jlightInteropRequest('/api/connector-freshness'),
-      jlightInteropRequest('/api/patient-keys'),
-      jlightInteropRequest('/api/patient-journeys')
+      jlightInteropRequest('/api/patient-keys').catch(() => ({patient_keys:[]})),
+      jlightInteropRequest('/api/patient-journeys').catch(() => ({journeys:[]}))
     ])
     const cardHtml = cards.cards.length ? cards.cards.map(card =>
       '<div class="connector" style="margin-bottom:10px"><div class="connector-head"><div class="connector-name">' + esc(card.title) + '</div><div class="connector-status ready">' + esc(card.state) + '</div></div>' +
