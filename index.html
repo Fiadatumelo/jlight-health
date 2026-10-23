@@ -856,7 +856,7 @@ function showScreen(name) {
 // ─── Supabase client (lazy init) ───
 const BACKEND = {
   url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
-  key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
+  key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
 }
 const MODE = { isOnline: true, organisationName: null, signupMode: false }
 let _supa = null
@@ -996,6 +996,11 @@ function selectJlightPath(role) {
   const sub = document.getElementById('si-sub')
   const chosen = document.querySelector('.path-choice.selected .path-choice-copy strong')
   if (sub && !MODE.signupMode) sub.textContent = chosen ? 'Selected: ' + chosen.textContent + ' · sign in to continue' : 'Choose a path, then access your workspace'
+}
+
+const savedPath = sessionStorage.getItem('jl_selected_path')
+if (savedPath && Object.prototype.hasOwnProperty.call(ROLES, savedPath)) {
+  selectJlightPath(savedPath)
 }
 
 function toggleSignupMode() {
