@@ -2805,40 +2805,44 @@ function renderConnectors() {
 
 function renderAnalytics() {
   const cfg = ROLES[STATE.role]
-  const items = STATE.role === 'Laboratory' ? STATE.samples : STATE.entries
-  const cards = STATE.cards
+  const withTime = rows => (rows || []).map(row => ({...row, ts: row.ts || row.orderedAt || row.resultedAt || row.createdAt || row.updatedAt || null}))
+  let items = [], label = 'records'
+  if (STATE.role === 'Laboratory') { items = withTime([...(STATE.labOrders || []), ...(STATE.results || [])]); label = 'authorised laboratory source records' }
+  else if (STATE.role === 'Hospital') { items = withTime([...(STATE.admissions || []), ...(STATE.clinicalOrders || []), ...(STATE.infections || [])]); label = 'hospital / health-informatics records' }
+  else if (STATE.role === 'Bioinformatics') { items = withTime([...(STATE.bioRuns || []), ...(STATE.bioQc || [])]); label = 'imported bioinformatics records' }
+  else { items = withTime([...(STATE.participants || []), ...(STATE.visits || []), ...(STATE.adverseEvents || []), ...(STATE.entries || [])]); label = 'clinical-trial records' }
+  const cards = (STATE.cards || []).filter(c => !c.role || c.role === STATE.role)
+  const title = STATE.role === 'Trial' ? 'Clinical Trial Oversight' : cfg.label + ' Analytics'
   $('page-analytics').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">${esc(cfg.label)} Analytics</div>
-        <div class="page-sub">Trends from ${items.length} ${STATE.role === 'Laboratory' ? 'samples' : 'entries'}</div>
-      </div>
-    </div>
+    <div class="page-head"><div><div class="page-title">${esc(title)}</div><div class="page-sub">Trends from ${items.length} ${esc(label)} · based on records currently loaded</div></div></div>
     <div class="kpis">
-      <div class="kpi"><div class="kpi-label">Total ${STATE.role === 'Laboratory' ? 'Samples' : 'Entries'}</div><div class="kpi-value">${items.length}</div><div class="kpi-trend">All-time</div></div>
+      <div class="kpi"><div class="kpi-label">Source Records</div><div class="kpi-value">${items.length}</div><div class="kpi-trend">${esc(label)}</div></div>
       <div class="kpi"><div class="kpi-label">Decision Cards</div><div class="kpi-value">${cards.length}</div><div class="kpi-trend">${cards.filter(c => !c.acknowledged).length} open</div></div>
-      <div class="kpi ${cards.filter(c => c.severity === 'crit').length > 0 ? 'crit' : ''}"><div class="kpi-label">Critical</div><div class="kpi-value">${cards.filter(c => c.severity === 'crit').length}</div><div class="kpi-trend">High severity</div></div>
-      <div class="kpi"><div class="kpi-label">Resolution Rate</div><div class="kpi-value">${cards.length ? Math.round(cards.filter(c => c.acknowledged).length / cards.length * 100) : 0}%</div><div class="kpi-trend">Acknowledged</div></div>
+      <div class="kpi ${cards.some(c => c.severity === 'crit' && !c.acknowledged) ? 'crit' : ''}"><div class="kpi-label">Open Critical</div><div class="kpi-value">${cards.filter(c => c.severity === 'crit' && !c.acknowledged).length}</div><div class="kpi-trend">Signals requiring review</div></div>
+      <div class="kpi"><div class="kpi-label">Acknowledgement Rate</div><div class="kpi-value">${cards.length ? Math.round(cards.filter(c => c.acknowledged).length / cards.length * 100) : 0}%</div><div class="kpi-trend">Decision cards acknowledged</div></div>
     </div>
     <div class="chart-grid">
-      <div class="chart-card"><div class="chart-title">Activity — Last 30 Days</div><div class="chart-sub">Daily volume in your workspace</div>${renderTimeChart(items)}</div>
-      <div class="chart-card"><div class="chart-title">Decision Severity Distribution</div><div class="chart-sub">All generated cards</div>${renderSeverityChart(cards)}</div>
+      <div class="chart-card"><div class="chart-title">Activity — Last 30 Days</div><div class="chart-sub">Records with usable timestamps</div>${renderTimeChart(items)}</div>
+      <div class="chart-card"><div class="chart-title">Decision Severity Distribution</div><div class="chart-sub">Current workspace decision cards</div>${renderSeverityChart(cards)}</div>
     </div>
+    <p class="journey-footnote">Analytics are operational signals, not diagnostic conclusions. Source-system data remains authoritative.</p>
   `
 }
 
 function renderTimeChart(items) {
-  if (!items.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No data yet</div>'
+  if (!items.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No source records yet</div>'
+  const validItems = items.filter(e => Number.isFinite(new Date(e.ts).getTime()))
+  if (!validItems.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No usable timestamps in the loaded source records</div>'
   const days = {}
   for (let i = 29; i >= 0; i--) { const d = new Date(Date.now() - i * 86400000); days[d.toISOString().split('T')[0]] = 0 }
-  items.forEach(e => { const k = new Date(e.ts).toISOString().split('T')[0]; if (k in days) days[k]++ })
+  validItems.forEach(e => { const k = new Date(e.ts).toISOString().split('T')[0]; if (k in days) days[k]++ })
   const data = Object.values(days), labels = Object.keys(days)
   const max = Math.max(...data, 1) * 1.2
   const W = 700, H = 220, pL = 36, pR = 12, pT = 16, pB = 32
   const points = data.map((v, i) => [pL + (i / (data.length - 1)) * (W - pL - pR), H - pB - (v / max) * (H - pT - pB)])
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
   const fillD = `${pathD} L${points[points.length-1][0].toFixed(1)},${H-pB} L${points[0][0].toFixed(1)},${H-pB} Z`
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:220px"><defs><linearGradient id="cf" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00C9A7" stop-opacity="0.25"/><stop offset="100%" stop-color="#00C9A7" stop-opacity="0"/></linearGradient></defs><line x1="${pL}" y1="${H-pB}" x2="${W-pR}" y2="${H-pB}" stroke="rgba(255,255,255,0.07)"/><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H-pB}" stroke="rgba(255,255,255,0.07)"/><path d="${fillD}" fill="url(#cf)"/><path d="${pathD}" fill="none" stroke="#00C9A7" stroke-width="2"/>${points.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#00C9A7"/>`).join('')}${[0, 7, 14, 21, 29].map(i => { const x = pL + (i / (data.length - 1)) * (W - pL - pR); return `<text x="${x}" y="${H-12}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9.5" font-family="DM Mono, monospace">${labels[i].slice(5)}</text>` }).join('')}</svg>`
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:220px"><defs><linearGradient id="cf" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00C9A7" stop-opacity="0.25"/><stop offset="100%" stop-color="#00C9A7" stop-opacity="0"/></linearGradient></defs><line x1="${pL}" y1="${H-pB}" x2="${W-pR}" y2="${H-pB}" stroke="#e3e9f3"/><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H-pB}" stroke="#e3e9f3"/><path d="${fillD}" fill="url(#cf)"/><path d="${pathD}" fill="none" stroke="#00C9A7" stroke-width="2"/>${points.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#00C9A7"/>`).join('')}${[0, 7, 14, 21, 29].map(i => { const x = pL + (i / (data.length - 1)) * (W - pL - pR); return `<text x="${x}" y="${H-12}" text-anchor="middle" fill="#64718a" font-size="9.5" font-family="DM Mono, monospace">${labels[i].slice(5)}</text>` }).join('')}</svg>`
 }
 
 function renderSeverityChart(cards) {
@@ -2851,7 +2855,7 @@ function renderSeverityChart(cards) {
   ].filter(d => d.value > 0)
   const total = data.reduce((s, d) => s + d.value, 0) || 1
   const W = 700, barH = 28, gap = 14, pL = 110, pR = 40
-  return `<svg viewBox="0 0 ${W} ${data.length * (barH + gap) + 8}" style="width:100%">${data.map((d, i) => { const y = i * (barH + gap); const barW = (d.value / total) * (W - pL - pR); const pct = Math.round((d.value / total) * 100); return `<text x="${pL - 12}" y="${y + barH/2 + 4}" text-anchor="end" fill="rgba(255,255,255,0.7)" font-size="12" font-family="Syne, sans-serif" font-weight="600">${d.label}</text><rect x="${pL}" y="${y}" width="${barW}" height="${barH}" fill="${d.color}" rx="4" opacity="0.85"/><text x="${pL + barW + 8}" y="${y + barH/2 + 4}" fill="rgba(255,255,255,0.85)" font-size="12" font-family="DM Mono, monospace" font-weight="600">${d.value} · ${pct}%</text>` }).join('')}</svg>`
+  return `<svg viewBox="0 0 ${W} ${data.length * (barH + gap) + 8}" style="width:100%">${data.map((d, i) => { const y = i * (barH + gap); const barW = (d.value / total) * (W - pL - pR); const pct = Math.round((d.value / total) * 100); return `<text x="${pL - 12}" y="${y + barH/2 + 4}" text-anchor="end" fill="#526078" font-size="12" font-family="Syne, sans-serif" font-weight="600">${d.label}</text><rect x="${pL}" y="${y}" width="${barW}" height="${barH}" fill="${d.color}" rx="4" opacity="0.85"/><text x="${pL + barW + 8}" y="${y + barH/2 + 4}" fill="#182338" font-size="12" font-family="DM Mono, monospace" font-weight="600">${d.value} · ${pct}%</text>` }).join('')}</svg>`
 }
 
 function renderAudit() {
