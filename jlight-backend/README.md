@@ -173,7 +173,10 @@ The source-workflow API is a **read-only integration layer** over events and rec
 New authenticated endpoints:
 - `POST /api/source-records` — append an immutable, versioned source record.
 - `POST /api/workflow-events` — append a source-observed workflow event.
+- `POST /api/connectors/ingest` — ingest a read-only FHIR R4 Bundle, HL7 v2 status message, or mapped CSV export. This is a push/import adapter, not an automatic live-system connector.
 - `GET /api/workflow-timelines` — read the tenant's event timeline.
+- `GET /api/decision-cards` — generate explainable operational delay cards with exact source-event evidence.
+- `GET /api/connector-freshness` — report when each source feed last delivered an event; this does not directly probe the source system.
 
 All three endpoints require a valid Supabase Auth bearer token and an `X-JLIGHT-Organization` UUID. The API verifies active membership against `jlight_organization_memberships`. Viewer memberships are read-only. Client-supplied patient IDs are deliberately not accepted as verified links; records remain unlinked until a separate trusted patient-linking workflow is implemented.
 
@@ -183,5 +186,7 @@ Before staging use:
 3. Provision an organization and membership using a trusted administrative process; never expose membership self-assignment to clients.
 4. Configure `DATABASE_URL` with a dedicated database login that is explicitly granted membership in the non-login `jlight_runtime` role. The API executes `SET ROLE jlight_runtime` on every connection. Do not use the table-owner or a `BYPASSRLS` login for the deployed API.
 5. Verify row-level security with two synthetic organizations, then run the synthetic tests and exercise the endpoints with synthetic Hospital/Laboratory/Bioinformatics records before connecting real systems.
+6. Configure a source-specific export/push job in the existing HIS/LIS/EMR to send a FHIR Bundle, supported HL7 v2 status message, or mapped CSV export to `/api/connectors/ingest`. The current adapter does not poll remote systems or provide a durable offline spool when JLIGHT itself is disconnected.
+7. Review each generated Decision Card with an operational subject-matter expert and configure a workflow-appropriate delay threshold before using alerts operationally.
 
 These migrations are not automatically applied by the API. No live source-system connector or production deployment is implied by these endpoints.
