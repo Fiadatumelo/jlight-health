@@ -2984,7 +2984,14 @@ async function commitSourceCsv() {
   try { localStorage.setItem(jlightStorageKey(schema.storageKey()), JSON.stringify(STATE[schema.stateKey].slice(-2000))) }
   catch (e) { STATE[schema.stateKey] = current; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
   let sync = { ok: false, reason: 'offline' }
-  if (MODE.isOnline) sync = await syncDomainToBackend(schema.backendDomain, imported)
+  if (MODE.isOnline) {
+    const syncResults = []
+    for (let offset = 0; offset < imported.length; offset += 200) {
+      syncResults.push(await syncDomainToBackend(schema.backendDomain, imported.slice(offset, offset + 200)))
+    }
+    const failed = syncResults.find(result => !result || !result.ok)
+    sync = failed ? { ok: false, reason: failed.reason || 'one_or_more_batches_failed' } : { ok: true, count: syncResults.reduce((sum, result) => sum + (result.count || 0), 0) }
+  }
   try { await audit('Validated source-data import', schema.label + ': ' + imported.length + ' records; ' + duplicates.length + ' duplicates skipped; mode=' + (MODE.isOnline ? 'online' : 'offline')) }
   catch (e) { console.warn('[JLIGHT] import audit could not be saved:', e.message) }
   SOURCE_IMPORT_PREVIEW = null
