@@ -1,0 +1,99 @@
+name: JLIGHT Live API Authorization (Staging Only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-authz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate staging configuration without exposing secrets
+        env:
+          BASE_URL: ${{ secrets.JLIGHT_STAGING_BASE_URL }}
+          USER_A_TOKEN: ${{ secrets.JLIGHT_STAGING_USER_A_TOKEN }}
+          USER_B_TOKEN: ${{ secrets.JLIGHT_STAGING_USER_B_TOKEN }}
+          ORG_A: ${{ secrets.JLIGHT_STAGING_ORG_A }}
+          ORG_B: ${{ secrets.JLIGHT_STAGING_ORG_B }}
+        run: |
+          python - <<'PY'
+          import os, sys, urllib.parse
+          required = [
+              "BASE_URL", "USER_A_TOKEN", "USER_B_TOKEN",
+              "ORG_A", "ORG_B",
+          ]
+          missing = [name for name in required if not os.environ.get(name, "").strip()]
+          if missing:
+              print("BLOCKED: required GitHub Actions secrets are not configured: " +
+                    ", ".join(missing))
+              sys.exit(1)
+          url = os.environ["BASE_URL"].strip()
+          parsed = urllib.parse.urlparse(url)
+          if parsed.scheme != "https" or not parsed.netloc or parsed.path not in ("", "/"):
+              print("BLOCKED: JLIGHT_STAGING_BASE_URL must be an HTTPS origin without a path.")
+              sys.exit(1)
+          if os.environ["ORG_A"].strip() == os.environ["ORG_B"].strip():
+              print("BLOCKED: staging organization A and B must be different.")
+              sys.exit(1)
+          if "jlight-backend.onrender.com" in parsed.netloc:
+              print("BLOCKED: default Render host is not accepted until a staging-only deployment is explicitly confirmed. Set JLIGHT_STAGING_BASE_URL to the verified staging origin.")
+              sys.exit(1)
+          print("Configuration shape validated. Secret values were not printed.")
+          PY
+      - name: Run read-only live authorization probes
+        env:
+          BASE_URL: ${{ secrets.JLIGHT_STAGING_BASE_URL }}
+          USER_A_TOKEN: ${{ secrets.JLIGHT_STAGING_USER_A_TOKEN }}
+          USER_B_TOKEN: ${{ secrets.JLIGHT_STAGING_USER_B_TOKEN }}
+          ORG_A: ${{ secrets.JLIGHT_STAGING_ORG_A }}
+          ORG_B: ${{ secrets.JLIGHT_STAGING_ORG_B }}
+        run: |
+          python - <<'PY'
+          import os, sys, urllib.request, urllib.error, json
+
+          base = os.environ["BASE_URL"].rstrip("/")
+          a = os.environ["USER_A_TOKEN"]
+          b = os.environ["USER_B_TOKEN"]
+          org_a = os.environ["ORG_A"]
+          org_b = os.environ["ORG_B"]
+
+          def request(path, token=None, org=None, domain=None):
+              headers = {"Accept": "application/json"}
+              if token:
+                  headers["Authorization"] = "Bearer " + token
+              if org:
+                  headers["X-JLIGHT-Organization"] = org
+              if domain:
+                  headers["X-JLIGHT-Domain"] = domain
+              req = urllib.request.Request(base + path, headers=headers, method="GET")
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      return response.status
+              except urllib.error.HTTPError as exc:
+                  return exc.code
+              except Exception as exc:
+                  print("BLOCKED: request could not reach staging API (" + type(exc).__name__ + ").")
+                  sys.exit(2)
+
+          checks = [
+              ("missing token rejected", request("/api/patient-keys", org=org_a), {401}),
+              ("invalid token rejected", request("/api/patient-keys", "not-a-real-token", org_a), {401}),
+              ("user A cannot access org B", request("/api/patient-keys", a, org_b), {403}),
+              ("user B cannot access org A", request("/api/patient-keys", b, org_a), {403}),
+              ("user A can read authorised patient keys", request("/api/patient-keys", a, org_a), {200}),
+              ("user A can read patient journey report", request("/api/patient-journeys", a, org_a), {200}),
+          ]
+          failed = False
+          for name, status, expected in checks:
+              passed = status in expected
+              print(("PASS" if passed else "FAIL") + ": " + name +
+                    " (HTTP " + str(status) + "; expected " +
+                    "/".join(map(str, sorted(expected))) + ")")
+              failed |= not passed
+          if failed:
+              sys.exit(1)
+          print("LIVE AUTHORIZATION PROBES PASSED. These are read-only probes; no records were created.")
+          PY
