@@ -18,6 +18,7 @@ class SourceAdapterTests(unittest.TestCase):
         self.assertEqual(events[0]["event_type"], "work_started")
         self.assertIsNone(events[0]["jlight_patient_id"])
         self.assertFalse(events[0]["source_values_modified"])
+        self.assertEqual(events[0]["source_patient_ref"], "Patient/123")
 
     def test_csv_adapter_requires_timezone_and_explicit_columns(self):
         text = "source_record_id,event_type,observed_at\nORD-1,order_received,2026-10-23T08:00:00Z\n"
