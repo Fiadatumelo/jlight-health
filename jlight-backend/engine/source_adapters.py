@@ -134,7 +134,7 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
     control_id = msh[9].strip()
     # HL7 v2 timestamps commonly use YYYYMMDDHHMMSS+ZZZZ. Require an explicit
     # offset because silently assuming a site timezone can corrupt event ordering.
-    match = re.fullmatch(r"(\\d{4})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(?:\\.\\d+)?(Z|[+-]\\d{4})", timestamp)
+    match = re.fullmatch(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.\d+)?(Z|[+-]\d{4})", timestamp)
     if not match:
         raise ValueError("HL7 MSH-7 must include a timezone offset for safe normalization")
     try:
