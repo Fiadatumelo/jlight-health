@@ -387,7 +387,7 @@ def process_queued_exports():
     processed, retried, dead_lettered = 0, 0, 0
     try:
         with _db() as conn:
-            claimed = claim_exports(conn, g.jlight_actor["organization_id"], limit=limit)
+            claimed = claim_exports(conn, g.jlight_actor["organization_id"], limit=limit, domain=g.jlight_domain)
         for item in claimed:
             try:
                 events = parse_source_export(
