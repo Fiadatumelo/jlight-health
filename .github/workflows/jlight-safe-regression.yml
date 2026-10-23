@@ -5,12 +5,14 @@ on:
     paths:
       - "index.html"
       - "jlight-backend/**"
+      - "supabase/**"
       - ".github/workflows/jlight-safe-regression.yml"
   push:
     branches: ["main"]
     paths:
       - "index.html"
       - "jlight-backend/**"
+      - "supabase/**"
       - ".github/workflows/jlight-safe-regression.yml"
 
 permissions:
