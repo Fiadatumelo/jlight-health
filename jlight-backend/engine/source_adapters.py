@@ -1,7 +1,8 @@
 """Read-only adapters for source-system exports; never control instruments or mutate sources.
 
-The adapters map source status metadata into JLIGHT workflow events. They deliberately
-ignore patient identifiers and clinical result values; trusted identity linkage is separate.
+Adapters map workflow status metadata and transient source identity references into JLIGHT
+events. The API must HMAC identity references before persistence and must never persist raw
+references. Clinical result values are not interpreted or used for sample processing.
 """
 from __future__ import annotations
 
