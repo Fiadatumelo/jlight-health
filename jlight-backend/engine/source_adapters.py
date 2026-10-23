@@ -9,7 +9,8 @@ import csv
 import hashlib
 import io
 import json
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
 from engine.workflow_traceability import normalize_workflow_event
@@ -111,7 +112,7 @@ def parse_csv_events(text: str, *, source_system: str, domain: str) -> list[dict
         if not source_record_id or not event_type or not observed_at:
             raise ValueError(f"CSV row {row_number} is missing a required value")
         supplied_id = (row.get("event_id") or "").strip()
-        event_id = supplied_id or _stable_id(source_system, source_record_id, event_type, observed_at, str(row_number))
+        event_id = supplied_id or _stable_id(source_system, source_record_id, event_type, observed_at)
         events.append(_status_event(source_system, source_record_id, domain, event_type,
                                     observed_at, event_id, source_status))
     return events
@@ -131,18 +132,24 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
         raise ValueError("HL7 message requires MSH-7 timestamp and MSH-10 control ID")
     timestamp = msh[6].strip()
     control_id = msh[9].strip()
-    # HL7 v2 timestamps without an offset are ambiguous across sites; reject rather than guess.
-    if not timestamp.endswith(("Z", "+00:00")) and not any(
-        timestamp.endswith(sign + digits) for sign in ("+", "-") for digits in ("0000", "00:00")
-    ):
+    # HL7 v2 timestamps commonly use YYYYMMDDHHMMSS+ZZZZ. Require an explicit
+    # offset because silently assuming a site timezone can corrupt event ordering.
+    match = re.fullmatch(r"(\\d{4})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(?:\\.\\d+)?(Z|[+-]\\d{4})", timestamp)
+    if not match:
         raise ValueError("HL7 MSH-7 must include a timezone offset for safe normalization")
     try:
-        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-        if parsed.tzinfo is None:
-            raise ValueError
+        year, month, day, hour, minute, second = map(int, match.groups()[:6])
+        offset_text = match.group(7)
+        if offset_text == "Z":
+            offset = timezone.utc
+        else:
+            sign = 1 if offset_text[0] == "+" else -1
+            offset_minutes = int(offset_text[1:3]) * 60 + int(offset_text[3:5])
+            offset = timezone(sign * timedelta(minutes=offset_minutes))
+        parsed = datetime(year, month, day, hour, minute, second, tzinfo=offset)
         observed_at = parsed.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
-    except ValueError as exc:
-        raise ValueError("HL7 MSH-7 must be ISO-8601 with a timezone offset") from exc
+    except (ValueError, OverflowError) as exc:
+        raise ValueError("HL7 MSH-7 must be a valid HL7 timestamp with timezone offset") from exc
 
     events = []
     for index, segment in enumerate(segments):
@@ -159,7 +166,7 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
             raw_status = status or control
         else:
             order_id = segment[3].strip() if len(segment) > 3 else ""
-            status = segment[24].strip() if len(segment) > 24 else ""
+            status = segment[25].strip() if len(segment) > 25 else ""
             event_type = {"O": "order_received", "P": "work_started", "F": "released",
                           "C": "cancelled", "X": "cancelled"}.get(status)
             raw_status = status
@@ -177,6 +184,11 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
 
 def parse_source_export(format_name: str, payload: Any, *, source_system: str, domain: str) -> list[dict[str, Any]]:
     fmt = str(format_name or "").strip().lower()
+    domain = str(domain or "").strip().lower()
+    if domain == "clinical_trials":
+        raise ValueError("clinical trials belong to the separate participant workflow")
+    if domain not in {"hospital", "laboratory", "bioinformatics"}:
+        raise ValueError("domain must be hospital, laboratory, or bioinformatics")
     if fmt == "fhir":
         return parse_fhir_bundle(payload, source_system=source_system, domain=domain)
     if fmt == "csv":
