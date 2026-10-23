@@ -1780,12 +1780,12 @@ function renderDashboard() {
     `
   } else if (STATE.role === 'Bioinformatics') {
     const runs = STATE.bioRuns || []
-    const qc = STATE.bioQc || []
-    const failedQc = qc.filter(q => /fail|flag|review|error/i.test(String(q.status || q.outcome || '')))
+    const flagged = runs.filter(r => /fail|flag|review|error/i.test(String(r.status || r.qcStatus || r.qualityStatus || '')))
+    const missingPatient = runs.filter(r => !r.patientId).length
     kpiHTML = `
       <div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">${runs.length}</div><div class="kpi-trend">Source-system records</div></div>
-      <div class="kpi"><div class="kpi-label">Quality Records</div><div class="kpi-value">${qc.length}</div><div class="kpi-trend">Imported quality metrics</div></div>
-      <div class="kpi ${failedQc.length ? 'warn' : 'good'}"><div class="kpi-label">Quality Items to Review</div><div class="kpi-value">${failedQc.length}</div><div class="kpi-trend">Based on source status labels</div></div>
+      <div class="kpi ${flagged.length ? 'warn' : 'good'}"><div class="kpi-label">Source Flags to Review</div><div class="kpi-value">${flagged.length}</div><div class="kpi-trend">Based on supplied status labels</div></div>
+      <div class="kpi ${missingPatient ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingPatient}</div><div class="kpi-trend">Review source mapping</div></div>
       <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else {
