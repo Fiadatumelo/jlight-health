@@ -6,6 +6,8 @@ on:
       - "jlight-backend/engine/ml_engine.py"
       - "jlight-backend/engine/csv_engine.py"
       - "jlight-backend/engine/bio_engine.py"
+      - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/tests/test_workflow_traceability.py"
       - "jlight-backend/tests/test_all.py"
       - ".github/workflows/jlight-ml-pipeline-tests.yml"
   push:
@@ -15,6 +17,8 @@ on:
       - "jlight-backend/engine/ml_engine.py"
       - "jlight-backend/engine/csv_engine.py"
       - "jlight-backend/engine/bio_engine.py"
+      - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/tests/test_workflow_traceability.py"
       - "jlight-backend/tests/test_all.py"
       - ".github/workflows/jlight-ml-pipeline-tests.yml"
 
@@ -38,3 +42,6 @@ jobs:
       - name: Execute repository ML, CSV and bioinformatics suite
         working-directory: jlight-backend
         run: python tests/test_all.py
+      - name: Execute workflow traceability regression tests
+        working-directory: jlight-backend
+        run: python -m unittest tests/test_workflow_traceability.py
