@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
   const { data, error } = await admin.auth.admin.generateLink({
     type: "recovery",
     email,
-    options: { redirectTo: origin + "/" },
+    options: { redirectTo: origin + "/?type=recovery" },
   });
   if (error || !data?.properties?.action_link) {
     console.warn("[send-password-reset] Recovery link unavailable; returning generic response.");
