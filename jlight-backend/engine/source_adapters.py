@@ -88,10 +88,13 @@ def parse_fhir_bundle(bundle: Mapping[str, Any], *, source_system: str, domain: 
         if not observed_at:
             raise ValueError(f"FHIR {resource_type}/{resource_id} has no usable source timestamp")
         stable_id = _stable_id(source_system, resource_type, resource_id, str(observed_at), status)
-        events.append(_status_event(
+        event = _status_event(
             source_system, f"{resource_type}/{resource_id}", domain, event_type,
             str(observed_at), stable_id, status,
-        ))
+        )
+        subject = resource.get("subject") if isinstance(resource.get("subject"), Mapping) else {}
+        event["source_patient_ref"] = str(subject.get("reference") or "").strip() or None
+        events.append(event)
     return events
 
 
@@ -113,8 +116,10 @@ def parse_csv_events(text: str, *, source_system: str, domain: str) -> list[dict
             raise ValueError(f"CSV row {row_number} is missing a required value")
         supplied_id = (row.get("event_id") or "").strip()
         event_id = supplied_id or _stable_id(source_system, source_record_id, event_type, observed_at)
-        events.append(_status_event(source_system, source_record_id, domain, event_type,
-                                    observed_at, event_id, source_status))
+        event = _status_event(source_system, source_record_id, domain, event_type,
+                              observed_at, event_id, source_status)
+        event["source_patient_ref"] = (row.get("source_patient_ref") or "").strip() or None
+        events.append(event)
     return events
 
 
@@ -151,6 +156,11 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
     except (ValueError, OverflowError) as exc:
         raise ValueError("HL7 MSH-7 must be a valid HL7 timestamp with timezone offset") from exc
 
+    patient_segment = next((segment for segment in segments if segment[0] == "PID"), None)
+    patient_ref = ""
+    if patient_segment and len(patient_segment) > 3:
+        patient_ref = patient_segment[3].split("^", 1)[0].strip()
+
     events = []
     for index, segment in enumerate(segments):
         if segment[0] not in {"ORC", "OBR"}:
@@ -174,11 +184,13 @@ def parse_hl7v2_status(message: str, *, source_system: str, domain: str) -> list
             continue
         if not order_id:
             raise ValueError(f"HL7 {segment[0]} segment {index + 1} has no order identifier")
-        events.append(_status_event(
+        event = _status_event(
             source_system, order_id, domain, event_type, observed_at,
             _stable_id(source_system, control_id, str(index), segment[0], order_id, raw_status),
             raw_status,
-        ))
+        )
+        event["source_patient_ref"] = patient_ref or None
+        events.append(event)
     return events
 
 
