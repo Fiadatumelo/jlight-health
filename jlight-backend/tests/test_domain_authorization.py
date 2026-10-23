@@ -63,5 +63,26 @@ class DomainAuthorisationTests(unittest.TestCase):
             check.assert_called_once_with("bioinformatics", "read")
 
 
+    def test_cross_domain_patient_link_requires_all_three_write_grants(self):
+        with self.app.test_request_context("/api/patient-links"):
+            g.jlight_actor = {"subject": "synthetic-user", "organization_id": "synthetic-org", "role": "admin"}
+            wrapped = source_workflow.require_cross_domain_link_write(lambda: ("ok", 200))
+            with patch.object(source_workflow, "_domain_permission",
+                               side_effect=lambda domain, action: domain != "bioinformatics"):
+                response, status = wrapped()
+            self.assertEqual(status, 403)
+            self.assertIn("not authorised", response.get_json()["error"])
+
+    def test_cross_domain_patient_link_allowed_only_with_all_three_write_grants(self):
+        with self.app.test_request_context("/api/patient-links"):
+            g.jlight_actor = {"subject": "synthetic-user", "organization_id": "synthetic-org", "role": "admin"}
+            wrapped = source_workflow.require_cross_domain_link_write(lambda: ("ok", 200))
+            with patch.object(source_workflow, "_domain_permission", return_value=True) as check:
+                response, status = wrapped()
+            self.assertEqual((response, status), ("ok", 200))
+            self.assertEqual(check.call_count, 3)
+            self.assertTrue(all(call.args[1] == "write" for call in check.call_args_list)
+
+
 if __name__ == "__main__":
     unittest.main()
