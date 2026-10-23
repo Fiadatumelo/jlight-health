@@ -772,7 +772,7 @@ const ROLES = {
     nav: [
       { key: 'dashboard',  label: 'Dashboard',         icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',    icon: '◈' },
-      { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
+      // Trial participant identity stays in the dedicated trial registry.
       { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
@@ -5618,7 +5618,7 @@ function generateComplianceReport() {
 // ═══════════════════════════════════════════════════════════════════
 // JLIGHT v10.0 — PATIENT REGISTRY
 // Central entity that links Laboratory, Trial, Hospital, and Bio
-// A patient registered once is available across all four domains
+// Shared patient identity spans Hospital, Laboratory and Bioinformatics; Clinical Trials use a separate participant registry.
 // ═══════════════════════════════════════════════════════════════════
 
 // ── PATIENT STORAGE ──
@@ -5738,7 +5738,7 @@ function renderPatients() {
   $('page-patients').innerHTML =
     '<div class="page-head">' +
     '<div><div class="page-title">Patient Registry</div>' +
-    '<div class="page-sub">' + filtered.length + ' patients · central identity across all domains</div></div>' +
+    '<div class="page-sub">' + filtered.length + ' patients · shared identity for non-trial care domains</div></div>' +
     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
     '<input class="form-input" style="width:240px;padding:7px 12px" placeholder="Search by name, MRN, ID..." ' +
     'value="' + esc(STATE.search.patients) + '" ' +
@@ -5751,7 +5751,7 @@ function renderPatients() {
 
     (filtered.length === 0 ? renderEmpty(
       q ? 'No patients match your search' : 'No patients registered',
-      q ? 'Try a different search term' : 'Register your first patient to begin. Patients are linked across all four domains.',
+      q ? 'Try a different search term' : 'Register a patient to begin the shared Hospital–Laboratory–Bioinformatics journey. Clinical Trials use a separate participant registry.',
       null, null
     ) :
     '<div class="section"><div style="display:grid;gap:10px">' +
