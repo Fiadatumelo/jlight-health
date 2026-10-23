@@ -384,9 +384,16 @@ class RiskStratifier:
         score = int(min(97, max(5, round(raw * r2_multiplier))))
 
         # Classification
+        # A strong, statistically coherent upward trend is an attention signal
+        # even when laboratory-only threshold proximity is disabled.
+        strong_rising_trend = (
+            regression.trend_label == "RISING"
+            and regression.r_squared >= 0.8
+            and regression.slope > 0.3
+        )
         if score >= 70 or westgard.rule_r_4s or westgard.rule_10x:
             level = "CRITICAL"
-        elif score >= 40 or westgard.rule_1_3s or westgard.rule_2_2s:
+        elif score >= 40 or westgard.rule_1_3s or westgard.rule_2_2s or strong_rising_trend:
             level = "ATTENTION"
         else:
             level = "STABLE"
