@@ -73,7 +73,7 @@ def enqueue_export(connection: Any, organization_id: str, *, source_system: str,
 
 
 def claim_exports(connection: Any, organization_id: str, *, limit: int = 10,
-                  lease_seconds: int = 120) -> list[dict[str, Any]]:
+                  lease_seconds: int = 120, domain: str | None = None) -> list[dict[str, Any]]:
     """Atomically lease pending or retryable exports; safe for concurrent workers."""
     org_id = _org(organization_id)
     if not isinstance(limit, int) or not 1 <= limit <= 100:
