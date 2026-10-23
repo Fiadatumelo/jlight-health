@@ -60,8 +60,8 @@ require("function renderBioinformaticsReview()" in html,
 # Standalone source-data intake must validate and persist authorised records without running specimen engines.
 for feature in ("SOURCE_IMPORT_SCHEMAS", "function parseSourceCSV(", "function previewSourceCsv()", "function commitSourceCsv()", "function retrySourceImportSync()", "syncDomainToBackend(schema.backendDomain, imported.slice"):
     require(feature in html, f"Validated source import feature missing: {feature}")
-require("patient-registry imports require an authenticated online workspace" in html.lower(),
-        "Patient registry import must be online-only")
+require("if (!MODE.isOnline && parsed.headers.some(h => sensitive.includes(h)))" in html,
+        "Offline imports must reject identifiable columns for every record type")
 require("Offline imports must be de-identified" in html,
         "Offline source imports must reject identifiable data")
 
