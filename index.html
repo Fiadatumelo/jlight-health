@@ -2924,14 +2924,60 @@ async function submitInteropExport() {
     if (button) { button.disabled = false; button.textContent = 'Import source status events' }
   }
 }
+async function createInteropPatientKey() {
+  const output = document.getElementById('interop-patient-message')
+  try {
+    const result = await jlightInteropRequest('/api/patient-keys', {method:'POST', body:JSON.stringify({})})
+    if (output) output.textContent = 'Created pseudonymous JLIGHT patient key: ' + result.jlight_patient_id + '. No source identifier was stored.'
+    await refreshInteropInsights()
+  } catch (error) {
+    if (output) output.textContent = error && error.message ? error.message : 'Could not create patient key.'
+  }
+}
+async function verifyInteropPatientLink() {
+  const output = document.getElementById('interop-patient-message')
+  try {
+    const sourceSystem = String((document.getElementById('interop-link-source') || {}).value || '').trim()
+    const sourceRef = String((document.getElementById('interop-link-ref') || {}).value || '').trim()
+    const patientId = String((document.getElementById('interop-link-key') || {}).value || '').trim()
+    const reason = String((document.getElementById('interop-link-reason') || {}).value || '').trim()
+    if (!sourceSystem || !sourceRef || !patientId || !reason) throw new Error('Complete source system, source patient reference, journey key and verification reason.')
+    const result = await jlightInteropRequest('/api/patient-links', {method:'POST', body:JSON.stringify({
+      source_system:sourceSystem, source_patient_ref:sourceRef, jlight_patient_id:patientId, action:'link', reason
+    })})
+    if (output) output.textContent = 'Verified link recorded. The raw source reference was not stored; events from this source identity will be eligible for the shared journey on subsequent imports.'
+    const ref = document.getElementById('interop-link-ref'); if (ref) ref.value = ''
+    await refreshInteropInsights()
+  } catch (error) {
+    if (output) output.textContent = error && error.message ? error.message : 'Could not verify patient link.'
+  }
+}
+async function unlinkInteropPatient() {
+  const output = document.getElementById('interop-patient-message')
+  try {
+    const sourceSystem = String((document.getElementById('interop-link-source') || {}).value || '').trim()
+    const sourceRef = String((document.getElementById('interop-link-ref') || {}).value || '').trim()
+    const reason = String((document.getElementById('interop-link-reason') || {}).value || '').trim()
+    if (!sourceSystem || !sourceRef || !reason) throw new Error('Complete source system, source patient reference and reason to unlink.')
+    await jlightInteropRequest('/api/patient-links', {method:'POST', body:JSON.stringify({
+      source_system:sourceSystem, source_patient_ref:sourceRef, action:'unlink', reason
+    })})
+    if (output) output.textContent = 'Unlink event recorded. Existing historical evidence is retained; future imports will not inherit the prior link.'
+    await refreshInteropInsights()
+  } catch (error) {
+    if (output) output.textContent = error && error.message ? error.message : 'Could not record unlink.'
+  }
+}
 async function refreshInteropInsights() {
   const output = document.getElementById('interop-insights')
   if (output) output.innerHTML = '<p class="source-import-help">Loading tenant-scoped source events and Decision Cards…</p>'
   try {
-    const [cards, timelines, freshness] = await Promise.all([
+    const [cards, timelines, freshness, patientKeys, journeys] = await Promise.all([
       jlightInteropRequest('/api/decision-cards'),
       jlightInteropRequest('/api/workflow-timelines'),
-      jlightInteropRequest('/api/connector-freshness')
+      jlightInteropRequest('/api/connector-freshness'),
+      jlightInteropRequest('/api/patient-keys'),
+      jlightInteropRequest('/api/patient-journeys')
     ])
     const cardHtml = cards.cards.length ? cards.cards.map(card =>
       '<div class="connector" style="margin-bottom:10px"><div class="connector-head"><div class="connector-name">' + esc(card.title) + '</div><div class="connector-status ready">' + esc(card.state) + '</div></div>' +
@@ -2951,7 +2997,19 @@ async function refreshInteropInsights() {
     if (output) output.innerHTML =
       '<div class="section-title">Explainable Decision Cards (' + cards.card_count + ')</div>' + cardHtml +
       '<div class="section-title" style="margin-top:22px">Cross-section timelines (' + timelines.timelines.length + ')</div>' + timelineHtml +
-      '<div class="section-title" style="margin-top:22px">Source-feed freshness (' + freshness.feeds.length + ')</div>' + feedHtml
+      '<div class="section-title" style="margin-top:22px">Source-feed freshness (' + freshness.feeds.length + ')</div>' + feedHtml +
+      '<div class="section-title" style="margin-top:22px">Verified shared patient journeys (' + journeys.journeys.length + ')</div>' +
+      (journeys.journeys.length ? journeys.journeys.map(j => '<div class="connector" style="margin-bottom:8px"><div class="connector-head"><div class="connector-name">JLIGHT key ' + esc(j.jlight_patient_id) + '</div><div class="connector-status ' + (j.cross_domain ? 'ready' : 'warn') + '">' + (j.cross_domain ? 'cross-domain' : 'single-domain') + '</div></div><div class="connector-desc">' + esc(j.domains_seen.join(' · ')) + ' · ' + esc(j.event_count) + ' events · ' + esc(j.first_observed_at) + ' to ' + esc(j.last_observed_at) + '</div>' +
+      j.events.map(e => '<div class="connector-desc">' + esc(e.observed_at) + ' · ' + esc(e.domain) + ' · ' + esc(e.event_type) + ' · ' + esc(e.source_system) + ' / ' + esc(e.source_record_id) + '</div>').join('') + '</div>').join('') : '<p class="source-import-help">No verified cross-domain journeys yet. Create a pseudonymous key and verify source links below; then re-import source status events.</p>') +
+      '<div class="section-title" style="margin-top:22px">Patient identity governance</div>' +
+      '<div class="connector-desc">Only authorised organisation owners/admins can create keys or verify links. Use the organisation’s approved identity-verification process. Clinical Trials is excluded. Raw source references are converted to keyed HMAC digests before storage.</div>' +
+      '<div class="source-import-actions"><button class="btn btn-primary" onclick="createInteropPatientKey()">Create pseudonymous patient key</button></div>' +
+      '<div class="source-import-grid" style="margin-top:12px">' +
+      '<div class="form-row"><label class="form-label" for="interop-link-source">Source system</label><input class="form-input" id="interop-link-source" placeholder="Must match import source-system ID"/></div>' +
+      '<div class="form-row"><label class="form-label" for="interop-link-key">JLIGHT patient key</label><select class="form-input" id="interop-link-key"><option value="">Choose a key</option>' + patientKeys.patient_keys.map(k => '<option value="' + esc(k.jlight_patient_id) + '">' + esc(k.jlight_patient_id) + '</option>').join('') + '</select></div>' +
+      '<div class="form-row"><label class="form-label" for="interop-link-ref">Source patient reference</label><input class="form-input" id="interop-link-ref" autocomplete="off" placeholder="Temporary input; not stored as raw text"/></div>' +
+      '<div class="form-row"><label class="form-label" for="interop-link-reason">Verification reason</label><input class="form-input" id="interop-link-reason" placeholder="Document approved verification basis"/></div>' +
+      '</div><div class="source-import-actions"><button class="btn btn-primary" onclick="verifyInteropPatientLink()">Verify and link identity</button><button class="btn" onclick="unlinkInteropPatient()">Unlink source identity</button></div><p id="interop-patient-message" class="source-import-help" aria-live="polite"></p>'
   } catch (error) {
     if (output) output.innerHTML = '<p class="source-import-help">' + esc(error && error.message ? error.message : 'Could not load interoperability data.') + '</p>'
   }
