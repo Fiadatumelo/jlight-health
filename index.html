@@ -1747,7 +1747,8 @@ async function generateJourneyReport() {
 }
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
-  const cards = STATE.cards
+  const roleDomain = ({'Hospital':'hospital','Laboratory':'laboratory','Bioinformatics':'bioinformatics','Trial':'clinical_trials'})[STATE.role]
+  const cards = (STATE.cards || []).filter(c => String(c.domain || '').toLowerCase().replace(/[ -]/g, '_') === roleDomain)
   const open = cards.filter(c => !c.acknowledged).length
   const critical = cards.filter(c => c.severity === 'crit' && !c.acknowledged).length
   let kpiHTML = ''
@@ -1830,24 +1831,7 @@ function renderDashboard() {
       </div>
     </div>
     <div class="kpis">${kpiHTML}</div>
-    <section class="jlight-launchpad" aria-label="Quick navigation">
-      <div class="jlight-launchpad-head">
-        <div><div class="section-title">Quick access</div><div class="section-sub">Start a task or move to another JLIGHT module</div></div>
-        <label class="jlight-search-label" for="jlight-nav-search">Find a tool</label>
-        <input id="jlight-nav-search" class="form-input jlight-nav-search" type="search" placeholder="Search tools…" oninput="filterJlightQuickLinks(this.value)" autocomplete="off"/>
-      </div>
-      <div class="jlight-quick-grid" id="jlight-quick-grid">
-        <button class="jlight-quick-card quick-blue" data-search="register sample new sample result laboratory" onclick="goPage(STATE.role === 'Laboratory' ? 'connectors' : 'register')"><span class="jlight-quick-icon">＋</span><span><strong>${newLabel}</strong><small>Start a new workflow</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-purple" data-search="decision cards alerts errors review" onclick="goPage('cards')"><span class="jlight-quick-icon">◎</span><span><strong>Review decisions</strong><small>See alerts and recommended actions</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-green" data-search="analytics reports trends" onclick="goPage('analytics')"><span class="jlight-quick-icon">▥</span><span><strong>View analytics</strong><small>Explore trends and summaries</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-amber" data-search="settings profile organisation account" onclick="goPage('settings')"><span class="jlight-quick-icon">⚙</span><span><strong>Settings</strong><small>Manage your workspace preferences</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-teal" data-search="laboratory samples" onclick="doSwitchWorkspace('Laboratory')"><span class="jlight-quick-icon">LAB</span><span><strong>Laboratory</strong><small>Laboratory intelligence tools</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-blue" data-search="hospital operations patients wards orders" onclick="doSwitchWorkspace('Hospital')"><span class="jlight-quick-icon">HOS</span><span><strong>Hospital Operations</strong><small>Patient and operational workflows</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-purple" data-search="bioinformatics pipeline genomic data" onclick="doSwitchWorkspace('Bioinformatics')"><span class="jlight-quick-icon">BIO</span><span><strong>Bioinformatics</strong><small>Data pipelines and analysis</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-amber" data-search="clinical trial study participant visits" onclick="doSwitchWorkspace('Trial')"><span class="jlight-quick-icon">CTL</span><span><strong>Clinical Trials</strong><small>Study workflows with restricted access</small></span><span class="jlight-quick-arrow">↗</span></button>
-      </div>
-      <div class="jlight-no-results" id="jlight-no-quick-results" hidden>No matching tools. Try another search.</div>
-    </section>
+    
     <div class="section">
       <div class="section-head">
         <div>
@@ -2866,11 +2850,13 @@ async function jlightInteropRequest(path, options = {}) {
     throw new Error('The selected workspace does not have a valid organisation UUID for the interoperability API.')
   }
   const base = jlightInteropApiBase()
+  const roleDomain = ({'Hospital':'hospital','Laboratory':'laboratory','Bioinformatics':'bioinformatics','Trial':'clinical_trials'})[STATE.role]
   const response = await fetch(base + path, {
     ...options,
     headers: {
       'Authorization': 'Bearer ' + session.access_token,
       'X-JLIGHT-Organization': orgId,
+      ...(roleDomain ? {'X-JLIGHT-Domain': roleDomain} : {}),
       ...(options.body ? {'Content-Type':'application/json'} : {}),
       ...(options.headers || {})
     }
