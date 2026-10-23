@@ -2852,7 +2852,7 @@ function renderConnectors() {
     '<div class="source-import-card"><div class="source-import-heading"><div><div class="section-title">Import authorised source records</div><p class="source-import-help">Preview validates the file without saving it. Import writes only supported fields and never runs specimen-processing or diagnostic engines.</p></div><span class="source-import-tag">CSV / TSV</span></div>' +
     '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online only)</option></select></div>' +
     '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
-    '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div></div>' +
+    '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
     '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
     '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
 }
@@ -2924,6 +2924,7 @@ async function previewSourceCsv() {
     if (!MODE.isOnline && domain === 'patients') throw new Error('Patient-registry imports require an authenticated online workspace. Offline mode must not store identifiable patient details.')
     const sensitive = ['fullName','mrn','dateOfBirth','gender','phone','idNumber','address']
     if (!MODE.isOnline && parsed.headers.some(h => sensitive.includes(h))) throw new Error('Offline imports must be de-identified. Remove names, MRNs, dates of birth, gender, phone numbers and addresses.')
+    if (!MODE.isOnline && !(document.getElementById('source-import-deidentified') || {}).checked) throw new Error('Confirm that offline data is de-identified and patientId values are pseudonymous before previewing.')
     if (MODE.isOnline) {
       const sb = getSupabase()
       if (!sb || !STATE.orgId || STATE.orgId === 'default') throw new Error('No verified online organisation is active. Sign in again before importing.')
@@ -2941,8 +2942,9 @@ async function previewSourceCsv() {
     if (errors.length) throw new Error(errors.slice(0, 8).join(' ') + (errors.length > 8 ? ' +' + (errors.length - 8) + ' more row errors.' : ''))
     SOURCE_IMPORT_PREVIEW = { domain, schema, headers: parsed.headers, rows: parsed.rows, fileName: SOURCE_IMPORT_FILE_NAME || 'CSV source import' }
     if (commit) commit.disabled = false
+    const unsupported = parsed.headers.filter(h => !schema.fields.includes(h))
     const previewRows = parsed.rows.slice(0, 5).map(row => '<tr>' + parsed.headers.slice(0, 8).map(h => '<td>' + esc(row[h] || '') + '</td>').join('') + '</tr>').join('')
-    output.innerHTML = '<div class="source-import-result success"><strong>Validation passed</strong><p>' + parsed.rows.length + ' row(s) passed required-field checks. ' + Math.max(0, parsed.headers.length - 8) + ' column(s) beyond the first eight will be omitted from preview. Nothing has been saved yet.</p><div class="source-import-table-wrap"><table class="journey-table"><thead><tr>' + parsed.headers.slice(0, 8).map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + previewRows + '</tbody></table></div></div>'
+    output.innerHTML = '<div class="source-import-result success"><strong>Validation passed</strong><p>' + parsed.rows.length + ' row(s) passed required-field checks. ' + unsupported.length + ' unsupported column(s) will be ignored; nothing has been saved yet.</p><div class="source-import-table-wrap"><table class="journey-table"><thead><tr>' + parsed.headers.slice(0, 8).map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + previewRows + '</tbody></table></div></div>'
   } catch (e) {
     if (output) output.innerHTML = '<div class="source-import-result error"><strong>Validation failed</strong><p>' + esc(e.message || 'The file could not be validated.') + '</p></div>'
     toast('Import validation failed', e.message || 'Check the file and try again.', 'warn')
@@ -2960,7 +2962,7 @@ async function commitSourceCsv() {
   rows.forEach((row, index) => {
     const clean = {}
     schema.fields.forEach(field => { if (row[field] != null && String(row[field]).trim() !== '') clean[field] = row[field] })
-    const id = domain === 'patients' ? String(clean.id || clean.patientId || '') : String(clean.id || clean.sourceRecordId || '')
+    const id = domain === 'patients' ? String(clean.patientId || clean.id || '') : String(clean.id || clean.sourceRecordId || '')
     clean.id = id || uid()
     if (domain === 'patients') clean.patientId = clean.patientId || clean.id
     if (seen.has(String(clean.id))) { duplicates.push(index + 2); return }
@@ -2979,7 +2981,8 @@ async function commitSourceCsv() {
     return
   }
   STATE[schema.stateKey] = current.concat(imported)
-  lsSet(schema.storageKey(), STATE[schema.stateKey])
+  try { localStorage.setItem(jlightStorageKey(schema.storageKey()), JSON.stringify(STATE[schema.stateKey].slice(-2000))) }
+  catch (e) { STATE[schema.stateKey] = current; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
   let sync = { ok: false, reason: 'offline' }
   if (MODE.isOnline) sync = await syncDomainToBackend(schema.backendDomain, imported)
   try { await audit('Validated source-data import', schema.label + ': ' + imported.length + ' records; ' + duplicates.length + ' duplicates skipped; mode=' + (MODE.isOnline ? 'online' : 'offline')) }
