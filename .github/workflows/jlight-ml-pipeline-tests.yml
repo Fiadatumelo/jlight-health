@@ -7,7 +7,9 @@ on:
       - "jlight-backend/engine/csv_engine.py"
       - "jlight-backend/engine/bio_engine.py"
       - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/api/source_workflow.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_authorization.py"
       - "jlight-backend/tests/test_all.py"
       - ".github/workflows/jlight-ml-pipeline-tests.yml"
   push:
@@ -37,11 +39,14 @@ jobs:
           cache-dependency-path: jlight-backend/requirements.txt
       - name: Install JLIGHT backend dependencies
         run: python -m pip install -r jlight-backend/requirements.txt
-      - name: Compile ML and domain engines
-        run: python -m py_compile jlight-backend/engine/ml_engine.py jlight-backend/engine/csv_engine.py jlight-backend/engine/bio_engine.py
+      - name: Compile API and domain engines
+        run: python -m py_compile jlight-backend/api/source_workflow.py jlight-backend/engine/ml_engine.py jlight-backend/engine/csv_engine.py jlight-backend/engine/bio_engine.py
       - name: Execute repository ML, CSV and bioinformatics suite
         working-directory: jlight-backend
         run: python tests/test_all.py
       - name: Execute workflow traceability regression tests
         working-directory: jlight-backend
         run: python -m unittest tests/test_workflow_traceability.py
+      - name: Execute domain authorization regression tests
+        working-directory: jlight-backend
+        run: python -m unittest tests/test_domain_authorization.py
