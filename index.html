@@ -2991,7 +2991,7 @@ async function commitSourceCsv() {
   const cloudMessage = MODE.isOnline
     ? (sync.ok ? 'Cloud sync confirmed for ' + (sync.count || imported.length) + ' record(s).' : 'Local cache updated, but cloud sync failed: ' + (sync.reason || 'unknown error') + '. Retry before relying on the cloud copy.')
     : 'Saved on this device only. Cloud sync is not active in offline mode.'
-  if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p><button class="btn" onclick="goPage(\\'journey\\')">Review Patient Journey</button></div>'
+  if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p><button class="btn" onclick="goPage(\'journey\')">Review Patient Journey</button></div>'
   const commit = document.getElementById('source-import-commit')
   if (commit) commit.disabled = true
   toast(MODE.isOnline && !sync.ok ? 'Import needs cloud-sync review' : 'Source records imported', cloudMessage, MODE.isOnline && !sync.ok ? 'warn' : 'good')
