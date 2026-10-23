@@ -58,7 +58,7 @@ require("function renderBioinformaticsReview()" in html,
         "Bioinformatics review route is missing")
 
 # Standalone source-data intake must validate and persist authorised records without running specimen engines.
-for feature in ("SOURCE_IMPORT_SCHEMAS", "function parseSourceCSV(", "function previewSourceCsv()", "function commitSourceCsv()", "syncDomainToBackend(schema.backendDomain, imported)"):
+for feature in ("SOURCE_IMPORT_SCHEMAS", "function parseSourceCSV(", "function previewSourceCsv()", "function commitSourceCsv()", "syncDomainToBackend(schema.backendDomain, imported.slice"):
     require(feature in html, f"Validated source import feature missing: {feature}")
 require("patient-registry imports require an authenticated online workspace" in html.lower(),
         "Patient registry import must be online-only")
