@@ -1,0 +1,77 @@
+{
+  "fixture_version": 1,
+  "classification": "synthetic_only",
+  "provisioning": "manual_staging_only",
+  "never_use_production": true,
+  "organizations": [
+    {"key": "org_a", "label": "SYNTH-JLIGHT-ORG-A", "must_differ_from": "org_b"},
+    {"key": "org_b", "label": "SYNTH-JLIGHT-ORG-B", "must_differ_from": "org_a"}
+  ],
+  "users": [
+    {
+      "key": "user_a",
+      "label": "SYNTH-JLIGHT-USER-A",
+      "organization": "org_a",
+      "membership": "active",
+      "role": "admin",
+      "domain_permissions": {
+        "hospital": {"can_read": true, "can_write": false, "can_report": true},
+        "laboratory": {"can_read": true, "can_write": false, "can_report": true},
+        "bioinformatics": {"can_read": true, "can_write": false, "can_report": true},
+        "clinical_trials": {"can_read": false, "can_write": false, "can_report": false}
+      },
+      "must_not_belong_to": ["org_b"]
+    },
+    {
+      "key": "user_b",
+      "label": "SYNTH-JLIGHT-USER-B",
+      "organization": "org_b",
+      "membership": "active",
+      "role": "admin",
+      "domain_permissions": {
+        "hospital": {"can_read": true, "can_write": false, "can_report": false},
+        "laboratory": {"can_read": false, "can_write": false, "can_report": false},
+        "bioinformatics": {"can_read": false, "can_write": false, "can_report": false},
+        "clinical_trials": {"can_read": false, "can_write": false, "can_report": false}
+      },
+      "must_not_belong_to": ["org_a"]
+    }
+  ],
+  "synthetic_records": [
+    {
+      "key": "patient_key_1",
+      "label": "SYNTH-JLIGHT-001",
+      "organization": "org_a",
+      "domains": ["hospital", "laboratory", "bioinformatics"],
+      "link_state": "verified_only_after_explicit_synthetic_confirmation",
+      "source_values_modified": false
+    },
+    {
+      "key": "unverified_patient_key",
+      "label": "SYNTH-JLIGHT-UNVERIFIED-001",
+      "organization": "org_a",
+      "domains": ["hospital", "laboratory"],
+      "link_state": "unverified",
+      "must_not_appear_in_verified_patient_journey": true,
+      "source_values_modified": false
+    },
+    {
+      "key": "clinical_trial_record",
+      "label": "SYNTH-JLIGHT-TRIAL-001",
+      "organization": "org_a",
+      "domains": ["clinical_trials"],
+      "must_not_appear_in_operational_patient_journey": true,
+      "source_values_modified": false
+    }
+  ],
+  "secrets": {
+    "stored_in_git": false,
+    "github_actions_secret_names": [
+      "JLIGHT_STAGING_BASE_URL",
+      "JLIGHT_STAGING_USER_A_TOKEN",
+      "JLIGHT_STAGING_USER_B_TOKEN",
+      "JLIGHT_STAGING_ORG_A",
+      "JLIGHT_STAGING_ORG_B"
+    ]
+  }
+}
