@@ -28,6 +28,12 @@ class SourceWorkflowAuthTests(unittest.TestCase):
         response = self.client.post("/api/connectors/ingest", json={})
         self.assertEqual(response.status_code, 401)
 
+    def test_durable_queue_routes_require_bearer_token(self):
+        response = self.client.post("/api/connectors/queue", json={})
+        self.assertEqual(response.status_code, 401)
+        response = self.client.post("/api/connectors/queue/process", json={})
+        self.assertEqual(response.status_code, 401)
+
     def test_decision_cards_require_bearer_token(self):
         response = self.client.get("/api/decision-cards")
         self.assertEqual(response.status_code, 401)
