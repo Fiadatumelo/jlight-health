@@ -1209,9 +1209,11 @@ async function doForgotPassword() {
   }
   try {
     if (status) { status.textContent = 'Requesting password-reset email…'; status.className = 'auth-status' }
-    const redirectTo = window.location.origin + window.location.pathname
-    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo })
+    const { data, error } = await sb.functions.invoke('send-password-reset', {
+      body: { email: addr }
+    })
     if (error) throw error
+    if (!data?.success) throw new Error(data?.error || 'Password recovery email could not be requested')
     // Supabase deliberately uses a generic response to avoid revealing whether
     // an account exists. SMTP delivery must be configured in Supabase Auth.
     if (status) {
@@ -1559,15 +1561,21 @@ setTimeout(async () => {
 
   const url = new URL(window.location.href)
   const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
-  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || url.searchParams.has('code')
+  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || (url.searchParams.has('code') && url.searchParams.get('type') === 'recovery')
   const code = url.searchParams.get('code')
+  const tokenHash = url.searchParams.get('token_hash')
   const accessToken = hashParams.get('access_token')
   const refreshToken = hashParams.get('refresh_token')
 
   try {
     // Supabase may use PKCE (?code=...) or implicit tokens (#access_token=...).
     // Complete the exchange before checking whether a recovery session exists.
-    if (code) {
+    if (tokenHash && url.searchParams.get('type') === 'recovery') {
+      const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      if (error) throw error
+      url.searchParams.delete('token_hash')
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+    } else if (code) {
       const { error } = await sb.auth.exchangeCodeForSession(code)
       if (error) throw error
       url.searchParams.delete('code')
