@@ -2845,7 +2845,7 @@ function resetSourceImportPreview() {
 }
 function jlightInteropApiBase() {
   const input = document.getElementById('interop-api-base')
-  const value = String((input && input.value) || localStorage.getItem('jlight_interop_api_base') || '').trim().replace(/\/+$/, '')
+  const value = String((input && input.value) || localStorage.getItem('jlight_interop_api_base') || 'https://jlight-backend.onrender.com').trim().replace(/\/+$/, '')
   if (!value) throw new Error('Enter the deployed JLIGHT backend URL first.')
   try { new URL(value) } catch (_) { throw new Error('Backend URL must be a valid HTTPS URL (localhost is allowed for development).') }
   if (!/^https:\/\//i.test(value) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(value)) {
