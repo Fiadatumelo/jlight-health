@@ -1539,7 +1539,7 @@ function goPage(page) {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     process: 'Source Data Review', samples: 'Laboratory Data Traceability', 'sample-detail': 'Source Data Detail',
-    predictive: 'Predictive Failure Engine', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
+    predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
     audit: 'Audit Trail', settings: 'Settings',
   }
   $('tb-title').textContent = titles[page] || page
@@ -1933,8 +1933,6 @@ function clearResolvedCards() {
 // ═══════════════════════════════════════════════════════════
 // REGISTRATION (role-specific)
 // ═══════════════════════════════════════════════════════════
-const LIFECYCLE_STAGES = ['registered', 'entered', 'processed', 'reported']
-const STAGE_LABELS = { registered: 'Registered', entered: 'QC Entry', processed: 'Processed', reported: 'Reported' }
 
 function renderRegister() {
   if (STATE.role === 'Laboratory') return renderLabRegister()
@@ -1969,6 +1967,11 @@ function renderSamples() {
 function renderSampleListItem() { return ''; }
 
 function openSample() { goPage('connectors'); }
+
+function renderSampleDetail() {
+  const page = document.getElementById('page-sample-detail');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Detail</div><div class="page-sub">JLIGHT does not create or process laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2)">Open Data Sources to configure an authorised import.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
+}
 // ═══════════════════════════════════════════════════════════
 // LABORATORY INTELLIGENCE ENGINES
 // ═══════════════════════════════════════════════════════════
@@ -1986,44 +1989,9 @@ function generateRegistrationErrorCard() { return null; }
 // Predicts WHICH instrument/lot/system will fail BEFORE results go bad
 // ═══════════════════════════════════════════════════════════
 function renderPredictive() {
-  const cfg = ROLES[STATE.role]
-  const predictions = computePredictions()
-
-  $('page-predictive').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Predictive Failure Engine</div>
-        <div class="page-sub">Forecasts where the next failure will originate · before patients are affected</div>
-      </div>
-    </div>
-
-    <div class="predictive-card">
-      <div class="predictive-head">
-        <div class="predictive-icon">◉</div>
-        <div>
-          <div class="predictive-title">How this works</div>
-          <div class="predictive-sub">Trend analysis · drift detection · failure horizon estimation</div>
-        </div>
-      </div>
-      <div style="font-size:13px;color:var(--text);line-height:1.65">
-        Most lab and operational errors are not random — they follow drift patterns that are visible <strong>before</strong> they cross failure thresholds. The Predictive Engine continuously analyses your data for early-warning signatures: QC values trending toward control limits, reagent lots showing consistent bias, instruments slowing down, wards drifting toward TAT failure, and participants showing pre-disengagement behaviour.
-        <br><br>
-        Each prediction includes a <strong>failure horizon</strong> — how soon JLIGHT estimates the failure will occur if no action is taken — and a <strong>confidence score</strong> based on the signal strength.
-      </div>
-    </div>
-
-    ${predictions.length === 0 ? renderEmpty('No predictions yet', 'JLIGHT needs 5+ data points per ' + (STATE.role === 'Laboratory' ? 'instrument/test combination' : 'pattern') + ' to predict failures. Keep recording activity.', 'register', '+ New') : `
-      <div class="section">
-        <div class="section-head">
-          <div>
-            <div class="section-title">Active Predictions</div>
-            <div class="section-sub">${predictions.length} forecast${predictions.length > 1 ? 's' : ''} · ranked by urgency</div>
-          </div>
-        </div>
-        ${predictions.map(p => renderPrediction(p)).join('')}
-      </div>
-    `}
-  `
+  const page = document.getElementById('page-predictive');
+  if (!page) return;
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Trends & Signals</div><div class="page-sub">Intelligence over authorised source-system data</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Predictive forecasts are not presented as operational. This workspace must first receive validated source data and have each analytical rule tested against representative data before forecasts can be enabled.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
 function renderPrediction() { return ''; }
