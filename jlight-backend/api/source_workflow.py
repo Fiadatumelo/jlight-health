@@ -181,7 +181,9 @@ def require_patient_journey_report(fn):
     """Cross-domain aggregation requires a separate explicit report grant."""
     @wraps(fn)
     def wrapped(*args, **kwargs):
-        allowed = any(_domain_permission(domain, "report")
+        # A comprehensive patient-journey report requires explicit report grants
+        # for every included operational domain. Clinical Trials remains separate.
+        allowed = all(_domain_permission(domain, "report")
                       for domain in ("hospital", "laboratory", "bioinformatics"))
         if not allowed:
             return _error("Patient-journey reporting is not authorised", 403)
