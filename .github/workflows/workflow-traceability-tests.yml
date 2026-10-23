@@ -1,0 +1,74 @@
+name: JLIGHT Persistence and Traceability Tests
+
+on:
+  pull_request:
+    paths:
+      - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/engine/domain_persistence.py"
+      - "jlight-backend/engine/ingestion_queue.py"
+      - "jlight-backend/scripts/facility_spool.py"
+      - "jlight-backend/scripts/queue_worker_once.py"
+      - "jlight-backend/tests/test_facility_spool.py"
+      - "jlight-backend/tests/test_ingestion_queue.py"
+      - "index.html"
+      - "jlight-backend/engine/source_adapters.py"
+      - "jlight-backend/engine/decision_cards.py"
+      - "jlight-backend/tests/test_frontend_syntax.py"
+      - "jlight-backend/tests/test_source_adapters.py"
+      - "jlight-backend/tests/test_synthetic_fhir_interop.py"
+      - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
+      - "jlight-backend/scripts/validate_fhir_export.py"
+      - "jlight-backend/scripts/validate_synthea_archive.py"
+      - "jlight-backend/tests/test_decision_cards.py"
+      - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_persistence.py"
+      - "jlight-backend/engine/ingestion_queue.py"
+      - "jlight-backend/tests/test_ingestion_queue.py"
+      - "jlight-backend/api/source_workflow.py"
+      - "jlight-backend/api/app.py"
+      - "jlight-backend/tests/test_source_workflow_auth.py"
+      - "jlight-backend/migrations/**"
+      - ".github/workflows/workflow-traceability-tests.yml"
+  push:
+    branches:
+      - main
+      - "feat/source-workflow-traceability"
+    paths:
+      - "jlight-backend/tests/test_decision_cards.py"
+      - "jlight-backend/tests/test_source_adapters.py"
+      - "jlight-backend/tests/test_synthetic_fhir_interop.py"
+      - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
+      - "jlight-backend/scripts/validate_fhir_export.py"
+      - "jlight-backend/tests/test_frontend_syntax.py"
+      - "jlight-backend/engine/decision_cards.py"
+      - "jlight-backend/engine/source_adapters.py"
+      - "index.html"
+      - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/engine/domain_persistence.py"
+      - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_persistence.py"
+      - "jlight-backend/api/source_workflow.py"
+      - "jlight-backend/tests/test_source_workflow_auth.py"
+      - "jlight-backend/migrations/**"
+      - ".github/workflows/workflow-traceability-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-domain-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install API security test dependencies
+        run: python -m pip install "Flask==3.1.3" "PyJWT==2.7.0" "psycopg2-binary==2.9.11"
+      - name: Test workflow traceability, persistence, and authentication safety
+        working-directory: jlight-backend
+        run: python -m unittest tests.test_workflow_traceability tests.test_domain_persistence tests.test_ingestion_queue tests.test_facility_spool tests.test_source_workflow_auth tests.test_source_adapters tests.test_synthetic_fhir_interop tests.test_decision_cards -v
+      - name: Check archive validator syntax
+        run: python -m py_compile jlight-backend/scripts/validate_synthea_archive.py
+      - name: Check frontend JavaScript syntax
+        run: python jlight-backend/tests/test_frontend_syntax.py -v

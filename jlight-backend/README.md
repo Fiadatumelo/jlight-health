@@ -164,3 +164,61 @@ python3 tests/test_all.py
 
 ---
 Team JLIGHT · Fiada Mothapo · Gauteng, South Africa · 2026
+
+
+## Source-system interoperability (staging foundation)
+
+The source-workflow API is a **read-only integration layer** over events and records exported by existing Hospital, Laboratory, and Bioinformatics systems. It does not replace those systems, operate analysers, process specimens, or write back into source systems. Clinical Trials remains a separate participant workflow.
+
+New authenticated endpoints:
+- `POST /api/source-records` — append an immutable, versioned source record.
+- `POST /api/workflow-events` — append a source-observed workflow event.
+- `POST /api/connectors/ingest` — ingest a read-only FHIR R4 Bundle, HL7 v2 status message, or mapped CSV export directly. This is a push/import adapter, not an automatic live-system connector.
+- `POST /api/connectors/queue` — durably enqueue a FHIR/HL7 v2/CSV export using `Idempotency-Key` (or `idempotency_key` in the JSON body); repeated keys with changed content are rejected for review.
+- `POST /api/connectors/queue/process` — owner/admin-only processing of queued exports with bounded retries, worker leases, duplicate-safe event persistence, and dead-letter status after repeated failures.
+
+### Store-and-forward recovery
+
+- Facility-side local spool (Python standard library; no extra package required): `python scripts/facility_spool.py --db /secure/path/jlight-spool.sqlite3 enqueue --source-system synthetic-his --domain hospital --format fhir --file ./synthetic-bundle.json`.
+- Replay after connectivity returns by setting `JLIGHT_API_BASE_URL` (HTTPS), `JLIGHT_ACCESS_TOKEN`, and `JLIGHT_ORGANIZATION_ID`, then running `python scripts/facility_spool.py --db /secure/path/jlight-spool.sqlite3 replay`. Accepted exports are marked sent; failures remain pending. Use a stable idempotency key per export when an export is regenerated or its JSON changes.
+- A scheduler can run `python scripts/queue_worker_once.py` every minute or few minutes with `JLIGHT_API_BASE_URL`, `JLIGHT_ACCESS_TOKEN`, `JLIGHT_ORGANIZATION_ID` and optional `JLIGHT_WORKER_BATCH_SIZE` configured as secrets/environment variables. Use an owner/admin service account and rotate its token. The worker is one-shot by design so the hosting platform's scheduler controls cadence.
+- Treat spool files as sensitive health-data stores: use an encrypted disk/volume, strict OS permissions, backups and a facility-approved retention period. Start with synthetic data only. The spool is a reference integration utility, not yet a facility-certified connector.
+- `GET /api/workflow-timelines` — read the tenant's event timeline.
+- `GET /api/decision-cards` — generate explainable operational delay cards with exact source-event evidence.
+- `GET /api/connector-freshness` — report when each source feed last delivered an event; this does not directly probe the source system.
+- `POST /api/patient-keys` and `GET /api/patient-keys` — create/list pseudonymous canonical journey keys (owner/admin creation).
+- `POST /api/patient-links` — append an owner/admin-verified source identity link or unlink event. Raw source references are HMACed and not stored.
+- `GET /api/patient-journeys` — combine verified Hospital, Laboratory and Bioinformatics events into one patient journey; unverified events are excluded and Clinical Trials remains separate.
+
+All listed API endpoints require a valid Supabase Auth bearer token and an `X-JLIGHT-Organization` UUID. The API verifies active membership against `jlight_organization_memberships`. Viewer memberships are read-only. Client-supplied patient IDs are deliberately not accepted as verified links; records remain unlinked until a separate trusted patient-linking workflow is implemented.
+
+Before staging use:
+1. Configure `SUPABASE_URL`, `DATABASE_URL`, and a random `JLIGHT_LINKING_SECRET` of at least 32 characters in the backend environment. Keep the linking secret identical across API instances and rotate it only through a planned re-hash migration.
+2. Apply `migrations/20261023110000_cross_section_persistence.sql`, `migrations/20261023123000_organization_memberships.sql`, `migrations/20261023160000_trusted_patient_linking.sql`, and `migrations/20261023180000_durable_ingestion_queue.sql` and `migrations/20261023183000_secure_ingestion_queue_grants.sql` to a **non-production** PostgreSQL database.
+3. Provision an organization and membership using a trusted administrative process; never expose membership self-assignment to clients.
+4. Configure `DATABASE_URL` with a dedicated database login that is explicitly granted membership in the non-login `jlight_runtime` role. The API executes `SET ROLE jlight_runtime` on every connection. Do not use the table-owner or a `BYPASSRLS` login for the deployed API.
+5. Verify row-level security with two synthetic organizations, then run the synthetic tests and exercise the endpoints with synthetic Hospital/Laboratory/Bioinformatics records before connecting real systems.
+6. Configure a source-specific export/push job in the existing HIS/LIS/EMR to send a FHIR Bundle, supported HL7 v2 status message, or mapped CSV export to `/api/connectors/queue`, using a stable idempotency key for each export. When service is restored, an authenticated owner/admin can call `/api/connectors/queue/process` to process and retry queued exports. The queue protects exports already received by JLIGHT; it cannot receive data while JLIGHT is fully offline, and does not poll remote systems automatically.
+7. Review each generated Decision Card with an operational subject-matter expert and configure a workflow-appropriate delay threshold before using alerts operationally.
+8. A trusted owner/admin must create a pseudonymous journey key and verify source-system patient crosswalks before events can be combined across Hospital, Laboratory and Bioinformatics. Source references are stored as keyed HMAC digests, not raw identifiers. This verification process must be governed by the organisation's patient-identity and POPIA procedures.
+
+These migrations are not automatically applied by the API. No live source-system connector or production deployment is implied by these endpoints.
+
+
+### Free synthetic-data validation
+
+Use the checked-in, fully synthetic FHIR R4 fixture to test the adapter without real patient data:
+
+```bash
+cd jlight-backend
+python -m unittest tests.test_synthetic_fhir_interop -v
+python scripts/validate_fhir_export.py --file tests/fixtures/synthetic_fhir_r4_bundle.json --domain hospital
+```
+
+For broader repeatable coverage, download a synthetic FHIR export from [Synthea](https://synthetichealth.github.io/downloads.html), extract a FHIR R4 Bundle JSON file, and run:
+
+```bash
+python scripts/validate_fhir_export.py --file /path/to/synthetic-bundle.json --domain laboratory
+```
+
+Use `hospital`, `laboratory`, or `bioinformatics` to validate the same export through the relevant domain mapping. The tool reports aggregate counts only; it does not print patient references or clinical values. The checked-in fixture is locally authored synthetic data, not a downloaded Synthea patient. Public test servers and external sandboxes are optional supplementary checks, not runtime dependencies. Do not submit real patient exports to public endpoints.

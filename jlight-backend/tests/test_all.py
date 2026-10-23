@@ -55,13 +55,13 @@ def test_regression_stable():
     assert result.risk.level == "STABLE"
 
 def test_westgard_1_3s():
-    pipeline = JLIGHTMLPipeline()
+    pipeline = JLIGHTMLPipeline(domain="laboratory", qc_mode=True, iso_threshold=3.0)
     # Stable baseline (first 60%) + extreme outlier clearly > 3SD of baseline
     result = pipeline.run([2.0, 2.0, 2.0, 2.0, 2.1, 1.9, 2.0, 2.1, 2.0, 8.5])
     assert result.westgard.rule_1_3s, f"1₃s should be triggered. Violations: {result.westgard.violations}"
 
 def test_westgard_2_2s():
-    pipeline = JLIGHTMLPipeline()
+    pipeline = JLIGHTMLPipeline(domain="laboratory", qc_mode=True, iso_threshold=3.0)
     # Stable baseline + two consecutive values > 2SD same direction
     result = pipeline.run([2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 5.5, 5.8])
     assert result.westgard.rule_2_2s, f"2₂s should be triggered. Violations: {result.westgard.violations}"
@@ -74,7 +74,7 @@ def test_zscore_anomaly():
     assert result.z_scores.max_z > 3.0, f"Max Z should be > 3, got {result.z_scores.max_z}"
 
 def test_breach_forecast():
-    pipeline = JLIGHTMLPipeline(iso_threshold=3.0)
+    pipeline = JLIGHTMLPipeline(domain="laboratory", qc_mode=True, iso_threshold=3.0)
     result = pipeline.run([2.1, 2.4, 2.7, 2.9, 3.1, 3.3, 3.5])
     # Already breaching
     # Already breaching or forecasting breach very soon
@@ -103,6 +103,29 @@ test("Z-score anomaly detection", test_zscore_anomaly)
 test("Breach forecast (already breaching)", test_breach_forecast)
 test("Risk score 0-100 range", test_risk_score_range)
 test("Minimum data points validation", test_min_data_points)
+
+def test_generic_pipeline_has_no_lab_qc_rules():
+    result = JLIGHTMLPipeline(domain="hospital").run([10.0, 10.1, 9.9, 10.0, 10.2, 10.1])
+    assert result.westgard.violations == []
+    assert result.regression.iso_threshold is None
+
+def test_westgard_rejected_outside_laboratory():
+    try:
+        JLIGHTMLPipeline(domain="hospital", qc_mode=True)
+        assert False, "Westgard must be restricted to laboratory QC"
+    except ValueError:
+        pass
+
+def test_clinical_trials_remain_separate():
+    try:
+        JLIGHTMLPipeline(domain="clinical_trials")
+        assert False, "Clinical trials must remain separate"
+    except ValueError:
+        pass
+
+test("Generic domain excludes lab QC rules", test_generic_pipeline_has_no_lab_qc_rules)
+test("Westgard QC is laboratory-only", test_westgard_rejected_outside_laboratory)
+test("Clinical trials remain separate", test_clinical_trials_remain_separate)
 
 
 # ─── CSV Engine Tests ─────────────────────────────────────────────────────────

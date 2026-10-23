@@ -355,7 +355,7 @@ def analyse_csv(
         cv_pct = float(np.mean(values))
 
     # Run ML pipeline
-    pipeline = JLIGHTMLPipeline(iso_threshold=iso_threshold, tea=tea)
+    pipeline = JLIGHTMLPipeline(iso_threshold=iso_threshold, tea=tea, domain="laboratory", qc_mode=True)
     ml_result = pipeline.run(values, timestamps, cv=cv_pct)
 
     # Build Decision Card
