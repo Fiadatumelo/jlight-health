@@ -1537,9 +1537,9 @@ function goPage(page) {
   if (target) target.classList.add('active')
   const titles = {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail',
-    register: STATE.role === 'Laboratory' ? 'Register Sample' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
-    process: 'Record Result', samples: 'Sample Profiles', 'sample-detail': 'Sample Profile',
-    predictive: 'Predictive Failure Engine', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
+    register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
+    process: 'Source Data Review', samples: 'Laboratory Data Traceability', 'sample-detail': 'Source Data Detail',
+    predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
     audit: 'Audit Trail', settings: 'Settings',
   }
   $('tb-title').textContent = titles[page] || page
@@ -1722,7 +1722,7 @@ function renderDashboard() {
   }
 
   const recentCards = cards.sort((a, b) => b.ts - a.ts).slice(0, 5)
-  const newLabel = STATE.role === 'Laboratory' ? 'Register Sample' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event')
+  const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event')
 
   $('page-dashboard').innerHTML = `
     <div class="page-head">
@@ -1744,7 +1744,7 @@ function renderDashboard() {
         <input id="jlight-nav-search" class="form-input jlight-nav-search" type="search" placeholder="Search tools…" oninput="filterJlightQuickLinks(this.value)" autocomplete="off"/>
       </div>
       <div class="jlight-quick-grid" id="jlight-quick-grid">
-        <button class="jlight-quick-card quick-blue" data-search="register sample new sample result laboratory" onclick="goPage('register')"><span class="jlight-quick-icon">＋</span><span><strong>${newLabel}</strong><small>Start a new workflow</small></span><span class="jlight-quick-arrow">↗</span></button>
+        <button class="jlight-quick-card quick-blue" data-search="register sample new sample result laboratory" onclick="goPage(STATE.role === 'Laboratory' ? 'connectors' : 'register')"><span class="jlight-quick-icon">＋</span><span><strong>${newLabel}</strong><small>Start a new workflow</small></span><span class="jlight-quick-arrow">↗</span></button>
         <button class="jlight-quick-card quick-purple" data-search="decision cards alerts errors review" onclick="goPage('cards')"><span class="jlight-quick-icon">◎</span><span><strong>Review decisions</strong><small>See alerts and recommended actions</small></span><span class="jlight-quick-arrow">↗</span></button>
         <button class="jlight-quick-card quick-green" data-search="analytics reports trends" onclick="goPage('analytics')"><span class="jlight-quick-icon">▥</span><span><strong>View analytics</strong><small>Explore trends and summaries</small></span><span class="jlight-quick-arrow">↗</span></button>
         <button class="jlight-quick-card quick-amber" data-search="settings profile organisation account" onclick="goPage('settings')"><span class="jlight-quick-icon">⚙</span><span><strong>Settings</strong><small>Manage your workspace preferences</small></span><span class="jlight-quick-arrow">↗</span></button>
@@ -1763,7 +1763,7 @@ function renderDashboard() {
         </div>
         <button class="btn btn-sm" onclick="goPage('cards')">All cards →</button>
       </div>
-      ${recentCards.length === 0 ? renderEmpty('No decisions yet', 'Decision cards appear when JLIGHT detects a problem. Start by ' + (STATE.role === 'Laboratory' ? 'registering a sample' : 'logging activity') + '.', 'register', `+ ${newLabel}`) : `<div class="dc-list">${recentCards.map(renderCardListItem).join('')}</div>`}
+      ${recentCards.length === 0 ? renderEmpty('No decisions yet', 'Decision cards appear when JLIGHT detects a problem. Start by ' + (STATE.role === 'Laboratory' ? 'reviewing authorised source data' : 'logging activity') + '.', 'register', `+ ${newLabel}`) : `<div class="dc-list">${recentCards.map(renderCardListItem).join('')}</div>`}
     </div>
   `
 }
@@ -1933,8 +1933,6 @@ function clearResolvedCards() {
 // ═══════════════════════════════════════════════════════════
 // REGISTRATION (role-specific)
 // ═══════════════════════════════════════════════════════════
-const LIFECYCLE_STAGES = ['registered', 'entered', 'processed', 'reported']
-const STAGE_LABELS = { registered: 'Registered', entered: 'QC Entry', processed: 'Processed', reported: 'Reported' }
 
 function renderRegister() {
   if (STATE.role === 'Laboratory') return renderLabRegister()
@@ -1943,895 +1941,62 @@ function renderRegister() {
 }
 
 function renderLabRegister() {
-  $('page-register').innerHTML = `<div class="page-head"><div><div class="page-title">Laboratory Data Intake</div><div class="page-sub">JLIGHT analyses existing data; it does not register or process physical specimens.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Use Data Sources to review ingestion options. Any integration must be implemented and validated before operational use. Laboratory results must originate from an authorised source system.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
-  return;
-  $('page-register').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Register New Sample</div>
-        <div class="page-sub">Step 1 of the sample lifecycle · JLIGHT will track this sample from receipt to final report</div>
-      </div>
-    </div>
-    <div class="form-card">
-      <div class="form-grid">
-        <div class="form-row"><label class="form-label">Sample ID / Accession #</label><input class="form-input" id="rf-sampleId" type="text" placeholder="e.g. SMPL-2026-04-001"/><div class="form-help">Unique identifier from your LIS or manual log</div></div>
-        <div class="form-row"><label class="form-label">Patient ID</label><input class="form-input" id="rf-patientId" type="text" placeholder="e.g. PT-12345"/><div class="form-help">De-identified patient reference</div></div>
-        <div class="form-row"><label class="form-label">Sample Type</label><select class="form-input" id="rf-sampleType"><option value="">— Select —</option><option>Whole Blood (EDTA)</option><option>Whole Blood (Heparin)</option><option>Serum</option><option>Plasma</option><option>Urine</option><option>CSF</option><option>Tissue</option><option>Swab (microbiology)</option><option>Stool</option><option>Sputum</option></select></div>
-        <div class="form-row"><label class="form-label">Test Requested</label><select class="form-input" id="rf-test"><option value="">— Select —</option>${Object.keys(REF_RANGES).map(k => `<option>${k}</option>`).join('')}<option>Other</option></select></div>
-        <div class="form-row"><label class="form-label">Collection Time</label><input class="form-input" id="rf-collectedAt" type="datetime-local"/></div>
-        <div class="form-row"><label class="form-label">Received Time</label><input class="form-input" id="rf-receivedAt" type="datetime-local"/></div>
-        <div class="form-row"><label class="form-label">Priority</label><select class="form-input" id="rf-priority"><option>Routine</option><option>Urgent</option><option>Stat</option></select></div>
-        <div class="form-row"><label class="form-label">Operator (registering)</label><input class="form-input" id="rf-operator" type="text" placeholder="Initials"/></div>
-        <div class="form-row span-2"><label class="form-label">Notes</label><input class="form-input" id="rf-notes" type="text" placeholder="Sample condition, special instructions"/></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" onclick="submitSampleRegistration()">Register sample</button>
-        <button class="btn" onclick="goPage('dashboard')">Cancel</button>
-      </div>
-    </div>
-  `
+  const page = document.getElementById('page-register');
+  if (!page) return;
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Intake</div><div class="page-sub">Authorised source data only</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">JLIGHT does not register, process, or test physical specimens. Use a validated data source to review existing laboratory information. Integrations are not operational until configured and tested.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
 function submitSampleRegistration() {
-  const get = (k) => $(`rf-${k}`).value.trim()
-  const sampleId = get('sampleId')
-  if (!sampleId) { toast('Missing field', 'Sample ID is required', 'crit'); return }
-
-  const errors = []
-  if (STATE.samples.some(s => s.sampleId === sampleId)) {
-    errors.push({ stage: 'Registration', issue: 'Duplicate Sample ID', detail: `Sample ID "${sampleId}" already exists. Registering the same ID twice causes result confusion.` })
-  }
-  const collectedAt = get('collectedAt'), receivedAt = get('receivedAt')
-  if (collectedAt && receivedAt && new Date(collectedAt) > new Date(receivedAt)) {
-    errors.push({ stage: 'Registration', issue: 'Time mismatch', detail: 'Collection time is after receipt time — logically impossible, indicates data entry error.' })
-  }
-  if (collectedAt && receivedAt) {
-    const transitHours = (new Date(receivedAt) - new Date(collectedAt)) / 3600000
-    if (transitHours > 24) {
-      errors.push({ stage: 'Registration', issue: 'Excessive transit time', detail: `Sample took ${transitHours.toFixed(1)} hours between collection and receipt. Most analytes degrade beyond 6-8 hours unrefrigerated.` })
-    }
-  }
-
-  const sample = {
-    id: uid(), ts: Date.now(), role: STATE.role,
-    sampleId, patientId: get('patientId'), sampleType: get('sampleType'), test: get('test'),
-    collectedAt, receivedAt, priority: get('priority'),
-    operatorRegistration: get('operator'), notes: get('notes'),
-    stage: 'registered',
-    history: [{ stage: 'registered', ts: Date.now(), operator: get('operator') || STATE.user, detail: 'Sample registered into JLIGHT' }],
-    errors, flags: {},
-  }
-  STATE.samples.push(sample)
-  STORAGE.saveSamples(STATE.role, STATE.samples)
-  audit('Sample registered', `${sampleId} · ${get('test')}`)
-
-  errors.forEach(e => { STATE.cards.push(generateRegistrationErrorCard(sample, e)) })
-  if (errors.length > 0) STORAGE.saveCards(STATE.role, STATE.cards)
-
-  if (errors.length > 0) toast('Registration issues', `${errors.length} error${errors.length > 1 ? 's' : ''} flagged`, 'warn')
-  else toast('Sample registered', `${sampleId} → next: record QC entry`, 'good')
-
-  STATE.currentSampleId = sample.id
-  goPage('process')
+  toast('Out of scope', 'JLIGHT does not register physical specimens. Use an authorised source system and validated data import.', 'warn');
+  goPage('connectors');
 }
 
 function renderProcess() {
-  if (STATE.role !== 'Laboratory') {
-    $('page-process').innerHTML = renderEmpty('Not available', 'Result processing is for Laboratory only.', 'dashboard', '← Dashboard')
-    return
-  }
-  const pending = STATE.samples.filter(s => s.stage === 'registered' || s.stage === 'entered')
-  const target = STATE.currentSampleId ? STATE.samples.find(s => s.id === STATE.currentSampleId) : pending[0]
-  if (!target) {
-    $('page-process').innerHTML = renderEmpty('No samples awaiting result', 'Register a sample first.', 'register', '+ Register sample')
-    return
-  }
-
-  $('page-process').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Record Result · ${esc(target.sampleId)}</div>
-        <div class="page-sub">${esc(target.test || 'Test')} · ${esc(target.sampleType || 'Sample')} · stage: ${esc(target.stage)}</div>
-      </div>
-      ${pending.length > 1 ? `<select class="form-input" style="max-width:300px" onchange="STATE.currentSampleId=this.value;goPage('process')">${pending.map(s => `<option value="${s.id}" ${s.id === target.id ? 'selected' : ''}>${esc(s.sampleId)} · ${esc(s.test)}</option>`).join('')}</select>` : ''}
-    </div>
-    <div class="form-card">
-      <div class="form-grid">
-        <div class="form-row"><label class="form-label">Instrument Used</label><select class="form-input" id="pf-instrument"><option value="">— Select —</option><option>Roche cobas 8000</option><option>Sysmex XN-1000</option><option>Abbott Architect</option><option>Beckman AU680</option><option>BD FACSCanto</option><option>Bio-Rad D-100</option><option>Manual / Microscopy</option><option>Other</option></select><div class="form-help">JLIGHT tracks per-instrument drift</div></div>
-        <div class="form-row"><label class="form-label">Result Value</label><input class="form-input" id="pf-value" type="number" step="any" placeholder="0.00"/><div class="form-help">${target.test && REF_RANGES[target.test] ? `Reference: ${REF_RANGES[target.test].min}–${REF_RANGES[target.test].max} ${REF_RANGES[target.test].unit}` : 'Numeric result value'}</div></div>
-        <div class="form-row"><label class="form-label">QC Run on Same Batch</label><input class="form-input" id="pf-qcValue" type="number" step="any" placeholder="0.00"/><div class="form-help">QC value at time of run (for Westgard analysis)</div></div>
-        <div class="form-row"><label class="form-label">Reagent Lot Number</label><input class="form-input" id="pf-lotNumber" type="text" placeholder="e.g. RGT-2026-04-A"/></div>
-        <div class="form-row"><label class="form-label">Result Type</label><select class="form-input" id="pf-resultType"><option>Quantitative (numeric)</option><option>Qualitative — Positive</option><option>Qualitative — Negative</option><option>Indeterminate</option></select></div>
-        <div class="form-row"><label class="form-label">Operator (processing)</label><input class="form-input" id="pf-operator" type="text" placeholder="Initials"/></div>
-        <div class="form-row span-2"><label class="form-label">Clinical Context (optional)</label><select class="form-input" id="pf-context"><option value="">— None / unknown —</option><option>Asymptomatic / screening</option><option>Symptomatic — fever</option><option>Symptomatic — infection suspected</option><option>Treatment monitoring</option><option>Post-exposure</option><option>Pre-operative</option></select><div class="form-help">Used for false-positive / false-negative detection</div></div>
-      </div>
-      <div class="form-actions">
-        <button class="btn btn-primary" onclick="submitResult('${target.id}')">Submit result</button>
-        <button class="btn" onclick="goPage('samples')">Cancel</button>
-      </div>
-    </div>
-  `
+  const page = document.getElementById('page-process');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Review</div><div class="page-sub">JLIGHT does not run tests or create laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Review existing results only after they are imported from an authorised, validated source system.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
 // ═══════════════════════════════════════════════════════════
 // SAMPLE LIST + DETAIL
 // ═══════════════════════════════════════════════════════════
 function renderSamples() {
-  const samples = STATE.samples.sort((a, b) => b.ts - a.ts)
-  const sq=(STATE.search.samples||'').toLowerCase()
-  const fs=sq?samples.filter(s=>(s.sampleId||'').toLowerCase().includes(sq)||(s.patientId||'').toLowerCase().includes(sq)||(s.test||'').toLowerCase().includes(sq)):samples
-  const sp=STATE.pagination.samples, ps2=STATE.pagination.pageSize
-  const spg=Math.max(1,Math.ceil(fs.length/ps2)), psamp=fs.slice((sp-1)*ps2,sp*ps2)
-  $('page-samples').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Sample Profiles</div>
-        <div class="page-sub">${fs.length} samples</div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <input class="form-input" style="width:220px;padding:7px 12px" placeholder="Search by ID, patient, test..."
-          value="${esc(STATE.search.samples)}"
-          oninput="STATE.search.samples=this.value;STATE.pagination.samples=1;renderSamples()"/>
-        <button class="btn btn-primary" onclick="goPage('register')">+ Register sample</button>
-      </div>
-    </div>
-    ${fs.length===0?renderEmpty(sq?'No samples match search':'No samples yet','',sq?null:'register',sq?null:'+ Register'):'<div style=\"display:grid;gap:12px\">'+psamp.map(renderSampleListItem).join('')+'</div>'+renderPagination(sp,spg,fs.length,'samples')}
-  `
+  const page = document.getElementById('page-samples');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review authorised imported data and its audit trail.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">This workspace does not register specimens or generate test results. Connect a validated source system to use data quality and traceability features.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
-function renderSampleListItem(s) {
-  const stageIdx = LIFECYCLE_STAGES.indexOf(s.stage)
-  const hasErrors = s.errors && s.errors.length > 0
-  const hasFlags = s.flags && (s.flags.contamination || s.flags.suspectedFalsePositive || s.flags.suspectedFalseNegative || s.flags.entryMismatch)
-  const sevClass = (hasErrors || hasFlags) ? 'crit' : 'good'
-  return `
-    <div class="dc" onclick="openSample('${s.id}')">
-      <div class="dc-bar ${sevClass}"></div>
-      <div class="dc-head">
-        <div class="dc-meta">
-          <span class="dc-pill ${sevClass}"><span class="dot"></span>${s.stage}</span>
-          <span class="dc-source">${esc(s.test || '—')}</span>
-          ${hasFlags ? `<span class="dc-pill warn">flagged</span>` : ''}
-        </div>
-        <span class="dc-time">${timeAgo(s.ts)}</span>
-      </div>
-      <div class="dc-body">
-        <div class="dc-title">${esc(s.sampleId)} · ${esc(s.patientId || '—')}</div>
-        <div class="dc-desc">${esc(s.sampleType || 'Sample')} · ${esc(s.priority || 'Routine')}${s.instrument ? ' · ' + esc(s.instrument) : ''}${s.value !== undefined ? ' · result ' + esc(s.value) : ''}</div>
-      </div>
-      <div class="dc-foot">
-        <div class="dc-trace">Stage ${stageIdx + 1}/4: ${LIFECYCLE_STAGES.map((st, i) => i <= stageIdx ? st : '·').join(' → ')}</div>
-        <span class="dc-action-link">Open profile →</span>
-      </div>
-    </div>
-  `
-}
+function renderSampleListItem() { return ''; }
 
-function openSample(id) { STATE.currentSampleId = id; goPage('sample-detail') }
+function openSample() { goPage('connectors'); }
 
 function renderSampleDetail() {
-  const s = STATE.samples.find(x => x.id === STATE.currentSampleId)
-  if (!s) { $('page-sample-detail').innerHTML = renderEmpty('Sample not found', '', 'samples', '← Back'); return }
-  const linkedCards = STATE.cards.filter(c => c.sampleId === s.id)
-  const stageIdx = LIFECYCLE_STAGES.indexOf(s.stage)
-
-  $('page-sample-detail').innerHTML = `
-    <div class="page-head"><button class="btn btn-sm" onclick="goPage('samples')">← All samples</button></div>
-    <div class="profile-card">
-      <div class="profile-head">
-        <div>
-          <div class="profile-id">${esc(s.sampleId)}</div>
-          <div class="profile-meta">${esc(s.test || '—')} · ${esc(s.sampleType || '—')} · ${esc(s.priority || 'Routine')} · patient ${esc(s.patientId || '—')}</div>
-        </div>
-        <div class="dc-meta">
-          <span class="dc-pill ${s.stage === 'reported' ? 'good' : 'info'}"><span class="dot"></span>${esc(s.stage)}</span>
-          ${s.flags && s.flags.contamination ? `<span class="dc-pill warn">contamination</span>` : ''}
-          ${s.flags && s.flags.suspectedFalsePositive ? `<span class="dc-pill warn">suspected FP</span>` : ''}
-          ${s.flags && s.flags.suspectedFalseNegative ? `<span class="dc-pill warn">suspected FN</span>` : ''}
-          ${s.flags && s.flags.entryMismatch ? `<span class="dc-pill crit">entry mismatch</span>` : ''}
-        </div>
-      </div>
-      <div class="lifecycle">
-        ${LIFECYCLE_STAGES.map((stage, i) => {
-          let cls = 'pending'
-          if (i < stageIdx) cls = 'done'
-          else if (i === stageIdx) cls = 'current'
-          if ((s.errors && s.errors.length > 0 && i === 0) || (s.flags && Object.keys(s.flags).length > 0 && i >= stageIdx)) cls = 'error'
-          const ev = s.history.filter(h => h.stage === stage).pop()
-          return `${i > 0 ? '<div class="lifecycle-arrow">→</div>' : ''}<div class="lifecycle-stage"><div class="lifecycle-circle ${cls}">${i + 1}</div><div class="lifecycle-name">${STAGE_LABELS[stage] || stage}</div><div class="lifecycle-detail">${ev ? new Date(ev.ts).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }) : '—'}</div></div>`
-        }).join('')}
-      </div>
-    </div>
-    <div class="detail-grid">
-      <div>
-        <div class="profile-card">
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px">Sample Details</div>
-          <div class="detail-row"><span class="detail-row-label">Sample ID</span><span class="detail-row-value">${esc(s.sampleId)}</span></div>
-          <div class="detail-row"><span class="detail-row-label">Patient ID</span><span class="detail-row-value">${esc(s.patientId || '—')}</span></div>
-          <div class="detail-row"><span class="detail-row-label">Sample Type</span><span class="detail-row-value">${esc(s.sampleType || '—')}</span></div>
-          <div class="detail-row"><span class="detail-row-label">Test Requested</span><span class="detail-row-value">${esc(s.test || '—')}</span></div>
-          <div class="detail-row"><span class="detail-row-label">Priority</span><span class="detail-row-value">${esc(s.priority || '—')}</span></div>
-          ${s.collectedAt ? `<div class="detail-row"><span class="detail-row-label">Collected</span><span class="detail-row-value">${esc(new Date(s.collectedAt).toLocaleString())}</span></div>` : ''}
-          ${s.receivedAt ? `<div class="detail-row"><span class="detail-row-label">Received</span><span class="detail-row-value">${esc(new Date(s.receivedAt).toLocaleString())}</span></div>` : ''}
-          ${s.instrument ? `<div class="detail-row"><span class="detail-row-label">Instrument</span><span class="detail-row-value">${esc(s.instrument)}</span></div>` : ''}
-          ${s.value !== undefined ? `<div class="detail-row"><span class="detail-row-label">Result</span><span class="detail-row-value">${esc(s.value)} ${s.test && REF_RANGES[s.test] ? REF_RANGES[s.test].unit : ''}</span></div>` : ''}
-          ${s.qcValue !== undefined && !isNaN(s.qcValue) ? `<div class="detail-row"><span class="detail-row-label">QC value</span><span class="detail-row-value">${esc(s.qcValue)}</span></div>` : ''}
-          ${s.lotNumber ? `<div class="detail-row"><span class="detail-row-label">Reagent lot</span><span class="detail-row-value">${esc(s.lotNumber)}</span></div>` : ''}
-          ${s.clinicalContext ? `<div class="detail-row"><span class="detail-row-label">Clinical context</span><span class="detail-row-value">${esc(s.clinicalContext)}</span></div>` : ''}
-        </div>
-        <div class="profile-card" style="margin-top:14px">
-          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:14px">Lifecycle History</div>
-          ${s.history.map(h => `<div style="display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);font-size:12.5px"><span style="font-family:'DM Mono',monospace;font-size:10.5px;color:var(--text-3);min-width:120px">${esc(new Date(h.ts).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' }))}</span><span style="color:var(--teal);font-weight:600;text-transform:uppercase;font-size:10.5px;letter-spacing:1px;min-width:90px">${esc(h.stage)}</span><span style="flex:1;color:var(--text)">${esc(h.detail)}</span><span style="font-size:10.5px;color:var(--text-3);font-family:'DM Mono',monospace">${esc(h.operator)}</span></div>`).join('')}
-        </div>
-      </div>
-      <div class="detail-side">
-        <div class="detail-info">
-          <h4>Linked Decision Cards</h4>
-          ${linkedCards.length === 0 ? '<div style="font-size:12px;color:var(--text-3)">No issues detected</div>' : linkedCards.map(c => `<div onclick="openCard('${c.id}')" style="cursor:pointer;padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-size:12px;font-weight:600;color:var(--${c.severity === 'crit' ? 'red' : c.severity === 'warn' ? 'amber' : 'text'});margin-bottom:3px">${esc(c.title)}</div><div style="font-size:11px;color:var(--text-3)">${timeAgo(c.ts)} · ${esc(c.source)}</div></div>`).join('')}
-        </div>
-        ${s.errors && s.errors.length > 0 ? `<div class="detail-info"><h4>Registration Errors</h4>${s.errors.map(e => `<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:12px"><div style="color:var(--red);font-weight:600;margin-bottom:3px">${esc(e.issue)}</div><div style="color:var(--text-2);font-size:11.5px;line-height:1.5">${esc(e.detail)}</div></div>`).join('')}</div>` : ''}
-      </div>
-    </div>
-  `
+  const page = document.getElementById('page-sample-detail');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Detail</div><div class="page-sub">JLIGHT does not create or process laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2)">Open Data Sources to configure an authorised import.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 // ═══════════════════════════════════════════════════════════
 // LABORATORY INTELLIGENCE ENGINES
 // ═══════════════════════════════════════════════════════════
-function submitResult(sampleId) {
-  const s = STATE.samples.find(x => x.id === sampleId)
-  if (!s) { toast('Error', 'Sample not found', 'crit'); return }
-  const get = (k) => $(`pf-${k}`).value.trim()
-  const value = parseFloat(get('value')), qcValue = parseFloat(get('qcValue'))
-  const instrument = get('instrument'), lotNumber = get('lotNumber')
-  const resultType = get('resultType'), operator = get('operator'), context = get('context')
-  if (!instrument) { toast('Missing field', 'Instrument is required', 'crit'); return }
-
-  s.instrument = instrument; s.value = value; s.qcValue = qcValue; s.lotNumber = lotNumber
-  s.resultType = resultType; s.operatorProcessing = operator; s.clinicalContext = context
-  s.processedAt = Date.now(); s.stage = 'processed'
-  s.history.push({ stage: 'entered', ts: Date.now(), operator: operator || STATE.user, detail: `QC value entered: ${qcValue || 'n/a'}` })
-  s.history.push({ stage: 'processed', ts: Date.now(), operator: operator || STATE.user, detail: `Result: ${value} on ${instrument}` })
-
-  const issues = analyseLabSample(s)
-  const hasCrit = issues.some(i => i.severity === 'crit')
-  if (!hasCrit) {
-    s.stage = 'reported'
-    s.history.push({ stage: 'reported', ts: Date.now(), operator: operator || STATE.user, detail: 'Sample reported — no critical errors' })
-  } else {
-    s.history.push({ stage: 'flagged', ts: Date.now(), operator: 'JLIGHT Engine', detail: `Held — ${issues.filter(i => i.severity === 'crit').length} critical error(s)` })
-  }
-
-  STORAGE.saveSamples(STATE.role, STATE.samples)
-  audit('Result recorded', `${s.sampleId} · ${value} ${instrument}`)
-
-  issues.forEach(issue => {
-    STATE.cards.push({
-      id: uid(), ts: Date.now(), role: STATE.role, severity: issue.severity, source: issue.source,
-      title: issue.title, description: issue.description, signals: issue.signals,
-      insight: issue.insight, rootCause: issue.rootCause, actions: issue.actions,
-      trace: `Sample[${s.sampleId}] → ${issue.engine} → Card`,
-      sampleId: s.id, acknowledged: false,
-    })
-  })
-  if (issues.length > 0) {
-    STORAGE.saveCards(STATE.role, STATE.cards)
-    audit('Decision cards generated', `${issues.length} cards for ${s.sampleId}`)
-    toast(`${issues.length} issue${issues.length > 1 ? 's' : ''} detected`, issues[0].title, issues[0].severity)
-  } else {
-    toast('Result accepted', 'Sample reported · no errors detected', 'good')
-  }
-
-  STATE.currentSampleId = s.id
-  goPage('sample-detail')
+function submitResult() {
+  toast('Result entry disabled', 'JLIGHT analyses authorised source data; it does not generate laboratory results.', 'warn');
+  goPage('connectors');
 }
 
-function analyseLabSample(s) {
-  const issues = []
-  const value = parseFloat(s.value), qcValue = parseFloat(s.qcValue)
-  const ref = REF_RANGES[s.test]
+function analyseLabSample() { return []; }
 
-  // ENGINE 1: Westgard QC
-  if (!isNaN(qcValue)) {
-    const history = STATE.samples.filter(x => x.test === s.test && x.instrument === s.instrument && x.qcValue !== undefined && !isNaN(parseFloat(x.qcValue)) && x.id !== s.id)
-    if (history.length >= 5) {
-      const qcs = history.map(h => parseFloat(h.qcValue))
-      const mean = qcs.reduce((a, b) => a + b, 0) / qcs.length
-      const sd = Math.sqrt(qcs.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (qcs.length - 1)) || 0.0001
-      const z = (qcValue - mean) / sd
-      const cv = Math.abs(sd / mean) * 100
-      if (Math.abs(z) > 3) {
-        issues.push({
-          engine: 'Westgard 1₃S', source: 'QC Engine · Westgard 1₃S', severity: 'crit',
-          title: `QC out of control on ${s.instrument} — ${s.test}`,
-          description: `QC value ${qcValue.toFixed(3)} is ${z.toFixed(2)}SD from established mean (${mean.toFixed(3)} ± ${sd.toFixed(3)}). Westgard 1₃S rule violated — random analytical error.`,
-          signals: [
-            { label: 'QC value', value: qcValue.toFixed(3), tone: 'red' },
-            { label: 'Mean', value: mean.toFixed(3), tone: 'blue' },
-            { label: 'SD', value: sd.toFixed(3), tone: 'blue' },
-            { label: 'Z-score', value: z.toFixed(2), tone: 'red' },
-            { label: 'CV%', value: cv.toFixed(1) + '%', tone: cv > 5 ? 'amber' : 'blue' },
-            { label: 'n', value: String(qcs.length), tone: 'blue' },
-          ],
-          insight: `${s.instrument} is producing values outside control limits for ${s.test}. Patient result for ${s.sampleId} cannot be trusted until QC is back in control.`,
-          rootCause: [
-            { stage: 'Processing', cause: 'Instrument may have analytical fault, miscalibration, or reagent failure' },
-            { stage: 'Reagent', cause: `Lot ${s.lotNumber || 'unknown'} may be degraded, expired, or contaminated` },
-            { stage: 'Environment', cause: 'Check temperature/humidity logs for the analyser bay' },
-          ],
-          actions: [
-            `Hold the patient result for ${s.sampleId} — do not report`,
-            'Repeat QC with fresh aliquot of control material',
-            `Verify reagent lot ${s.lotNumber || '(specify)'} expiry, storage, and lot history`,
-            'Check the instrument maintenance and service records in the laboratory’s approved process',
-            'If repeat QC fails, follow the laboratory’s approved escalation and CAPA process',
-            'Document the rejection in the QC log',
-          ],
-        })
-      } else if (Math.abs(z) > 2) {
-        issues.push({
-          engine: 'Westgard 1₂S', source: 'QC Engine · Westgard 1₂S', severity: 'warn',
-          title: `QC warning on ${s.instrument} — ${s.test}`,
-          description: `QC value ${qcValue.toFixed(3)} exceeds 2SD (z = ${z.toFixed(2)}). Westgard 1₂S warning rule.`,
-          signals: [
-            { label: 'QC value', value: qcValue.toFixed(3), tone: 'amber' },
-            { label: 'Z-score', value: z.toFixed(2), tone: 'amber' },
-            { label: 'Mean ± SD', value: `${mean.toFixed(3)} ± ${sd.toFixed(3)}`, tone: 'blue' },
-            { label: 'CV%', value: cv.toFixed(1) + '%', tone: cv > 5 ? 'amber' : 'blue' },
-          ],
-          insight: 'Single value exceeds 2SD. Westgard warning, not rejection — but if next run also exceeds 2SD on the same side (2₂S), that is a rejection event.',
-          rootCause: [{ stage: 'Processing', cause: 'Possible early sign of drift or imprecision' }],
-          actions: ['Continue with patient samples but flag for review', 'Run repeat QC if convenient', 'If next QC also exceeds 2SD, treat as 2₂S rejection'],
-        })
-      }
-    }
-  }
-
-  // ENGINE 2: Reference Range / FP / FN
-  if (ref && !isNaN(value) && s.resultType === 'Quantitative (numeric)') {
-    const isCritical = value <= ref.critical_low || value >= ref.critical_high
-    const isAbnormal = value < ref.min || value > ref.max
-    if (isAbnormal && s.clinicalContext === 'Asymptomatic / screening') {
-      s.flags = s.flags || {}; s.flags.suspectedFalsePositive = true
-      issues.push({
-        engine: 'FP Detection', source: 'Result Validation · FP Engine', severity: isCritical ? 'crit' : 'warn',
-        title: `Possible false positive — ${s.test} abnormal in asymptomatic patient`,
-        description: `Asymptomatic patient with ${s.test} = ${value} ${ref.unit} (reference: ${ref.min}–${ref.max}). Verification recommended before reporting.`,
-        signals: [
-          { label: 'Value', value: `${value} ${ref.unit}`, tone: 'red' },
-          { label: 'Reference', value: `${ref.min}–${ref.max} ${ref.unit}`, tone: 'blue' },
-          { label: 'Critical?', value: isCritical ? 'YES' : 'No', tone: isCritical ? 'red' : 'amber' },
-          { label: 'Clinical context', value: 'Asymptomatic', tone: 'amber' },
-        ],
-        insight: 'Asymptomatic patients with abnormal results have higher pre-test probability of false positives. Common causes: pre-analytical issues (haemolysis, lipaemia, contamination), specimen mislabelling, calibration drift, reagent carry-over.',
-        rootCause: [
-          { stage: 'Pre-analytical', cause: 'Sample may be haemolysed, lipaemic, or contaminated' },
-          { stage: 'Registration', cause: 'Possible patient/sample mismatch — verify ID against requisition' },
-          { stage: 'Processing', cause: 'Instrument carry-over from previous high-value sample' },
-          { stage: 'Reagent', cause: `Lot ${s.lotNumber || 'unknown'} may have positive bias` },
-        ],
-        actions: [
-          'Request repeat sample before releasing the result',
-          'Visually inspect original sample for haemolysis, lipaemia, icterus',
-          'Verify patient ID matches requisition',
-          'Check previous 3 samples on this instrument for very high values (carry-over risk)',
-          'Cross-check against alternate method if available',
-          'If repeat normal: report as preanalytical error',
-        ],
-      })
-    }
-    if (!isAbnormal && (s.clinicalContext === 'Symptomatic — fever' || s.clinicalContext === 'Symptomatic — infection suspected')) {
-      s.flags = s.flags || {}; s.flags.suspectedFalseNegative = true
-      issues.push({
-        engine: 'FN Detection', source: 'Result Validation · FN Engine', severity: 'warn',
-        title: `Possible false negative — symptomatic patient with normal ${s.test}`,
-        description: `Patient is ${s.clinicalContext.toLowerCase()} but ${s.test} = ${value} ${ref.unit} is within reference range.`,
-        signals: [
-          { label: 'Value', value: `${value} ${ref.unit}`, tone: 'amber' },
-          { label: 'Reference', value: `${ref.min}–${ref.max} ${ref.unit}`, tone: 'blue' },
-          { label: 'Clinical context', value: s.clinicalContext, tone: 'amber' },
-        ],
-        insight: 'When clinical presentation suggests a condition but the test is normal, false negatives must be considered. Causes: timing (too early in disease), sample integrity (clotted, diluted, wrong tube), instrument sensitivity below threshold.',
-        rootCause: [
-          { stage: 'Pre-analytical', cause: 'Sample may have been collected too early in disease course' },
-          { stage: 'Pre-analytical', cause: 'Wrong tube type, clotting, or dilution may mask analyte' },
-          { stage: 'Processing', cause: 'Instrument may be below sensitivity threshold for low-positive samples' },
-        ],
-        actions: [
-          'Discuss result with requesting clinician — confirm clinical suspicion',
-          'Recommend repeat sample in 24–48 hours if suspicion remains',
-          'Consider alternate or more sensitive method',
-          'Verify sample tube type and integrity',
-          'Document clinical-lab discordance for trend analysis',
-        ],
-      })
-    }
-    if (isCritical) {
-      issues.push({
-        engine: 'Critical Value', source: 'Result Validation · Critical Threshold', severity: 'crit',
-        title: `CRITICAL value: ${s.test} = ${value} ${ref.unit}`,
-        description: `Result for ${s.sampleId} at critical threshold. Immediate clinician notification protocol applies.`,
-        signals: [
-          { label: 'Value', value: `${value} ${ref.unit}`, tone: 'red' },
-          { label: 'Critical low', value: `≤${ref.critical_low}`, tone: 'red' },
-          { label: 'Critical high', value: `≥${ref.critical_high}`, tone: 'red' },
-        ],
-        insight: 'Critical values demand verification AND immediate clinician contact per standard lab protocol. Document read-back, time, and recipient.',
-        rootCause: [{ stage: 'Result', cause: 'Result at life-threatening or treatment-altering threshold' }],
-        actions: [
-          'Verify the result by repeat analysis on the same sample',
-          'If verified, contact requesting clinician immediately by phone',
-          'Use read-back protocol (clinician repeats result back)',
-          'Document: time of call, name of recipient, read-back confirmation',
-          'Release result with "critical value" comment in LIS',
-        ],
-      })
-    }
-  }
-
-  // ENGINE 3: Contamination / Carry-over
-  if (!isNaN(value) && ref) {
-    const sameInstrument = STATE.samples.filter(x => x.instrument === s.instrument && x.test === s.test && x.processedAt && x.id !== s.id).sort((a, b) => (b.processedAt || 0) - (a.processedAt || 0))
-    if (sameInstrument.length > 0) {
-      const prev = sameInstrument[0]
-      const prevValue = parseFloat(prev.value)
-      const minutesBetween = ((s.processedAt || Date.now()) - (prev.processedAt || 0)) / 60000
-      if (!isNaN(prevValue) && prevValue >= ref.critical_high && value > ref.max && minutesBetween < 60 && s.clinicalContext === 'Asymptomatic / screening') {
-        s.flags = s.flags || {}; s.flags.contamination = true
-        issues.push({
-          engine: 'Contamination', source: 'Contamination Engine · Carry-over', severity: 'warn',
-          title: `Possible carry-over contamination on ${s.instrument}`,
-          description: `Previous sample (${prev.sampleId}) had critical-high ${s.test} (${prevValue}); current sample also abnormal (${value}) within ${minutesBetween.toFixed(0)} minutes on same instrument.`,
-          signals: [
-            { label: 'Previous value', value: `${prevValue} ${ref.unit}`, tone: 'red' },
-            { label: 'Current value', value: `${value} ${ref.unit}`, tone: 'amber' },
-            { label: 'Time gap', value: `${minutesBetween.toFixed(0)}m`, tone: 'amber' },
-            { label: 'Instrument', value: s.instrument, tone: 'blue' },
-          ],
-          insight: 'Carry-over contamination occurs when residual analyte from a high-value sample contaminates the next sample. Modern analysers minimise this with wash cycles, but failures can produce false-elevated downstream results.',
-          rootCause: [
-            { stage: 'Processing', cause: 'Instrument wash cycle may have failed or been skipped' },
-            { stage: 'Processing', cause: 'Probe/needle may be partially blocked or worn' },
-            { stage: 'Reagent', cause: `Cross-reactive substance in lot ${s.lotNumber || 'unknown'}` },
-          ],
-          actions: [
-            'Repeat current sample after running 3 wash cycles',
-            'Run a known-negative control immediately after the previous high sample',
-            'Check instrument wash cycle log for the period',
-            'Inspect probe/needle for blockage; service if indicated',
-            'Retroactively review samples processed within 60 minutes of prior high sample',
-          ],
-        })
-      }
-    }
-  }
-
-  // ENGINE 5: Delta Check — implausible patient-level change
-  if (!isNaN(value) && ref && s.patientId && s.test) {
-    const priorPatientResults = STATE.samples
-      .filter(x => x.patientId === s.patientId && x.test === s.test && x.id !== s.id && x.value !== undefined && !isNaN(parseFloat(x.value)) && x.processedAt)
-      .sort((a, b) => (b.processedAt || 0) - (a.processedAt || 0))
-
-    if (priorPatientResults.length > 0) {
-      const prev = priorPatientResults[0]
-      const prevValue = parseFloat(prev.value)
-      const hoursBetween = ((s.processedAt || Date.now()) - (prev.processedAt || 0)) / 3600000
-
-      // Delta-check thresholds (% change that is biologically implausible without intervention)
-      const DELTA_LIMITS = {
-        'Sodium':     { pct: 5,  abs: 8,  hours: 24, hint: 'Sodium changes >8 mmol/L in 24h are rare without IV fluids or major event' },
-        'Potassium':  { pct: 30, abs: 1.5, hours: 24, hint: 'Potassium delta >1.5 mmol/L often = haemolysis or drip-arm draw' },
-        'Glucose':    { pct: 50, abs: 5,  hours: 6,  hint: 'Large glucose swings in <6h need clinical correlation' },
-        'Hemoglobin': { pct: 15, abs: 2,  hours: 24, hint: 'Hb drop >2 g/dL in 24h = bleeding, haemolysis, or dilution' },
-        'WBC':        { pct: 50, abs: 5,  hours: 24, hint: 'WBC delta >50% rapid = sepsis, treatment effect, or sample issue' },
-        'Platelets':  { pct: 30, abs: 100, hours: 24, hint: 'Platelet drop >100 = consumption, EDTA clumping, or sample clot' },
-        'Creatinine': { pct: 25, abs: 30, hours: 48, hint: 'Creatinine rise >30 μmol/L in 48h = AKI worth investigating' },
-        'ALT':        { pct: 50, abs: 100, hours: 48, hint: 'ALT spike >100 U/L points to hepatic event or sample mix-up' },
-        'CRP':        { pct: 100, abs: 50, hours: 24, hint: 'CRP doubling clinically informative; large drop = treatment response' },
-        'CD4':        { pct: 30, abs: 200, hours: 168, hint: 'CD4 changes >30% in a week are unusual — verify sample' },
-      }
-      const limit = DELTA_LIMITS[s.test]
-      if (limit && hoursBetween > 0 && hoursBetween <= limit.hours * 2) {
-        const absDelta = Math.abs(value - prevValue)
-        const pctDelta = prevValue !== 0 ? Math.abs((value - prevValue) / prevValue) * 100 : 0
-        const exceedsAbs = absDelta > limit.abs
-        const exceedsPct = pctDelta > limit.pct
-        if (exceedsAbs && exceedsPct) {
-          s.flags = s.flags || {}; s.flags.deltaCheckFail = true
-          const direction = value > prevValue ? '↑ rising' : '↓ falling'
-          const severity = (absDelta > limit.abs * 2 || pctDelta > limit.pct * 1.5) ? 'crit' : 'warn'
-          issues.push({
-            engine: 'Delta Check', source: 'Delta Engine · Patient-level change', severity,
-            title: `Implausible ${s.test} change for ${s.patientId} — ${direction}`,
-            description: `${s.test} for patient ${s.patientId} changed from ${prevValue} to ${value} ${ref.unit} in ${hoursBetween.toFixed(1)} hours (Δ ${absDelta.toFixed(2)} = ${pctDelta.toFixed(0)}%). This exceeds the biological plausibility threshold.`,
-            signals: [
-              { label: 'Previous', value: `${prevValue} ${ref.unit}`, tone: 'blue' },
-              { label: 'Current', value: `${value} ${ref.unit}`, tone: 'red' },
-              { label: 'Absolute Δ', value: `${absDelta.toFixed(2)} ${ref.unit}`, tone: 'red' },
-              { label: 'Percent Δ', value: `${pctDelta.toFixed(0)}%`, tone: 'red' },
-              { label: 'Time gap', value: `${hoursBetween.toFixed(1)}h`, tone: 'amber' },
-              { label: 'Threshold', value: `±${limit.abs} ${ref.unit} / ${limit.pct}%`, tone: 'blue' },
-            ],
-            insight: `${limit.hint}. Delta-checks catch roughly 40% of preanalytical errors that QC alone misses — sample mix-ups, contamination, haemolysis, drip-arm draws, or clinical events worth investigating.`,
-            rootCause: [
-              { stage: 'Pre-analytical', cause: 'Possible haemolysis, contamination, or drip-arm draw' },
-              { stage: 'Pre-analytical', cause: 'Possible wrong-tube draw or EDTA contamination (especially K, Ca, Mg)' },
-              { stage: 'Registration', cause: 'Possible patient/sample mix-up — verify ID against the prior sample' },
-              { stage: 'Clinical', cause: 'Genuine clinical change: AKI, bleeding, sepsis, treatment effect — correlate with notes' },
-            ],
-            actions: [
-              `Visually inspect sample for haemolysis, lipaemia, or clotting`,
-              `Verify patient ID matches the prior sample (${prev.sampleId}) on the requisition`,
-              `Check whether the draw site was downstream of an IV line`,
-              `Discuss with requesting clinician — is there a clinical event explaining the change?`,
-              `If preanalytical suspected: request fresh sample before reporting`,
-              `If clinically plausible: release with delta-check comment in LIS`,
-              `Document in patient profile for trend awareness`,
-            ],
-          })
-        }
-      }
-    }
-  }
-
-    // ENGINE 4: Entry Mismatch
-  const otherSamples = STATE.samples.filter(x => x.id !== s.id)
-  const mismatch = otherSamples.find(x => x.patientId === s.patientId && x.sampleId === s.sampleId && x.test !== s.test)
-  if (mismatch) {
-    s.flags = s.flags || {}; s.flags.entryMismatch = true
-    issues.push({
-      engine: 'Entry Mismatch', source: 'Entry Validator · Mismatch', severity: 'crit',
-      title: `Entry mismatch: same Sample ID for different tests`,
-      description: `Sample ID ${s.sampleId} for patient ${s.patientId} used for both "${s.test}" and "${mismatch.test}".`,
-      signals: [
-        { label: 'Sample ID', value: s.sampleId, tone: 'red' },
-        { label: 'Patient', value: s.patientId, tone: 'red' },
-        { label: 'This test', value: s.test, tone: 'red' },
-        { label: 'Conflict test', value: mismatch.test, tone: 'red' },
-      ],
-      insight: 'A single sample ID should map to one test per patient encounter. Reuse indicates label printing error, requisition transcription error, or operator data-entry error.',
-      rootCause: [
-        { stage: 'Registration', cause: 'Sample ID was reused — likely manual transcription error' },
-        { stage: 'Pre-analytical', cause: 'Two different specimens may have been labelled with the same ID' },
-      ],
-      actions: [
-        'Stop processing — quarantine both samples',
-        'Pull original requisitions and verify which sample ID belongs to which test',
-        'Re-register the affected sample(s) with correct ID',
-        'Investigate cause: barcode printer fault, manual transcription, or operator error',
-        'Document the incident as a non-conformance',
-      ],
-    })
-  }
-
-  return issues
-}
-
-function generateRegistrationErrorCard(sample, error) {
-  const severity = error.issue.includes('Duplicate') ? 'crit' : 'warn'
-  return {
-    id: uid(), ts: Date.now(), role: STATE.role, severity, source: 'Registration Validator',
-    title: `${error.issue} — ${sample.sampleId}`, description: error.detail,
-    signals: [
-      { label: 'Sample ID', value: sample.sampleId, tone: 'red' },
-      { label: 'Stage', value: error.stage, tone: 'amber' },
-      { label: 'Issue', value: error.issue, tone: 'red' },
-    ],
-    insight: error.detail,
-    rootCause: [{ stage: error.stage, cause: error.detail }],
-    actions: ['Investigate the cause of the registration error', 'Correct the entry or re-register with proper data', 'Document the incident'],
-    trace: `Registration[${sample.sampleId}] → Validator → Card`, sampleId: sample.id, acknowledged: false,
-  }
-}
+function generateRegistrationErrorCard() { return null; }
 
 // ═══════════════════════════════════════════════════════════
 // PREDICTIVE FAILURE ENGINE — the function user didn't know about
 // Predicts WHICH instrument/lot/system will fail BEFORE results go bad
 // ═══════════════════════════════════════════════════════════
 function renderPredictive() {
-  const cfg = ROLES[STATE.role]
-  const predictions = computePredictions()
-
-  $('page-predictive').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Predictive Failure Engine</div>
-        <div class="page-sub">Forecasts where the next failure will originate · before patients are affected</div>
-      </div>
-    </div>
-
-    <div class="predictive-card">
-      <div class="predictive-head">
-        <div class="predictive-icon">◉</div>
-        <div>
-          <div class="predictive-title">How this works</div>
-          <div class="predictive-sub">Trend analysis · drift detection · failure horizon estimation</div>
-        </div>
-      </div>
-      <div style="font-size:13px;color:var(--text);line-height:1.65">
-        Most lab and operational errors are not random — they follow drift patterns that are visible <strong>before</strong> they cross failure thresholds. The Predictive Engine continuously analyses your data for early-warning signatures: QC values trending toward control limits, reagent lots showing consistent bias, instruments slowing down, wards drifting toward TAT failure, and participants showing pre-disengagement behaviour.
-        <br><br>
-        Each prediction includes a <strong>failure horizon</strong> — how soon JLIGHT estimates the failure will occur if no action is taken — and a <strong>confidence score</strong> based on the signal strength.
-      </div>
-    </div>
-
-    ${predictions.length === 0 ? renderEmpty('No predictions yet', 'JLIGHT needs 5+ data points per ' + (STATE.role === 'Laboratory' ? 'instrument/test combination' : 'pattern') + ' to predict failures. Keep recording activity.', 'register', '+ New') : `
-      <div class="section">
-        <div class="section-head">
-          <div>
-            <div class="section-title">Active Predictions</div>
-            <div class="section-sub">${predictions.length} forecast${predictions.length > 1 ? 's' : ''} · ranked by urgency</div>
-          </div>
-        </div>
-        ${predictions.map(p => renderPrediction(p)).join('')}
-      </div>
-    `}
-  `
+  const page = document.getElementById('page-predictive');
+  if (!page) return;
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Trends & Signals</div><div class="page-sub">Intelligence over authorised source-system data</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Predictive forecasts are not presented as operational. This workspace must first receive validated source data and have each analytical rule tested against representative data before forecasts can be enabled.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
-function renderPrediction(p) {
-  const sevClass = p.urgency === 'high' ? 'crit' : p.urgency === 'medium' ? 'warn' : 'good'
-  return `
-    <div class="predictive-card">
-      <div class="predictive-head" style="justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="predictive-icon">${p.icon || '◉'}</div>
-          <div>
-            <div class="predictive-title">${esc(p.title)}</div>
-            <div class="predictive-sub">${esc(p.engine)}</div>
-          </div>
-        </div>
-        <span class="dc-pill ${sevClass}"><span class="dot"></span>${p.urgency.toUpperCase()} URGENCY</span>
-      </div>
-      <div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:14px">${esc(p.description)}</div>
-      <div class="predictive-grid">
-        <div class="predictive-item">
-          <div class="predictive-item-label">Failure Horizon</div>
-          <div class="predictive-item-value ${sevClass}">${esc(p.horizon)}</div>
-          <div class="predictive-item-meta">Estimated time to failure</div>
-        </div>
-        <div class="predictive-item">
-          <div class="predictive-item-label">Confidence</div>
-          <div class="predictive-item-value">${p.confidence}%</div>
-          <div class="predictive-item-meta">Based on ${p.dataPoints} data points</div>
-        </div>
-        <div class="predictive-item">
-          <div class="predictive-item-label">Drift Direction</div>
-          <div class="predictive-item-value">${esc(p.drift)}</div>
-          <div class="predictive-item-meta">Current signal trend</div>
-        </div>
-        <div class="predictive-item">
-          <div class="predictive-item-label">Affected</div>
-          <div class="predictive-item-value" style="font-size:14px">${esc(p.affected)}</div>
-          <div class="predictive-item-meta">Component / pattern</div>
-        </div>
-      </div>
-      <div style="margin-top:14px;padding:14px 16px;background:var(--green-bg);border:1px solid rgba(46,232,154,0.18);border-radius:10px">
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Preventive Actions · Take these now to avoid the failure</div>
-        <ul style="list-style:none;padding:0">${p.actions.map(a => `<li style="font-size:12.5px;color:var(--text);padding-left:20px;position:relative;margin-bottom:6px"><span style="position:absolute;left:0;color:var(--green);font-weight:700">→</span>${esc(a)}</li>`).join('')}</ul>
-      </div>
-    </div>
-  `
-}
+function renderPrediction() { return ''; }
 
-function computePredictions() {
-  const predictions = []
-
-  if (STATE.role === 'Laboratory') {
-    // Group samples by instrument+test
-    const groups = {}
-    STATE.samples.forEach(s => {
-      if (!s.qcValue || isNaN(parseFloat(s.qcValue)) || !s.test || !s.instrument) return
-      const key = `${s.instrument}|${s.test}`
-      if (!groups[key]) groups[key] = []
-      groups[key].push(s)
-    })
-
-    Object.keys(groups).forEach(key => {
-      const samples = groups[key].sort((a, b) => a.processedAt - b.processedAt)
-      if (samples.length < 5) return
-      const [instrument, test] = key.split('|')
-      const qcs = samples.map(s => parseFloat(s.qcValue))
-      const mean = qcs.reduce((a, b) => a + b, 0) / qcs.length
-      const sd = Math.sqrt(qcs.reduce((sum, v) => sum + (v - mean) ** 2, 0) / (qcs.length - 1)) || 0.0001
-
-      // Linear regression on most recent 10
-      const recent = qcs.slice(-10)
-      const n = recent.length
-      const xMean = (n - 1) / 2
-      const yMean = recent.reduce((a, b) => a + b, 0) / n
-      let num = 0, den = 0
-      recent.forEach((v, i) => { num += (i - xMean) * (v - yMean); den += (i - xMean) ** 2 })
-      const slope = den ? num / den : 0
-      const driftPerRun = slope
-      const sdPerRun = Math.abs(driftPerRun / sd)
-
-      if (sdPerRun > 0.1) {
-        const currentZ = (qcs[qcs.length - 1] - mean) / sd
-        const direction = slope > 0 ? 'rising' : 'falling'
-        const targetZ = direction === 'rising' ? 3 : -3
-        const runsToFailure = Math.max(1, Math.ceil((targetZ - currentZ) / (slope / sd)))
-        const validRuns = isFinite(runsToFailure) && runsToFailure > 0 && runsToFailure < 1000
-        const urgency = validRuns && runsToFailure <= 5 ? 'high' : validRuns && runsToFailure <= 15 ? 'medium' : 'low'
-        const confidence = Math.min(95, Math.round(50 + sdPerRun * 100))
-        if (validRuns) {
-          predictions.push({
-            engine: 'QC Drift Predictor',
-            icon: '↗',
-            title: `${test} on ${instrument} — drifting toward control limit`,
-            description: `${test} QC values on ${instrument} are drifting ${direction} at ${Math.abs(driftPerRun).toFixed(3)} units per run (≈ ${sdPerRun.toFixed(2)} SD/run). At current rate, control limit will be breached in approximately ${runsToFailure} runs.`,
-            urgency, confidence,
-            horizon: `~${runsToFailure} runs`,
-            drift: direction.toUpperCase() + ' ' + (slope > 0 ? '↗' : '↘'),
-            affected: `${instrument} · ${test}`,
-            dataPoints: samples.length,
-            actions: [
-              'Schedule recalibration before the next run on this instrument',
-              `Verify reagent lot stability — check open-vial expiry`,
-              'Run a confirmation QC with fresh control material',
-              'Document the trend and intended corrective action',
-              urgency === 'high' ? 'Increase QC frequency until drift is corrected' : 'Monitor next 3 runs closely',
-            ],
-          })
-        }
-      }
-
-      // Lot-specific bias detection
-      const byLot = {}
-      samples.forEach(s => { if (s.lotNumber) { (byLot[s.lotNumber] = byLot[s.lotNumber] || []).push(parseFloat(s.qcValue)) } })
-      Object.keys(byLot).forEach(lot => {
-        const lotQcs = byLot[lot]
-        if (lotQcs.length < 4) return
-        const lotMean = lotQcs.reduce((a, b) => a + b, 0) / lotQcs.length
-        const bias = (lotMean - mean) / sd
-        if (Math.abs(bias) > 1.5) {
-          predictions.push({
-            engine: 'Lot Bias Predictor',
-            icon: '⊠',
-            title: `Reagent lot ${lot} showing systematic bias`,
-            description: `Lot ${lot} for ${test} on ${instrument} shows mean ${lotMean.toFixed(3)} vs overall ${mean.toFixed(3)} — bias of ${bias.toFixed(2)} SD. This lot is likely to trigger Westgard rule failures soon.`,
-            urgency: Math.abs(bias) > 2.5 ? 'high' : 'medium',
-            confidence: Math.min(90, Math.round(60 + Math.abs(bias) * 10)),
-            horizon: '5–10 runs',
-            drift: bias > 0 ? 'POSITIVE BIAS' : 'NEGATIVE BIAS',
-            affected: `Lot ${lot} · ${test}`,
-            dataPoints: lotQcs.length,
-            actions: [
-              `Quarantine the suspect aliquots of lot ${lot}`,
-              'Switch to a different lot if available',
-              'Notify reagent supplier with lot number and bias data',
-              'Document the lot performance for procurement records',
-              'Run new lot validation before deploying replacement',
-            ],
-          })
-        }
-      })
-    })
-
-    // Instrument health score (combining drift, error rate, contamination flags)
-    const byInstrument = {}
-    STATE.samples.forEach(s => {
-      if (!s.instrument || !s.processedAt) return
-      const inst = s.instrument
-      if (!byInstrument[inst]) byInstrument[inst] = { total: 0, flagged: 0, contam: 0 }
-      byInstrument[inst].total++
-      if (s.flags && Object.keys(s.flags).length > 0) byInstrument[inst].flagged++
-      if (s.flags && s.flags.contamination) byInstrument[inst].contam++
-    })
-    Object.keys(byInstrument).forEach(inst => {
-      const d = byInstrument[inst]
-      if (d.total < 5) return
-      const flagRate = d.flagged / d.total
-      const contamRate = d.contam / d.total
-      const healthScore = Math.max(0, 100 - flagRate * 70 - contamRate * 100)
-      if (healthScore < 70) {
-        predictions.push({
-          engine: 'Instrument Health Predictor',
-          icon: '⚠',
-          title: `${inst} — declining health score`,
-          description: `${inst} has flagged ${d.flagged}/${d.total} samples (${(flagRate * 100).toFixed(0)}%), with ${d.contam} contamination events. Composite health score: ${healthScore.toFixed(0)}/100. Without intervention, more samples will be affected.`,
-          urgency: healthScore < 50 ? 'high' : 'medium',
-          confidence: Math.min(85, 50 + d.total * 2),
-          horizon: healthScore < 50 ? 'Days' : '1–2 weeks',
-          drift: 'DECLINING',
-          affected: inst,
-          dataPoints: d.total,
-          actions: [
-            `Schedule preventive maintenance for ${inst}`,
-            'Review and re-run wash cycles',
-            'Inspect probe, sample needle, and cuvettes for wear',
-            'Check temperature controls and humidity logs',
-            'Recalibrate using current calibrators',
-            'Consider running a method validation if score continues to decline',
-          ],
-        })
-      }
-    })
-  } else if (STATE.role === 'Trial') {
-    // Predict participants at risk of LTFU
-    const byParticipant = {}
-    STATE.entries.forEach(e => { if (e.participantId) { (byParticipant[e.participantId] = byParticipant[e.participantId] || []).push(e) } })
-    Object.keys(byParticipant).forEach(pid => {
-      const visits = byParticipant[pid].sort((a, b) => a.ts - b.ts)
-      if (visits.length < 2) return
-      const noShows = visits.filter(v => v.attended === 'No — missed').length
-      const recent3 = visits.slice(-3)
-      const recentNoShows = recent3.filter(v => v.attended === 'No — missed').length
-      const distance = parseFloat(visits[0].distance) || 0
-      let riskScore = 0
-      riskScore += noShows * 25
-      riskScore += recentNoShows * 20
-      riskScore += distance > 30 ? 15 : 0
-      if (visits[visits.length - 1].attended === 'Withdrew') riskScore = 100
-      if (riskScore >= 40) {
-        predictions.push({
-          engine: 'LTFU Risk Predictor', icon: '◌',
-          title: `${pid} — high risk of loss-to-follow-up`,
-          description: `Participant ${pid} has missed ${noShows}/${visits.length} visits (${recentNoShows} of last 3). Risk score ${riskScore}/100. Without intervention, withdrawal is likely within next visit cycle.`,
-          urgency: riskScore >= 70 ? 'high' : 'medium',
-          confidence: Math.min(90, 60 + visits.length * 5),
-          horizon: 'Next visit cycle',
-          drift: 'DISENGAGING',
-          affected: pid,
-          dataPoints: visits.length,
-          actions: [
-            'Schedule home visit by community study coordinator within 7 days',
-            'Phone contact within 48 hours · document barriers',
-            distance > 20 ? 'Arrange transport voucher or coordinate site transport' : 'Verify contact details and reminder method',
-            'Discuss continued participation at next site monitor visit',
-            'Document retention strategy in CRF',
-          ],
-        })
-      }
-    })
-  } else if (STATE.role === 'Hospital') {
-    // Predict ward TAT failures
-    const byWard = {}
-    STATE.entries.forEach(e => {
-      if (!e.ward || !e.priority || isNaN(parseFloat(e.tatHours))) return
-      const key = `${e.ward}|${e.priority}`
-      if (!byWard[key]) byWard[key] = []
-      byWard[key].push(e)
-    })
-    Object.keys(byWard).forEach(key => {
-      const events = byWard[key].sort((a, b) => a.ts - b.ts)
-      if (events.length < 5) return
-      const [ward, priority] = key.split('|')
-      const thresholds = { Stat: 1, Urgent: 4, Routine: 24 }
-      const threshold = thresholds[priority] || 24
-      const tats = events.map(e => parseFloat(e.tatHours))
-      const avg = tats.reduce((a, b) => a + b, 0) / tats.length
-      const recent = tats.slice(-5)
-      const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length
-      const trend = recentAvg - avg
-      if (recentAvg > threshold * 0.7 && trend > 0) {
-        const runsToBreach = Math.max(1, Math.ceil((threshold - recentAvg) / Math.max(0.1, trend / 5)))
-        predictions.push({
-          engine: 'TAT Failure Predictor', icon: '⏱',
-          title: `${ward} (${priority}) — approaching TAT threshold`,
-          description: `${ward} ${priority} TAT averaging ${recentAvg.toFixed(1)}h (threshold ${threshold}h). Trend rising at ${trend.toFixed(2)}h per 5 events. Threshold breach predicted in ~${runsToBreach} events.`,
-          urgency: recentAvg / threshold > 0.85 ? 'high' : 'medium',
-          confidence: Math.min(85, 50 + events.length * 3),
-          horizon: `~${runsToBreach} events`,
-          drift: 'RISING',
-          affected: `${ward} · ${priority}`,
-          dataPoints: events.length,
-          actions: [
-            `Review ${ward} ${priority} workflow capacity`,
-            'Check upstream specimen transport bottlenecks',
-            'Verify lab processing capacity for this priority',
-            'Pre-emptive communication with ward staff',
-            'Open preventive CAPA before threshold is breached',
-          ],
-        })
-      }
-    })
-  }
-
-  return predictions.sort((a, b) => {
-    const order = { high: 0, medium: 1, low: 2 }
-    return (order[a.urgency] || 3) - (order[b.urgency] || 3)
-  })
-}
+function computePredictions() { return []; }
 
 // ═══════════════════════════════════════════════════════════
 // TRIAL & HOSPITAL forms
@@ -3545,39 +2710,16 @@ function analyseJourneyGap(e) {
 // CONNECTORS / ANALYTICS / AUDIT / SETTINGS
 // ═══════════════════════════════════════════════════════════
 function renderConnectors() {
-  $('page-connectors').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">Data Sources</div>
-        <div class="page-sub">How JLIGHT gets data — manual entry, file upload, instrument middleware, or system integration</div>
-      </div>
-    </div>
-    <div class="form-card" style="max-width:none;margin-bottom:18px;background:var(--purple-bg);border-color:rgba(167,139,250,0.18)">
-      <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;color:var(--purple)">How JLIGHT works</div>
-      <div style="font-size:13px;color:var(--text);line-height:1.65">
-        JLIGHT combines laboratory information management (LIMS) workflows with a health intelligence layer. It can manage sample records, worklists, result records and traceability, while connecting permitted information across laboratory, hospital, bioinformatics and clinical-trial domains. It does not physically test specimens or operate laboratory analysers.<br><br>
-        Information can be entered manually or imported from files and external systems. HL7/FHIR/API and instrument-middleware connections require deployment-specific configuration and verification; do not treat them as live unless a successful connection has been tested. JLIGHT analyses recorded or imported information and produces traceable alerts; it does not perform laboratory testing.
-      </div>
-    </div>
-    <div class="connector-grid">
-      <div class="connector"><div class="connector-head"><div class="connector-name">Manual Entry</div><div class="connector-status active">Active</div></div><div class="connector-desc">The simplest pathway. Operators register samples / log visits / log events directly in JLIGHT. Useful for facilities without LIMS, paper-based workflows, or as backup during system downtime.</div><div class="connector-detail">PATHWAY · Forms in this app · zero infrastructure required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Upload</div><div class="connector-status ready">Validation required</div></div><div class="connector-desc">Intended for importing supported tabular data from existing systems. Verify field mapping, validation, error handling, and audit trail in the target environment before operational use.</div><div class="connector-detail">PATHWAY · Settings → Import CSV · supports .csv, .xlsx, .tsv</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">Instrument / LIS Data Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">JLIGHT may be integrated with an instrument middleware service or an existing LIS to receive results and QC data. A vendor-specific connection, interface configuration, security review and end-to-end test are required before any connection can be described as operational. JLIGHT does not control or operate the analyser.</div><div class="connector-detail">INTEGRATION · Interface and vendor requirements must be confirmed per site</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">HL7 v2.5 Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Potential standards-based exchange with an LIS or hospital system. Message handling, secure transport, acknowledgement, error recovery and end-to-end mapping must be implemented and tested before this is used operationally. The interface label alone does not mean a live listener is running.</div><div class="connector-detail">STANDARD · HL7 v2.5 · site-specific interface and security review required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">FHIR R4 Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Potential standards-based exchange with compatible hospital systems. Resource mapping, authentication, consent/authorisation, synchronisation and error handling must be implemented and tested for each deployment. Do not assume live FHIR ingestion until verified.</div><div class="connector-detail">STANDARD · FHIR R4 · REST/JSON · secure authorisation required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">CTMS / Trial Database Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Potential integration with a clinical trial management system through an approved API or export. Vendor access, data mapping, trial permissions, consent safeguards and synchronisation must be implemented and tested before operational use.</div><div class="connector-detail">INTEGRATION · API/export support and trial-specific governance required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">Hospital Information System</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Hospital-system exchange for encounter timestamps, ward transfers and discharge events is a proposed integration. Site-specific mapping, access controls and end-to-end verification are required before operational use.</div><div class="connector-detail">INTEGRATION · FHIR R4 or HL7 v2.5 · site-specific verification required</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">REST API (custom)</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">Custom REST exchange is a proposed integration option. API endpoints, authentication, authorisation, validation, error handling and webhooks must be implemented and tested before use.</div><div class="connector-detail">INTEGRATION · REST/JSON · implementation and security review required</div></div>
-    </div>
-    <div class="form-card" style="max-width:none;margin-top:18px">
-      <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Deployment options</div>
-      <div style="font-size:12.5px;color:var(--text-2);line-height:1.65">
-        <strong style="color:var(--text)">Standalone (current):</strong> All data lives encrypted in your browser. No server. Works offline. Useful for piloting, single-site facilities, intermittent connectivity.<br><br>
-        <strong style="color:var(--text)">Hosted backend:</strong> Optional cloud or on-premise backend for multi-site deployments. Adds central decision aggregation, cross-site benchmarking, persistent connector pipelines.<br><br>
-        <strong style="color:var(--text)">On-premise (full):</strong> For facilities with strict data residency requirements. JLIGHT engines run on your infrastructure; nothing leaves your network.
-      </div>
-    </div>
-  `
+  const page = document.getElementById('page-connectors');
+  if (!page) return;
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">Import authorised information from existing systems</div></div></div>' +
+    '<div class="form-card" style="max-width:none;margin-bottom:18px"><div style="font-weight:700;font-size:15px;margin-bottom:8px">JLIGHT scope</div>' +
+    '<p style="color:var(--text-2);line-height:1.7">JLIGHT is a health-intelligence and traceability platform, not a laboratory analyser or LIMS for specimen processing. It does not register physical specimens, perform tests, generate measurements, control instruments, or manage calibration. It analyses authorised data supplied by existing systems and helps identify completeness, traceability, workflow, and data-quality issues. Every integration must be implemented, secured, tested, and validated before operational use.</p></div>' +
+    '<div class="connector-grid">' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Import</div><div class="connector-status ready">Validation required</div></div><div class="connector-desc">Import existing source-system records after confirming field mapping, validation, access controls, error handling, and audit trails.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">LIS / Hospital Systems</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Proposed HL7 or FHIR exchange for authorised orders, result status, encounter events, and traceability. No live connection is implied.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">Clinical Trial Systems</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Proposed CTMS or approved export integration, subject to trial permissions, consent safeguards, and validation.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">Custom API</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Secure API exchange requires endpoint implementation, authentication, authorisation, mapping, monitoring, and end-to-end testing.</div></div></div>';
 }
 
 function renderAnalytics() {
@@ -5848,8 +4990,8 @@ function exportWorkspaceReport() {
   L.push('SECTION 1  SUMMARY')
   L.push(div)
   if (STATE.role === 'Laboratory') {
-    L.push('Samples registered   : ' + STATE.samples.length)
-    L.push('Samples reported     : ' + STATE.samples.filter(s => s.stage === 'reported').length)
+    L.push('Imported source records: ' + STATE.samples.length)
+    L.push('Source records with reported status: ' + STATE.samples.filter(s => s.stage === 'reported').length)
     L.push('QC flags raised      : ' + STATE.samples.filter(s => s.flags && Object.keys(s.flags).length > 0).length)
     L.push('Contamination flags  : ' + STATE.samples.filter(s => s.flags && s.flags.contamination).length)
     L.push('Delta-check failures : ' + STATE.samples.filter(s => s.flags && s.flags.deltaCheckFail).length)
@@ -7112,126 +6254,14 @@ function receiveOrder(orderId) {
   renderLabOrders()
 }
 
-function enterResult(orderId) {
-  const o = STATE.labOrders.find(x => x.id === orderId)
-  if (!o) return
-  const p = STATE.patients.find(x => x.id === o.patientId)
-  // Show result entry form as overlay
-  let overlay = document.getElementById('result-entry-overlay')
-  if (!overlay) {
-    overlay = document.createElement('div')
-    overlay.id = 'result-entry-overlay'
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(5,8,15,0.95);z-index:2000;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px'
-    document.body.appendChild(overlay)
-  }
-  const tests = o.testsOrdered || []
-  overlay.innerHTML = '<div style="width:100%;max-width:700px;margin-top:20px">' +
-    '<div class="form-card" style="max-width:none">' +
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin-bottom:4px">Enter Results</div>' +
-    '<div style="font-size:12.5px;color:var(--text-2);margin-bottom:18px">' + (p?esc(p.fullName):'Unknown') + ' · ' + esc(o.orderNumber) + ' · ' + esc(o.priority) + '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:18px">' +
-    tests.map(test => {
-      const refs = (STATE.thresholds && STATE.thresholds.deltaCheck && STATE.thresholds.deltaCheck[test]) ? STATE.thresholds.deltaCheck[test] : null
-      return '<div style="background:var(--surface-3);border-radius:10px;padding:14px 16px">' +
-        '<div style="font-family:Syne,sans-serif;font-weight:700;font-size:13px;margin-bottom:10px">' + esc(test) + '</div>' +
-        '<div class="form-grid">' +
-        '<div class="form-row"><label class="form-label">Result Value</label><input class="form-input" id="res-val-' + esc(test).replace(/\s+/g,'_') + '" type="number" step="any" placeholder="0.00"/></div>' +
-        '<div class="form-row"><label class="form-label">Unit</label><input class="form-input" id="res-unit-' + esc(test).replace(/\s+/g,'_') + '" placeholder="mmol/L"/></div>' +
-        '<div class="form-row"><label class="form-label">Ref Low</label><input class="form-input" id="res-low-' + esc(test).replace(/\s+/g,'_') + '" type="number" step="any" placeholder=""/></div>' +
-        '<div class="form-row"><label class="form-label">Ref High</label><input class="form-input" id="res-high-' + esc(test).replace(/\s+/g,'_') + '" type="number" step="any" placeholder=""/></div>' +
-        '</div>' +
-        (refs ? '<div style="font-size:10.5px;color:var(--text-3);font-family:DM Mono,monospace;margin-top:6px">Delta-check: ±' + refs.pct + '% or ±' + refs.abs + ' within ' + refs.hours + 'h · ' + refs.ref + '</div>' : '') +
-        '</div>'
-    }).join('') + '</div>' +
-    '<div class="form-row" style="margin-bottom:14px"><label class="form-label">Instrument</label>' +
-    '<select class="form-input" id="res-instrument">' +
-    '<option value="">— Select instrument —</option>' +
-    STATE.instruments.filter(i=>i.active!==false).map(i=>'<option value="'+i.id+'">' + esc(i.name) + (i.model?' · '+esc(i.model):'') + '</option>').join('') +
-    '<option value="manual">Manual / Other</option>' +
-    '</select></div>' +
-    '<div class="form-row" style="margin-bottom:14px"><label class="form-label">QC Status</label>' +
-    '<select class="form-input" id="res-qc"><option value="pass">QC Passed</option><option value="warn">QC Warning</option><option value="fail">QC Failed — do not report</option></select></div>' +
-    '<div class="form-actions">' +
-    '<button class="btn btn-primary" onclick="submitResults(\'' + orderId + '\')">Submit results</button>' +
-    '<button class="btn" onclick="document.getElementById(\'result-entry-overlay\').remove()">Cancel</button>' +
-    '</div></div></div>'
-  overlay.style.display = 'flex'
+function enterResult() {
+  toast('Result entry disabled', 'Enter results in the authorised laboratory system, then import validated source data into JLIGHT.', 'warn');
+  goPage('connectors');
 }
 
-function submitResults(orderId) {
-  const o = STATE.labOrders.find(x => x.id === orderId)
-  if (!o) return
-  const tests = o.testsOrdered || []
-  const instrumentId = document.getElementById('res-instrument') ? document.getElementById('res-instrument').value : ''
-  const qcStatus     = document.getElementById('res-qc') ? document.getElementById('res-qc').value : 'pass'
-  if (qcStatus === 'fail') {
-    toast('QC Failed', 'Results not saved — resolve QC failure before reporting', 'crit')
-    return
-  }
-  const now = Date.now()
-  const newResults = []
-  tests.forEach(test => {
-    const key = esc(test).replace(/\s+/g,'_')
-    const val  = parseFloat(document.getElementById('res-val-'+key) ? document.getElementById('res-val-'+key).value : 'NaN')
-    const unit = document.getElementById('res-unit-'+key) ? document.getElementById('res-unit-'+key).value.trim() : ''
-    const low  = parseFloat(document.getElementById('res-low-'+key) ? document.getElementById('res-low-'+key).value : 'NaN')
-    const high = parseFloat(document.getElementById('res-high-'+key) ? document.getElementById('res-high-'+key).value : 'NaN')
-    if (isNaN(val) && !document.getElementById('res-val-'+key)?.value) return
-    // Find previous result for delta-check
-    const prevResults = STATE.results.filter(r => r.patientId === o.patientId && r.testName === test && !isNaN(r.resultValue))
-      .sort((a,b) => (b.resultedAt||0) - (a.resultedAt||0))
-    const prev = prevResults[0] || null
-    let deltaPct = null, deltaAbs = null, deltaHours = null, deltaFlag = false
-    if (prev && !isNaN(val) && !isNaN(prev.resultValue) && prev.resultValue !== 0) {
-      deltaPct   = Math.abs((val - prev.resultValue) / prev.resultValue * 100)
-      deltaAbs   = Math.abs(val - prev.resultValue)
-      deltaHours = (now - (prev.resultedAt||now)) / 3600000
-      const th   = STATE.thresholds && STATE.thresholds.deltaCheck && STATE.thresholds.deltaCheck[test]
-      if (th && deltaPct > th.pct && deltaAbs > th.abs && deltaHours <= th.hours) deltaFlag = true
-    }
-    // Interpretation
-    let interp = 'N'
-    if (!isNaN(val)) {
-      if (!isNaN(low) && !isNaN(high)) {
-        if (val < low * 0.7 || val > high * 1.5)      interp = val < low ? 'LL' : 'HH'
-        else if (val < low || val > high)              interp = val < low ? 'L'  : 'H'
-      }
-    }
-    const isCritical = interp === 'LL' || interp === 'HH'
-    const result = {
-      id: uid(), orgId: STATE.orgId, patientId: o.patientId,
-      sampleId: STATE.samples.find(s=>s.orderId===orderId)?.id,
-      orderId, testName: test, resultValue: val, resultUnit: unit,
-      referenceHigh: high, referenceLow: low, interpretation: interp,
-      isCritical, qcPassed: qcStatus === 'pass',
-      resultedBy: getDisplayName(), resultedAt: now,
-      instrumentId, prevResultId: prev?.id, prevValue: prev?.resultValue,
-      prevResultedAt: prev?.resultedAt,
-      deltaPct, deltaAbs, deltaHours, deltaFlag,
-      status: 'preliminary', ts: now
-    }
-    newResults.push(result)
-    STATE.results.push(result)
-  })
-  // Update order and sample status
-  o.status = 'resulted'; o.resultedAt = now
-  const sample = STATE.samples.find(s => s.orderId === orderId)
-  if (sample) { sample.stage = 'resulted'; sample.resultedAt = now }
-  lsSet(RESULTS_KEY, STATE.results)
-  lsSet(ORDERS_KEY, STATE.labOrders)
-  lsSet('jl_v10_samples', STATE.samples)
-  // ── RUN ALL INTELLIGENCE ENGINES ON THESE RESULTS ──
-  newResults.forEach(r => {
-    const cards = runLabIntelligence(r, o)
-    cards.forEach(c => STATE.cards.push(c))
-  })
-  STORAGE.saveCards(STATE.role, STATE.cards)
-  audit('Results entered', o.orderNumber + ' · ' + newResults.length + ' tests · by ' + getDisplayName())
-  const critCount = newResults.filter(r => r.isCritical).length
-  if (critCount > 0) toast('CRITICAL values', critCount + ' critical result' + (critCount>1?'s':'') + ' — notify clinician immediately', 'crit')
-  else toast('Results submitted', newResults.length + ' results entered', 'good')
-  document.getElementById('result-entry-overlay')?.remove()
-  renderLabOrders()
+function submitResults() {
+  toast('Result entry disabled', 'JLIGHT does not generate results or operate analysers. Import authorised source data instead.', 'warn');
+  goPage('connectors');
 }
 
 function viewOrderResults(orderId) {
@@ -8023,113 +7053,17 @@ function renderPage_v10(page) {
 
 // ── INSTRUMENTS ──
 function renderInstruments() {
-  const instruments = STATE.instruments || []
-  $('page-instruments').innerHTML =
-    '<div class="page-head">' +
-    '<div><div class="page-title">Instruments</div>' +
-    '<div class="page-sub">' + instruments.length + ' instruments registered</div></div>' +
-    '<button class="btn btn-primary" onclick="showInstrumentForm()">+ Add instrument</button>' +
-    '</div>' +
-    '<div id="instrument-form-wrap" style="display:none;margin-bottom:18px"></div>' +
-    (instruments.length === 0 ?
-      renderEmpty('No instruments registered',
-        'Record instrument details for traceability and linking recorded QC/results. This registry does not connect to or control instruments.',
-        null, null) :
-      '<div style="display:grid;gap:10px">' +
-      instruments.map(i => renderInstrumentCard(i)).join('') +
-      '</div>'
-    )
+  const page = document.getElementById('page-instruments');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">Authorised system data ingestion</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Instrument registration, calibration tracking, and instrument control are outside JLIGHT scope. Configure supported data sources here; each integration must be implemented, tested, and validated before use.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
-function renderInstrumentCard(i) {
-  const overdue = i.nextCalibration && new Date(i.nextCalibration) < new Date()
-  return '<div style="background:var(--surface-2);border:1px solid ' +
-    (overdue ? 'rgba(255,77,109,0.4)' : 'var(--border)') +
-    ';border-radius:12px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
-    '<div>' +
-    '<div style="font-family:Syne,sans-serif;font-size:15px;font-weight:700;margin-bottom:3px">' + esc(i.name) + '</div>' +
-    '<div style="font-size:12px;color:var(--text-2)">' +
-    (i.manufacturer ? esc(i.manufacturer) + ' · ' : '') +
-    (i.model ? esc(i.model) + ' · ' : '') +
-    (i.location ? esc(i.location) : '') +
-    '</div>' +
-    (overdue ? '<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:4px">⚠ Calibration overdue</div>' :
-      i.nextCalibration ? '<div style="font-size:11px;color:var(--text-3);margin-top:4px">Next calibration: ' + new Date(i.nextCalibration).toLocaleDateString() + '</div>' : '') +
-    '</div>' +
-    '<div style="display:flex;align-items:center;gap:8px">' +
-    '<span style="font-size:10px;padding:2px 8px;border-radius:20px;border:1px solid ' +
-    (i.active !== false ? 'rgba(46,232,154,0.3)' : 'var(--border)') +
-    ';color:' + (i.active !== false ? 'var(--green)' : 'var(--text-3)') + ';font-family:DM Mono,monospace;font-weight:700">' +
-    (i.active !== false ? 'ACTIVE' : 'INACTIVE') + '</span>' +
-    '<button class="btn btn-sm" onclick="editInstrument(\'' + i.id + '\')">Edit</button>' +
-    '</div></div>'
-}
+function renderInstrumentCard() { return ''; }
 
-function showInstrumentForm(existing) {
-  const wrap = document.getElementById('instrument-form-wrap')
-  if (!wrap) return
-  if (!existing) {
-    wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none'
-    if (wrap.style.display !== 'block') return
-  }
-  const i = existing || {}
-  wrap.innerHTML =
-    '<div class="form-card" style="max-width:none">' +
-    '<div style="font-family:Syne,sans-serif;font-size:15px;font-weight:700;margin-bottom:16px">' +
-    (existing ? 'Edit Instrument' : 'Add Instrument') + '</div>' +
-    '<div class="form-grid">' +
-    '<div class="form-row"><label class="form-label">Instrument Name *</label>' +
-    '<input class="form-input" id="ins-name" value="' + esc(i.name||'') + '" placeholder="e.g. Roche cobas 8000"/></div>' +
-    '<div class="form-row"><label class="form-label">Manufacturer</label>' +
-    '<input class="form-input" id="ins-mfr" value="' + esc(i.manufacturer||'') + '" placeholder="e.g. Roche"/></div>' +
-    '<div class="form-row"><label class="form-label">Model</label>' +
-    '<input class="form-input" id="ins-model" value="' + esc(i.model||'') + '"/></div>' +
-    '<div class="form-row"><label class="form-label">Serial Number</label>' +
-    '<input class="form-input" id="ins-serial" value="' + esc(i.serialNumber||'') + '"/></div>' +
-    '<div class="form-row"><label class="form-label">Location</label>' +
-    '<input class="form-input" id="ins-loc" value="' + esc(i.location||'') + '" placeholder="e.g. Main Lab, Bench 3"/></div>' +
-    '<div class="form-row"><label class="form-label">Next Calibration</label>' +
-    '<input class="form-input" type="date" id="ins-cal" value="' + esc(i.nextCalibration||'') + '"/></div>' +
-    '</div>' +
-    '<div class="form-actions">' +
-    '<button class="btn btn-primary" onclick="saveInstrument(' + (existing ? '\'' + i.id + '\'' : 'null') + ')">Save</button>' +
-    '<button class="btn" onclick="showInstrumentForm()">Cancel</button>' +
-    '</div></div>'
-  wrap.style.display = 'block'
-}
+function showInstrumentForm() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
 
-function editInstrument(id) {
-  const i = (STATE.instruments||[]).find(x => x.id === id)
-  if (i) showInstrumentForm(i)
-}
+function editInstrument() { toast('Out of scope', 'Instrument management is outside JLIGHT scope.', 'warn'); }
 
-function saveInstrument(existingId) {
-  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
-  const name = get('ins-name')
-  if (!name) { toast('Required', 'Instrument name required', 'crit'); return }
-  if (!STATE.instruments) STATE.instruments = []
-  if (existingId) {
-    const i = STATE.instruments.find(x => x.id === existingId)
-    if (i) {
-      Object.assign(i, { name, manufacturer: get('ins-mfr'), model: get('ins-model'),
-        serialNumber: get('ins-serial'), location: get('ins-loc'),
-        nextCalibration: get('ins-cal') || null })
-      audit('Instrument updated', name)
-      toast('Updated', name, 'good')
-    }
-  } else {
-    STATE.instruments.push({ id: uid(), orgId: STATE.orgId, name,
-      manufacturer: get('ins-mfr'), model: get('ins-model'),
-      serialNumber: get('ins-serial'), location: get('ins-loc'),
-      nextCalibration: get('ins-cal') || null, active: true,
-      createdAt: Date.now(), ts: Date.now() })
-    audit('Instrument registered', name)
-    toast('Instrument added', name, 'good')
-  }
-  lsSet('jl_v10_instruments', STATE.instruments)
-  showInstrumentForm()
-  renderInstruments()
-}
+function saveInstrument() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
 
 // ── WARDS ──
 function renderWards() {
@@ -8443,69 +7377,18 @@ function saveProtocol(existingId) {
 // ═══════════════════════════════════════════════════════════════════
 
 function renderDashboard_v10_extras() {
-  // Called after the standard dashboard renders
-  // Injects v10-specific widgets
-  const container = document.getElementById('dashboard-v10-extras')
-  if (!container) return
-
-  const totalPatients  = STATE.patients.length
-  const activeAdmit    = (STATE.admissions||[]).filter(a => a.status === 'active').length
-  const activeTrialPts = (STATE.participants||[]).filter(p => p.status === 'active').length
-  const openOrders     = (STATE.labOrders||[]).filter(o => o.status !== 'resulted' && o.status !== 'cancelled').length
-  const statOrders     = (STATE.labOrders||[]).filter(o => o.priority === 'Stat' && o.status !== 'resulted').length
-  const critResults    = (STATE.results||[]).filter(r => r.isCritical && !r.criticalNotifiedAt).length
-  const overdueSAE     = (STATE.adverseEvents||[]).filter(ae => ae.isSerious && ae.saeOverdue).length
-  const bioPending     = (STATE.bioRuns||[]).filter(r => r.stage !== 'reported' && r.stage !== 'failed').length
-  const instruments    = (STATE.instruments||[])
-  const calOverdue     = instruments.filter(i => i.nextCalibration && new Date(i.nextCalibration) < new Date()).length
-
-  container.innerHTML =
-    // Cross-domain KPIs
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin:24px 0 14px">System Overview</div>' +
-    '<div class="kpis" style="margin-bottom:24px">' +
-    '<div class="kpi" onclick="goPage(\'patients\')" style="cursor:pointer">' +
-    '<div class="kpi-label">Patients</div><div class="kpi-value">' + totalPatients + '</div>' +
-    '<div class="kpi-trend">Registry</div></div>' +
-    '<div class="kpi ' + (activeAdmit>0?'':'') + '" onclick="goPage(\'register\')" style="cursor:pointer">' +
-    '<div class="kpi-label">Admitted</div><div class="kpi-value">' + activeAdmit + '</div>' +
-    '<div class="kpi-trend">Currently in hospital</div></div>' +
-    '<div class="kpi ' + (statOrders>0?'crit':'') + '" onclick="goPage(\'lab-orders\')" style="cursor:pointer">' +
-    '<div class="kpi-label">Open Lab Orders</div><div class="kpi-value">' + openOrders + '</div>' +
-    '<div class="kpi-trend">' + (statOrders>0?statOrders+' STAT':'No STAT pending') + '</div></div>' +
-    '<div class="kpi ' + (critResults>0?'crit':'') + '">' +
-    '<div class="kpi-label">Unnotified Criticals</div><div class="kpi-value">' + critResults + '</div>' +
-    '<div class="kpi-trend">Notify immediately</div></div>' +
-    '<div class="kpi ' + (activeTrialPts>0?'':'') + '" onclick="goPage(\'patients\')" style="cursor:pointer">' +
-    '<div class="kpi-label">Trial Participants</div><div class="kpi-value">' + activeTrialPts + '</div>' +
-    '<div class="kpi-trend">Active enrolments</div></div>' +
-    '<div class="kpi ' + (overdueSAE>0?'crit':'') + '">' +
-    '<div class="kpi-label">Overdue SAEs</div><div class="kpi-value">' + overdueSAE + '</div>' +
-    '<div class="kpi-trend">' + (overdueSAE>0?'Report immediately':'All reported') + '</div></div>' +
-    '<div class="kpi ' + (bioPending>0?'warn':'') + '" onclick="goPage(\'bio-pipeline\')" style="cursor:pointer">' +
-    '<div class="kpi-label">Bio Runs Pending</div><div class="kpi-value">' + bioPending + '</div>' +
-    '<div class="kpi-trend">In pipeline</div></div>' +
-    (calOverdue>0 ? '<div class="kpi crit"><div class="kpi-label">Calibration Overdue</div><div class="kpi-value">' + calOverdue + '</div><div class="kpi-trend">Instruments require attention</div></div>' : '') +
-    '</div>' +
-
-    // Auto-engine status
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin-bottom:14px">Auto-Detection Status</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:24px">' +
-    [
-      { label: 'Lab Intelligence', desc: 'Runs on every result entry and HL7 message', active: true },
-      { label: 'TAT Monitor', desc: 'Checks every 5 minutes — Stat/Urgent/Routine', active: true },
-      { label: 'Completeness Engine', desc: 'Detects admissions with no lab orders', active: true },
-      { label: 'HAI Surveillance', desc: 'CDC/WHO cluster detection — 14-day window', active: true },
-      { label: 'Patient Journey', desc: 'Result without clinical action within 4h', active: true },
-      { label: 'SAE Clock', desc: 'ICH E2A 24h reporting deadline monitor', active: true },
-      { label: 'Visit Windows', desc: 'ICH E6(R3) compliance — scheduled vs actual', active: true },
-      { label: 'LTFU Risk', desc: 'Retention scoring — UNAIDS methodology', active: true },
-    ].map(e =>
-      '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px">' +
-      '<div style="width:8px;height:8px;border-radius:50%;background:var(--green);margin-top:4px;flex-shrink:0;animation:pulse 2s infinite"></div>' +
-      '<div><div style="font-size:13px;font-weight:600;margin-bottom:2px">' + esc(e.label) + '</div>' +
-      '<div style="font-size:11.5px;color:var(--text-3)">' + esc(e.desc) + '</div></div></div>'
-    ).join('') +
-    '</div>'
+  const container = document.getElementById('dashboard-v10-extras');
+  if (!container) return;
+  const patients = (STATE.patients || []).length;
+  const admissions = (STATE.admissions || []).filter(a => a.status === 'active').length;
+  const openOrders = (STATE.labOrders || []).filter(o => o.status !== 'resulted' && o.status !== 'cancelled').length;
+  const participants = (STATE.participants || []).filter(p => p.status === 'active').length;
+  container.innerHTML = '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin:24px 0 14px">System Overview</div>' +
+    '<div class="kpis"><div class="kpi"><div class="kpi-label">Patients</div><div class="kpi-value">' + patients + '</div><div class="kpi-trend">Registry records</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Active Admissions</div><div class="kpi-value">' + admissions + '</div><div class="kpi-trend">Hospital workflow</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Open Orders</div><div class="kpi-value">' + openOrders + '</div><div class="kpi-trend">Source-system status</div></div>' +
+    '<div class="kpi"><div class="kpi-label">Trial Participants</div><div class="kpi-value">' + participants + '</div><div class="kpi-trend">Active enrolments</div></div></div>' +
+    '<p style="font-size:12px;color:var(--text-3);line-height:1.6">Intelligence depends on authorised source data and validated integrations. No analyser, instrument-control, or sample-processing functions are provided.</p>';
 }
 
 
@@ -8655,17 +7538,16 @@ function renderEmpty(title, desc, page, btnLabel) {
 }
 
 function renderSamples() {
-  if (STATE.role !== 'Laboratory') return;
-  $('page-samples').innerHTML = `<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review imported or recorded source-system data and its audit trail.</div></div></div><div class="form-card"><div class="page-title" style="font-size:16px">JLIGHT does not process specimens</div><p style="color:var(--text-2);line-height:1.7">JLIGHT analyses data supplied by existing laboratory systems. It does not perform diagnostic tests, generate laboratory measurements, operate analysers, or replace the laboratory information system. Configure a validated data source under Data Sources to use intelligence features.</p><div class="form-actions"><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button><button class="btn" onclick="goPage('cards')">View Decision Cards</button></div></div>`;
+  const page = document.getElementById('page-samples');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review authorised imported data and its audit trail.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">This workspace does not register specimens or generate test results. Connect a validated source system to use data quality and traceability features.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 function renderProcess() {
-  $('page-process').innerHTML = `<div class="page-head"><div><div class="page-title">Source Result Data</div><div class="page-sub">Results must originate from an authorised laboratory system or qualified laboratory personnel.</div></div></div><div class="form-card"><div class="page-title" style="font-size:16px">Result entry is not a JLIGHT testing function</div><p style="color:var(--text-2);line-height:1.7">JLIGHT does not run tests or create laboratory results. Import existing results through a configured and validated data source. Any source-system integration must be verified before being treated as live.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
+  const page = document.getElementById('page-process');
+  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Review</div><div class="page-sub">JLIGHT does not run tests or create laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Review existing results only after they are imported from an authorised, validated source system.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
-function submitSampleRegistration() { toast('Use an existing source system', 'JLIGHT does not register or process physical specimens. Connect or import authorised source data.', 'warn'); goPage('connectors'); }
-function submitResult() { toast('Result entry disabled', 'JLIGHT does not perform laboratory testing or generate results. Use authorised source-system data.', 'warn'); goPage('connectors'); }
-function renderInstruments() {
-  const page = document.getElementById('page-instruments');
-  if (page) page.innerHTML = `<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">JLIGHT analyses data from existing systems; it does not operate laboratory instruments.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Instrument registration and control are outside JLIGHT scope. Use Data Sources to configure supported data ingestion. Integrations must be implemented, tested, and validated before being described as operational.</p><button class="btn btn-primary" onclick="goPage('connectors')">Open Data Sources</button></div>`;
+function submitSampleRegistration() {
+  toast('Out of scope', 'JLIGHT does not register physical specimens. Use an authorised source system and validated data import.', 'warn');
+  goPage('connectors');
 }
 function showInstrumentForm() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
 function saveInstrument() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
