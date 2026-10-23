@@ -1,0 +1,41 @@
+{
+  "notice": "SYNTHETIC TEST DATA ONLY — no real patient information",
+  "records": [
+    {
+      "source_system": "synthetic-his",
+      "source_record_id": "H-001",
+      "domain": "hospital",
+      "record_type": "admission_status",
+      "source_updated_at": "2026-10-23T08:30:00Z",
+      "jlight_patient_id": "JL-SYN-001",
+      "data": {"synthetic": true, "status": "admitted"}
+    },
+    {
+      "source_system": "synthetic-lis",
+      "source_record_id": "L-001",
+      "domain": "laboratory",
+      "record_type": "order_status",
+      "source_updated_at": "2026-10-23T08:35:00Z",
+      "jlight_patient_id": "JL-SYN-001",
+      "data": {"synthetic": true, "status": "result_available"}
+    },
+    {
+      "source_system": "synthetic-bio",
+      "source_record_id": "B-001",
+      "domain": "bioinformatics",
+      "record_type": "analysis_qc",
+      "source_updated_at": "2026-10-23T08:40:00Z",
+      "jlight_patient_id": "JL-SYN-001",
+      "data": {"synthetic": true, "qc_status": "review"}
+    },
+    {
+      "source_system": "synthetic-ctms",
+      "source_record_id": "T-001",
+      "domain": "clinical_trials",
+      "record_type": "participant_visit",
+      "source_updated_at": "2026-10-23T08:42:00Z",
+      "trial_participant_id": "TRIAL-SYN-001",
+      "data": {"synthetic": true, "visit_status": "scheduled"}
+    }
+  ]
+}
