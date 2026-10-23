@@ -2871,6 +2871,15 @@ function handleSourceImportFile(event) {
 }
 function parseSourceCSV(text) {
   const input = String(text || '').replace(/^\uFEFF/, '')
+  const firstLine = input.split(/\r?\n/).find(line => line.trim()) || ''
+  let commas = 0, tabs = 0, headerQuoted = false
+  for (let i = 0; i < firstLine.length; i++) {
+    if (firstLine[i] === '"' && firstLine[i + 1] === '"' && headerQuoted) { i++; continue }
+    if (firstLine[i] === '"') headerQuoted = !headerQuoted
+    else if (!headerQuoted && firstLine[i] === ',') commas++
+    else if (!headerQuoted && firstLine[i] === '\t') tabs++
+  }
+  const delimiter = tabs > commas ? '\t' : ','
   const records = []
   let row = [], field = '', quoted = false
   for (let i = 0; i < input.length; i++) {
@@ -2880,7 +2889,7 @@ function parseSourceCSV(text) {
       else if (ch === '"') quoted = false
       else field += ch
     } else if (ch === '"' && field.length === 0) quoted = true
-    else if (ch === ',' || ch === '\t') {
+    else if (ch === delimiter) {
       row.push(field); field = ''
       if (ch === '\t') { /* TSV is supported when a tab delimiter is used */ }
     } else if (ch === '\n') {
@@ -2996,7 +3005,7 @@ async function commitSourceCsv() {
   catch (e) { console.warn('[JLIGHT] import audit could not be saved:', e.message) }
   SOURCE_IMPORT_PREVIEW = null
   const cloudMessage = MODE.isOnline
-    ? (sync.ok ? 'Cloud sync confirmed for ' + (sync.count || imported.length) + ' record(s).' : 'Local cache updated, but cloud sync failed: ' + (sync.reason || 'unknown error') + '. Retry before relying on the cloud copy.')
+    ? (sync.ok ? 'Cloud sync confirmed for ' + (sync.count == null ? imported.length : sync.count) + ' record(s).' : 'Local cache updated, but cloud sync failed: ' + (sync.reason || 'unknown error') + '. Retry before relying on the cloud copy.')
     : 'Saved on this device only. Cloud sync is not active in offline mode.'
   if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p><button class="btn" onclick="goPage(\'journey\')">Review Patient Journey</button></div>'
   const commit = document.getElementById('source-import-commit')
