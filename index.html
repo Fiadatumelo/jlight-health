@@ -2834,6 +2834,7 @@ const SOURCE_IMPORT_ALIASES = {
 }
 let SOURCE_IMPORT_PREVIEW = null
 let SOURCE_IMPORT_FILE_NAME = ''
+let SOURCE_IMPORT_LAST_SYNC = null
 function resetSourceImportPreview() {
   SOURCE_IMPORT_PREVIEW = null
   const el = document.getElementById('source-import-preview')
@@ -2931,7 +2932,7 @@ async function previewSourceCsv() {
     const missingHeaders = schema.required.filter(h => !headers.has(h) && !(h === 'patientId' && headers.has('id')))
     if (missingHeaders.length) throw new Error('Required column(s) missing: ' + missingHeaders.join(', '))
     if (!MODE.isOnline && domain === 'patients') throw new Error('Patient-registry imports require an authenticated online workspace. Offline mode must not store identifiable patient details.')
-    const sensitive = ['fullName','mrn','dateOfBirth','gender','phone','idNumber','address']
+    const sensitive = ['fullName','mrn','dateOfBirth','gender','phone','idNumber','address','email']
     if (!MODE.isOnline && parsed.headers.some(h => sensitive.includes(h))) throw new Error('Offline imports must be de-identified. Remove names, MRNs, dates of birth, gender, phone numbers and addresses.')
     if (!MODE.isOnline && !(document.getElementById('source-import-deidentified') || {}).checked) throw new Error('Confirm that offline data is de-identified and patientId values are pseudonymous before previewing.')
     if (MODE.isOnline) {
@@ -2952,8 +2953,13 @@ async function previewSourceCsv() {
     SOURCE_IMPORT_PREVIEW = { domain, schema, headers: parsed.headers, rows: parsed.rows, fileName: SOURCE_IMPORT_FILE_NAME || 'CSV source import' }
     if (commit) commit.disabled = false
     const unsupported = parsed.headers.filter(h => !schema.fields.includes(h))
+    const existingIds = new Set((STATE[schema.stateKey] || []).map(item => String(item.id)))
+    const rowIds = parsed.rows.map(row => domain === 'patients' ? String(row.patientId || row.id || '') : String(row.id || row.sourceRecordId || '')).filter(Boolean)
+    const duplicateRows = rowIds.filter(id => existingIds.has(id)).length + (rowIds.length - new Set(rowIds).size)
+    const existingPatientIds = new Set((STATE.patients || []).map(patient => String(patient.id)))
+    const unmatchedRefs = domain === 'patients' ? [] : Array.from(new Set(parsed.rows.map(row => String(row.patientId || '')).filter(id => id && !existingPatientIds.has(id))))
     const previewRows = parsed.rows.slice(0, 5).map(row => '<tr>' + parsed.headers.slice(0, 8).map(h => '<td>' + esc(row[h] || '') + '</td>').join('') + '</tr>').join('')
-    output.innerHTML = '<div class="source-import-result success"><strong>Validation passed</strong><p>' + parsed.rows.length + ' row(s) passed required-field checks. ' + unsupported.length + ' unsupported column(s) will be ignored; nothing has been saved yet.</p><div class="source-import-table-wrap"><table class="journey-table"><thead><tr>' + parsed.headers.slice(0, 8).map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + previewRows + '</tbody></table></div></div>'
+    output.innerHTML = '<div class="source-import-result success"><strong>Validation passed</strong><p>' + parsed.rows.length + ' row(s) passed required-field checks. ' + unsupported.length + ' unsupported column(s) will be ignored. ' + duplicateRows + ' row(s) appear to duplicate an existing or repeated record ID and will be skipped. ' + unmatchedRefs.length + ' patient reference(s) are not currently in the shared patient registry; JLIGHT will not infer identity. Nothing has been saved yet.</p><div class="source-import-table-wrap"><table class="journey-table"><thead><tr>' + parsed.headers.slice(0, 8).map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + previewRows + '</tbody></table></div></div>'
   } catch (e) {
     if (output) output.innerHTML = '<div class="source-import-result error"><strong>Validation failed</strong><p>' + esc(e.message || 'The file could not be validated.') + '</p></div>'
     toast('Import validation failed', e.message || 'Check the file and try again.', 'warn')
@@ -2990,6 +2996,7 @@ async function commitSourceCsv() {
     return
   }
   STATE[schema.stateKey] = current.concat(imported)
+  SOURCE_IMPORT_LAST_SYNC = MODE.isOnline ? { domain, schema, imported } : null
   try { localStorage.setItem(jlightStorageKey(schema.storageKey()), JSON.stringify(STATE[schema.stateKey].slice(-2000))) }
   catch (e) { STATE[schema.stateKey] = current; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
   let sync = { ok: false, reason: 'offline' }
@@ -3001,16 +3008,35 @@ async function commitSourceCsv() {
     const failed = syncResults.find(result => !result || !result.ok)
     sync = failed ? { ok: false, reason: failed.reason || 'one_or_more_batches_failed' } : { ok: true, count: syncResults.reduce((sum, result) => sum + (result.count || 0), 0) }
   }
+  if (sync.ok) SOURCE_IMPORT_LAST_SYNC = null
   try { await audit('Validated source-data import', schema.label + ': ' + imported.length + ' records; ' + duplicates.length + ' duplicates skipped; mode=' + (MODE.isOnline ? 'online' : 'offline')) }
   catch (e) { console.warn('[JLIGHT] import audit could not be saved:', e.message) }
   SOURCE_IMPORT_PREVIEW = null
   const cloudMessage = MODE.isOnline
     ? (sync.ok ? 'Cloud sync confirmed for ' + (sync.count == null ? imported.length : sync.count) + ' record(s).' : 'Local cache updated, but cloud sync failed: ' + (sync.reason || 'unknown error') + '. Retry before relying on the cloud copy.')
     : 'Saved on this device only. Cloud sync is not active in offline mode.'
-  if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p><button class="btn" onclick="goPage(\'journey\')">Review Patient Journey</button></div>'
+  if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p>' + (MODE.isOnline && !sync.ok ? '<button class="btn btn-primary" onclick="retrySourceImportSync()">Retry cloud sync</button> ' : '') + '<button class="btn" onclick="goPage(\'journey\')">Review Patient Journey</button></div>'
   const commit = document.getElementById('source-import-commit')
   if (commit) commit.disabled = true
   toast(MODE.isOnline && !sync.ok ? 'Import needs cloud-sync review' : 'Source records imported', cloudMessage, MODE.isOnline && !sync.ok ? 'warn' : 'good')
+}
+async function retrySourceImportSync() {
+  const last = SOURCE_IMPORT_LAST_SYNC
+  if (!last || !MODE.isOnline) { toast('No pending cloud sync', 'There is no online import batch available to retry.', 'warn'); return }
+  const results = []
+  for (let offset = 0; offset < last.imported.length; offset += 200) {
+    results.push(await syncDomainToBackend(last.schema.backendDomain, last.imported.slice(offset, offset + 200)))
+  }
+  const failed = results.find(result => !result || !result.ok)
+  const output = document.getElementById('source-import-preview')
+  if (failed) {
+    toast('Cloud sync still failing', failed.reason || 'Retry later after checking workspace connectivity.', 'crit')
+    return
+  }
+  SOURCE_IMPORT_LAST_SYNC = null
+  try { await audit('Source import cloud sync retried', last.schema.label + ': ' + last.imported.length + ' records synced') } catch (e) {}
+  if (output) output.innerHTML = '<div class="source-import-result success"><strong>Cloud sync confirmed</strong><p>' + last.imported.length + ' previously imported record(s) are now synchronised to the active organisation.</p></div>'
+  toast('Cloud sync confirmed', last.imported.length + ' records synced.', 'good')
 }
 function renderAnalytics() {
 
