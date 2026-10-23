@@ -176,6 +176,13 @@ New authenticated endpoints:
 - `POST /api/connectors/ingest` — ingest a read-only FHIR R4 Bundle, HL7 v2 status message, or mapped CSV export directly. This is a push/import adapter, not an automatic live-system connector.
 - `POST /api/connectors/queue` — durably enqueue a FHIR/HL7 v2/CSV export using `Idempotency-Key` (or `idempotency_key` in the JSON body); repeated keys with changed content are rejected for review.
 - `POST /api/connectors/queue/process` — owner/admin-only processing of queued exports with bounded retries, worker leases, duplicate-safe event persistence, and dead-letter status after repeated failures.
+
+### Store-and-forward recovery
+
+- Facility-side local spool (Python standard library; no extra package required): `python scripts/facility_spool.py --db /secure/path/jlight-spool.sqlite3 enqueue --source-system synthetic-his --domain hospital --format fhir --file ./synthetic-bundle.json`.
+- Replay after connectivity returns by setting `JLIGHT_API_BASE_URL` (HTTPS), `JLIGHT_ACCESS_TOKEN`, and `JLIGHT_ORGANIZATION_ID`, then running `python scripts/facility_spool.py --db /secure/path/jlight-spool.sqlite3 replay`. Accepted exports are marked sent; failures remain pending. Use a stable idempotency key per export when an export is regenerated or its JSON changes.
+- A scheduler can run `python scripts/queue_worker_once.py` every minute or few minutes with `JLIGHT_API_BASE_URL`, `JLIGHT_ACCESS_TOKEN`, `JLIGHT_ORGANIZATION_ID` and optional `JLIGHT_WORKER_BATCH_SIZE` configured as secrets/environment variables. Use an owner/admin service account and rotate its token. The worker is one-shot by design so the hosting platform's scheduler controls cadence.
+- Treat spool files as sensitive health-data stores: use an encrypted disk/volume, strict OS permissions, backups and a facility-approved retention period. Start with synthetic data only. The spool is a reference integration utility, not yet a facility-certified connector.
 - `GET /api/workflow-timelines` — read the tenant's event timeline.
 - `GET /api/decision-cards` — generate explainable operational delay cards with exact source-event evidence.
 - `GET /api/connector-freshness` — report when each source feed last delivered an event; this does not directly probe the source system.
