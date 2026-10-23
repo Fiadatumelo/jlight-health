@@ -27,9 +27,15 @@ The non-trial domains should contribute to one traceable patient journey when au
 
 Decision Cards should make the signal, source data, rationale, recommended next step, status, and audit history visible. They support professional review and do not replace clinical judgement, laboratory validation, or regulated source systems.
 
+## User entry and shared journey
+
+On entry, users choose Laboratory, Hospital / Health Informatics, Bioinformatics, or Clinical Trials. The shared Patient Journey view connects authorised non-trial records by existing patient ID across Hospital, Laboratory, and Bioinformatics. It reports missing or unmatched links without inferring identity from names or demographics. Clinical Trials use a separate participant workflow and are excluded from the shared non-trial journey.
+
 ## Integrations and readiness
 
-CSV, HL7, FHIR, CTMS, HIS, and REST pathways must be implemented, secured, and validated end-to-end before being described as live or production-ready. Mentioning a protocol or displaying a connector option does not prove that a working integration exists. Data mapping, permissions, error handling, audit logging, and patient matching require verification.
+- **CSV / TSV source import is implemented** for patient registry, laboratory order status, imported laboratory result records, hospital admissions/orders, and bioinformatics outputs. It validates headers and required fields, previews before saving, skips duplicate source IDs, reports unmatched patient references, records an audit event, and reports cloud-sync failures. Offline imports require a de-identification attestation and reject direct-identifying columns.
+- **HL7, FHIR, CTMS, HIS, and custom REST/API adapters are not claimed to be live.** They still require configuration, permissions, field mapping, error handling, audit logging, and end-to-end validation in the target environment.
+- A connector label or protocol name is not proof of a working integration. Source systems remain authoritative; JLIGHT stores and analyses supplied records and does not perform diagnostic tests or generate laboratory measurements.
 
 ## Deployment and release
 
