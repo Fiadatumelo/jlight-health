@@ -5,6 +5,15 @@
 
 BEGIN;
 
+DO $
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'jlight_runtime') THEN
+        CREATE ROLE jlight_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+    END IF;
+END
+$;
+ALTER ROLE jlight_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
+
 CREATE TABLE IF NOT EXISTS jlight_source_record_versions (
     id BIGSERIAL PRIMARY KEY,
     organization_id UUID NOT NULL,
@@ -85,8 +94,14 @@ CREATE POLICY jlight_event_tenant_insert ON jlight_workflow_events
     FOR INSERT
     WITH CHECK (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
 
--- No UPDATE/DELETE policies are defined: these source-evidence tables are append-only.
--- Table owners and BYPASSRLS roles can bypass RLS; production deployment must use
--- a restricted non-owner runtime role and must not expose raw SQL to clients.
+-- Runtime role is non-login, non-owner, and cannot bypass RLS. The backend must
+-- connect using a dedicated login role granted membership in jlight_runtime and
+-- SET ROLE jlight_runtime for each connection. Never deploy with a table-owner or
+-- BYPASSRLS login credential.
+REVOKE ALL ON TABLE jlight_source_record_versions, jlight_workflow_events FROM PUBLIC, anon, authenticated;
+GRANT USAGE ON SCHEMA public TO jlight_runtime;
+GRANT SELECT, INSERT ON TABLE jlight_source_record_versions, jlight_workflow_events TO jlight_runtime;
+GRANT USAGE, SELECT ON SEQUENCE jlight_source_record_versions_id_seq, jlight_workflow_events_id_seq TO jlight_runtime;
 
+-- No UPDATE/DELETE policies or grants are defined: evidence is append-only.
 COMMIT;
