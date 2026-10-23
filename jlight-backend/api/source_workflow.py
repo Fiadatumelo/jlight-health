@@ -23,6 +23,7 @@ from engine.domain_persistence import persist_source_record, persist_workflow_ev
 from engine.workflow_traceability import normalize_workflow_event, build_workflow_timelines, build_patient_journeys
 from engine.source_adapters import parse_source_export
 from engine.decision_cards import build_decision_cards
+from engine.ingestion_queue import enqueue_export, claim_exports, finish_export
 
 source_workflow_bp = Blueprint("source_workflow", __name__, url_prefix="/api")
 
@@ -265,6 +266,115 @@ def ingest_source_export():
     except Exception:
         current_app.logger.exception("Source export ingestion failed")
         return _error("Source export could not be persisted", 500)
+
+
+@source_workflow_bp.post("/connectors/queue")
+@require_membership
+def queue_source_export():
+    """Durably queue an export for processing/replay; does not contact source systems."""
+    if not request.is_json:
+        return _error("JSON object required", 415)
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return _error("JSON object required", 400)
+    key = str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "").strip()
+    try:
+        with _db() as conn:
+            result = enqueue_export(
+                conn, g.jlight_actor["organization_id"],
+                source_system=body.get("source_system"),
+                domain=body.get("domain"),
+                export_format=body.get("format"),
+                payload=body.get("payload"),
+                idempotency_key=key,
+            )
+        return jsonify({"success": True, **result,
+                        "source_system_remains_authoritative": True,
+                        "clinical_trials_separate": True}), 202 if result["action"] == "queued" else 200
+    except ValueError as exc:
+        return _error(str(exc), 400)
+    except RuntimeError:
+        current_app.logger.exception("Durable queue is not available")
+        return _error("Durable ingestion queue is not available", 503)
+    except Exception:
+        current_app.logger.exception("Source export could not be queued")
+        return _error("Source export could not be queued", 500)
+
+
+@source_workflow_bp.post("/connectors/queue/process")
+@require_membership
+def process_queued_exports():
+    """Process queued exports for the current tenant; retries failures without dropping them."""
+    if g.jlight_actor["role"] not in {"owner", "admin"}:
+        return _error("Only organization owners or admins can run queue recovery", 403)
+    if not request.is_json:
+        return _error("JSON object required", 415)
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return _error("JSON object required", 400)
+    try:
+        limit = int(body.get("limit", 5))
+    except (TypeError, ValueError):
+        return _error("limit must be an integer", 400)
+    processed, retried, dead_lettered = 0, 0, 0
+    try:
+        with _db() as conn:
+            claimed = claim_exports(conn, g.jlight_actor["organization_id"], limit=limit)
+        for item in claimed:
+            try:
+                events = parse_source_export(
+                    item["export_format"], item["payload"],
+                    source_system=item["source_system"], domain=item["domain"],
+                )
+                if not events:
+                    raise ValueError("no_supported_status_events")
+                with _db() as conn:
+                    for event in events:
+                        source_ref = str(event.pop("source_patient_ref", "") or "").strip()
+                        source_hash = (_source_patient_hash(item["source_system"], source_ref)
+                                       if source_ref and os.environ.get("JLIGHT_LINKING_SECRET") else None)
+                        event["source_patient_ref_hash"] = source_hash
+                        event["link_status"] = "unlinked"
+                        event["jlight_patient_id"] = None
+                        if source_hash:
+                            link = _lookup_patient_link(
+                                conn, g.jlight_actor["organization_id"], item["source_system"], source_hash
+                            )
+                            if link and link["action"] == "link" and link["jlight_patient_id"]:
+                                event["link_status"] = "verified"
+                                event["jlight_patient_id"] = str(link["jlight_patient_id"])
+                        persist_workflow_event(
+                            conn, g.jlight_actor["organization_id"], event, commit=False
+                        )
+                    finish_export(conn, g.jlight_actor["organization_id"], item["id"],
+                                  str(item["lease_token"]), success=True)
+                processed += 1
+            except Exception as exc:
+                current_app.logger.warning("Queued export processing failed for queue_id=%s", item["id"])
+                try:
+                    with _db() as conn:
+                        result = finish_export(
+                            conn, g.jlight_actor["organization_id"], item["id"],
+                            str(item["lease_token"]), success=False,
+                            error_code=type(exc).__name__,
+                        )
+                    if result["status"] == "dead_letter":
+                        dead_lettered += 1
+                    else:
+                        retried += 1
+                except Exception:
+                    current_app.logger.exception("Queue retry state could not be saved")
+                    return _error("A queue item failed and its recovery state could not be saved", 503)
+        return jsonify({"success": True, "claimed": len(claimed), "processed": processed,
+                        "retried": retried, "dead_lettered": dead_lettered,
+                        "source_values_modified": False,
+                        "source_system_remains_authoritative": True,
+                        "clinical_trials_separate": True})
+    except ValueError as exc:
+        return _error(str(exc), 400)
+    except Exception:
+        current_app.logger.exception("Queue recovery could not run")
+        return _error("Queue recovery could not run", 503)
 
 
 @source_workflow_bp.post("/patient-keys")
