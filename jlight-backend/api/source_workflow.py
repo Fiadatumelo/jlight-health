@@ -75,6 +75,10 @@ def _db():
         with conn.cursor() as cur:
             cur.execute("SET ROLE jlight_runtime")
         yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
