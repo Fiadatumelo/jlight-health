@@ -17,8 +17,6 @@ on:
       - "jlight-backend/tests/test_source_adapters.py"
       - "jlight-backend/tests/test_synthetic_fhir_interop.py"
       - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
-      - "jlight-backend/tests/test_synthetic_fhir_interop.py"
-      - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
       - "jlight-backend/tests/test_decision_cards.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
       - "jlight-backend/tests/test_domain_persistence.py"
@@ -36,6 +34,8 @@ on:
     paths:
       - "jlight-backend/tests/test_decision_cards.py"
       - "jlight-backend/tests/test_source_adapters.py"
+      - "jlight-backend/tests/test_synthetic_fhir_interop.py"
+      - "jlight-backend/tests/fixtures/synthetic_fhir_r4_bundle.json"
       - "jlight-backend/tests/test_frontend_syntax.py"
       - "jlight-backend/engine/decision_cards.py"
       - "jlight-backend/engine/source_adapters.py"
