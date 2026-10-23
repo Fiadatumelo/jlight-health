@@ -136,3 +136,57 @@ def build_workflow_timelines(events: Iterable[Mapping[str, Any]]) -> dict[str, A
         "read_only_observations": True,
         "source_system_remains_authoritative": True,
     }
+
+
+
+def build_patient_journeys(events: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """Build cross-domain journeys only for explicitly verified canonical patient links."""
+    by_patient: dict[str, list[dict[str, Any]]] = {}
+    unlinked_event_ids: list[str] = []
+    for event in events:
+        event_id = str(event.get("event_id") or "").strip()
+        domain = str(event.get("domain") or "").strip().lower()
+        if not event_id:
+            raise ValueError("event is missing event_id")
+        if domain == CLINICAL_TRIALS_DOMAIN:
+            raise ValueError("clinical trials belong to the separate participant workflow")
+        if domain not in SUPPORTED_DOMAINS:
+            raise ValueError(f"unsupported domain: {domain}")
+        patient_id = str(event.get("jlight_patient_id") or "").strip()
+        verified = event.get("patient_link_verified") is True and bool(patient_id)
+        if not verified:
+            unlinked_event_ids.append(event_id)
+            continue
+        observed = _timestamp(event.get("observed_at"))
+        item = {
+            "event_id": event_id,
+            "source_system": str(event.get("source_system") or ""),
+            "source_record_id": str(event.get("source_record_id") or ""),
+            "source_key": f'{event.get("source_system", "")}::{event.get("source_record_id", "")}',
+            "domain": domain,
+            "event_type": str(event.get("event_type") or ""),
+            "observed_at": observed.isoformat().replace("+00:00", "Z"),
+            "source_status": event.get("source_status"),
+            "source_values_modified": False,
+        }
+        by_patient.setdefault(patient_id, []).append(item)
+
+    journeys = []
+    for patient_id, items in sorted(by_patient.items()):
+        ordered = sorted(items, key=lambda item: (item["observed_at"], item["event_id"]))
+        journeys.append({
+            "jlight_patient_id": patient_id,
+            "events": ordered,
+            "domains_seen": sorted({item["domain"] for item in ordered}),
+            "event_count": len(ordered),
+            "first_observed_at": ordered[0]["observed_at"],
+            "last_observed_at": ordered[-1]["observed_at"],
+            "cross_domain": len({item["domain"] for item in ordered}) > 1,
+            "source_systems_remain_authoritative": True,
+        })
+    return {
+        "journeys": journeys,
+        "unlinked_event_ids": sorted(unlinked_event_ids),
+        "patient_linking_is_explicit_and_verified": True,
+        "clinical_trials_separate": True,
+    }
