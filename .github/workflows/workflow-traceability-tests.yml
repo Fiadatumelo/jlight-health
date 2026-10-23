@@ -1,10 +1,13 @@
-name: Workflow Traceability Tests
+name: JLIGHT Persistence and Traceability Tests
 
 on:
   pull_request:
     paths:
       - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/engine/domain_persistence.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_persistence.py"
+      - "jlight-backend/migrations/**"
       - ".github/workflows/workflow-traceability-tests.yml"
   push:
     branches:
@@ -12,20 +15,23 @@ on:
       - "feat/source-workflow-traceability"
     paths:
       - "jlight-backend/engine/workflow_traceability.py"
+      - "jlight-backend/engine/domain_persistence.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
+      - "jlight-backend/tests/test_domain_persistence.py"
+      - "jlight-backend/migrations/**"
       - ".github/workflows/workflow-traceability-tests.yml"
 
 permissions:
   contents: read
 
 jobs:
-  synthetic-workflow-tests:
+  synthetic-domain-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run synthetic workflow traceability tests
+      - name: Test workflow traceability and persistence safety
         working-directory: jlight-backend
-        run: python -m unittest tests.test_workflow_traceability -v
+        run: python -m unittest tests.test_workflow_traceability tests.test_domain_persistence -v
