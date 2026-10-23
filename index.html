@@ -1800,7 +1800,7 @@ function renderDashboard() {
   }
 
   const recentCards = cards.sort((a, b) => b.ts - a.ts).slice(0, 5)
-  const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event')
+  const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : (STATE.role === 'Bioinformatics' ? 'Review Imported Data' : 'Review Hospital Data'))
 
   $('page-dashboard').innerHTML = `
     <div class="page-head">
@@ -4586,103 +4586,18 @@ function resetThresholds() {
 // ── CSV BULK IMPORT ──
 // Runs all intelligence engines on every imported row.
 // Same analysis pipeline as manual entry — no shortcuts.
+// The former CSV importer generated simulated specimen/result records and ran analyser-like rules.
+// Keep the legacy entry points safe until a proposal-aligned source-data adapter is configured.
 function renderImport() {
-  const examples = {
-    Laboratory: 'sampleId,patientId,test,sampleType,priority,instrument,value,qcValue,lotNumber,clinicalContext',
-    Trial: 'eventCategory,participantId,site,eventDate,visitName,scheduledDate,attended,distance',
-    Hospital: 'eventType,ward,patientId,eventTime,priority,tatHours,specimenTest',
-    Bioinformatics: 'sampleId,analysisType,platform,reference,pipeline,coverage,mappingRate,qscore,dupRate,gcContent,contamination,variantCount',
-  }
-  $('page-import').innerHTML = '<div class="page-head"><div><div class="page-title">Bulk CSV Import</div><div class="page-sub">Import historical data · all intelligence engines run on every row</div></div></div>' +
-    '<div class="form-card" style="background:var(--purple-bg);border-color:rgba(167,139,250,0.18);max-width:none;margin-bottom:18px">' +
-    '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px">How this works</div>' +
-    '<div style="font-size:13px;line-height:1.65">Every imported row goes through the same intelligence engines as manual entry. JLIGHT will generate Decision Cards for any issues found — exactly as if you had entered each row by hand. This is the fastest way to audit historical data.</div></div>' +
-    '<div class="form-card" style="max-width:none">' +
-    '<div class="form-grid">' +
-    '<div class="form-row span-2"><label class="form-label">Required columns for ' + esc(STATE.role) + '</label>' +
-    '<pre style="background:var(--surface-3);padding:14px;border-radius:8px;font-family:DM Mono,monospace;font-size:11px;overflow-x:auto;color:var(--text-2);line-height:1.5">' + esc(examples[STATE.role] || '') + '</pre></div>' +
-    '<div class="form-row span-2"><label class="form-label">Upload CSV file</label><input class="form-input" type="file" id="csv-file" accept=".csv,.tsv" onchange="handleCSVFile(event)"/></div>' +
-    '<div class="form-row span-2"><label class="form-label">— or paste CSV text —</label><textarea class="form-input" id="csv-text" style="min-height:160px;font-family:DM Mono,monospace;font-size:12px" placeholder="Paste CSV here..."></textarea></div>' +
-    '</div>' +
-    '<div class="form-actions"><button class="btn btn-primary" onclick="importCSV()">Import and analyse</button><button class="btn" onclick="goPage(\'dashboard\')">Cancel</button></div>' +
-    '</div>' +
-    '<div id="import-results" style="margin-top:16px"></div>'
+  toast('Import adapter not configured', 'Use Data Sources to review supported integration requirements. JLIGHT does not create specimens or laboratory measurements.', 'warn')
+  goPage('connectors')
 }
-
-function handleCSVFile(ev) {
-  const file = ev.target.files[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = e => { const ta = document.getElementById('csv-text'); if (ta) ta.value = e.target.result }
-  reader.readAsText(file)
-}
-
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/)
-  if (lines.length < 2) return []
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-    const row = {}
-    headers.forEach((h, i) => { row[h] = vals[i] || '' })
-    return row
-  })
-}
-
+function handleCSVFile() { renderImport() }
+function parseCSV() { throw new Error('Legacy specimen-processing import disabled; use a validated source-data adapter.') }
 function importCSV() {
-  const text = (document.getElementById('csv-text') || {}).value || ''
-  if (!text.trim()) { toast('Empty', 'Paste CSV or upload a file', 'crit'); return }
-  let rows
-  try { rows = parseCSV(text) } catch (e) { toast('Parse error', e.message, 'crit'); return }
-  if (!rows.length) { toast('No data', 'CSV has no data rows', 'crit'); return }
-  let imported = 0, cards = 0, errors = []
-  rows.forEach((row, idx) => {
-    try {
-      const base = { id: uid(), ts: Date.now() - (rows.length - idx) * 60000, role: STATE.role }
-      if (STATE.role === 'Laboratory') {
-        const s = Object.assign(base, { sampleId: row.sampleId, patientId: row.patientId, test: row.test, sampleType: row.sampleType, priority: row.priority || 'Routine', instrument: row.instrument, value: parseFloat(row.value), qcValue: parseFloat(row.qcValue), lotNumber: row.lotNumber, clinicalContext: row.clinicalContext, resultType: 'Quantitative (numeric)', processedAt: base.ts, stage: 'reported', history: [], errors: [], flags: {} })
-        STATE.samples.push(s)
-        const issues = analyseLabSample(s)
-        issues.forEach(iss => { STATE.cards.push({ id: uid(), ts: base.ts, role: STATE.role, severity: iss.severity, source: iss.source, title: iss.title, description: iss.description, signals: iss.signals, insight: iss.insight, rootCause: iss.rootCause, actions: iss.actions, trace: 'CSV→' + s.sampleId + '→' + iss.engine, sampleId: s.id, acknowledged: false }); cards++ })
-      } else if (STATE.role === 'Trial') {
-        const e = Object.assign(base, row)
-        STATE.entries.push(e)
-        const cs = analyseTrialEvent(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      } else if (STATE.role === 'Hospital') {
-        const e = Object.assign(base, row)
-        STATE.entries.push(e)
-        const cs = analyseHospitalEvent(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      } else if (STATE.role === 'Bioinformatics') {
-        const e = Object.assign(base, { analysisType: row.analysisType, sampleId: row.sampleId, platform: row.platform, reference: row.reference, pipeline: row.pipeline, coverage: parseFloat(row.coverage), mappingRate: parseFloat(row.mappingRate), qscore: parseFloat(row.qscore), dupRate: parseFloat(row.dupRate), gcContent: parseFloat(row.gcContent), contamination: parseFloat(row.contamination), variantCount: parseInt(row.variantCount, 10) || 0 })
-        STATE.entries.push(e)
-        const cs = analyseBioEntry(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      }
-      imported++
-    } catch (e) { errors.push('Row ' + (idx + 2) + ': ' + e.message) }
-  })
-  if (STATE.role === 'Laboratory') STORAGE.saveSamples(STATE.role, STATE.samples)
-  else STORAGE.saveEntries(STATE.role, STATE.entries)
-  STORAGE.saveCards(STATE.role, STATE.cards)
-  audit('CSV import', imported + ' rows · ' + cards + ' cards')
-  const res = document.getElementById('import-results')
-  if (res) res.innerHTML = '<div class="form-card" style="max-width:none;background:var(--green-bg);border-color:rgba(46,232,154,0.18)">' +
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;color:var(--green);margin-bottom:12px">Import complete</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">IMPORTED</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800">' + imported + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">CARDS GENERATED</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:' + (cards > 0 ? 'var(--amber)' : 'var(--green)') + '">' + cards + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">ERRORS</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:' + (errors.length > 0 ? 'var(--red)' : 'var(--text-3)') + '">' + errors.length + '</div></div>' +
-    '</div>' +
-    '<div style="display:flex;gap:8px">' +
-    '<button class="btn btn-primary" onclick="goPage(\'cards\')">View cards →</button>' +
-    '<button class="btn" onclick="goPage(\'dashboard\')">Dashboard</button></div>' +
-    (errors.length ? '<div style="margin-top:12px;font-size:11px;color:var(--red);font-family:DM Mono,monospace">' + errors.slice(0, 5).map(esc).join('<br>') + '</div>' : '') +
-    '</div>'
-  toast('Import complete', imported + ' rows · ' + cards + ' cards', 'good')
+  toast('Legacy import disabled', 'The old importer created simulated specimens/results and is out of scope. Use an approved source-system integration.', 'warn')
+  goPage('connectors')
 }
-
 // ── AUDIT INTEGRITY CHECK UI ──
 async function checkAuditIntegrity() {
   const el = document.getElementById('audit-integrity')
