@@ -19,6 +19,20 @@ const json = (body: unknown, status = 200, origin = "") =>
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);
 
+// Best-effort per-isolate throttling. Configure upstream abuse controls/CAPTCHA
+// before public launch; this in-memory guard is not a distributed rate limiter.
+const attempts = new Map<string, number[]>();
+function rateLimited(key: string, now = Date.now()) {
+  const recent = (attempts.get(key) ?? []).filter((ts) => now - ts < 15 * 60 * 1000);
+  if (recent.length >= 5) {
+    attempts.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  attempts.set(key, recent);
+  return false;
+}
+
 Deno.serve(async (req: Request) => {
   const origin = (req.headers.get("origin") ?? "").replace(/\/$/, "");
   if (req.method === "OPTIONS") {
@@ -47,6 +61,10 @@ Deno.serve(async (req: Request) => {
   }
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "Enter a valid email address" }, 400, origin);
+  }
+  const clientIp = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
+  if (rateLimited(clientIp)) {
+    return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
