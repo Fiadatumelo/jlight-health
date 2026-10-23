@@ -70,6 +70,10 @@ def _db():
         raise RuntimeError("DATABASE_URL is not configured")
     conn = psycopg2.connect(url, cursor_factory=RealDictCursor)
     try:
+        # The login configured in DATABASE_URL must be explicitly granted membership
+        # in the non-login jlight_runtime role. This keeps app queries subject to RLS.
+        with conn.cursor() as cur:
+            cur.execute("SET ROLE jlight_runtime")
         yield conn
     finally:
         conn.close()
