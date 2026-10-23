@@ -2955,9 +2955,10 @@ async function previewSourceCsv() {
     SOURCE_IMPORT_PREVIEW = { domain, schema, headers: parsed.headers, rows: parsed.rows, fileName: SOURCE_IMPORT_FILE_NAME || 'CSV source import' }
     if (commit) commit.disabled = false
     const unsupported = parsed.headers.filter(h => !schema.fields.includes(h))
-    const existingIds = new Set((STATE[schema.stateKey] || []).map(item => String(item.id)))
+    const seenIds = new Set((STATE[schema.stateKey] || []).map(item => String(item.id)))
     const rowIds = parsed.rows.map(row => domain === 'patients' ? String(row.patientId || row.id || '') : String(row.id || row.sourceRecordId || '')).filter(Boolean)
-    const duplicateRows = rowIds.filter(id => existingIds.has(id)).length + (rowIds.length - new Set(rowIds).size)
+    let duplicateRows = 0
+    rowIds.forEach(id => { if (seenIds.has(id)) duplicateRows++; else seenIds.add(id) })
     const existingPatientIds = new Set((STATE.patients || []).map(patient => String(patient.id)))
     const unmatchedRefs = domain === 'patients' ? [] : Array.from(new Set(parsed.rows.map(row => String(row.patientId || '')).filter(id => id && !existingPatientIds.has(id))))
     const previewRows = parsed.rows.slice(0, 5).map(row => '<tr>' + parsed.headers.slice(0, 8).map(h => '<td>' + esc(row[h] || '') + '</td>').join('') + '</tr>').join('')
