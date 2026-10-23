@@ -457,8 +457,23 @@ def process_queued_exports():
         return _error("Queue recovery could not run", 503)
 
 
+
+
+def require_cross_domain_link_write(fn):
+    """Cross-domain identity administration requires explicit write grants in all operational domains."""
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        allowed = all(_domain_permission(domain, "write")
+                      for domain in ("hospital", "laboratory", "bioinformatics"))
+        if not allowed:
+            return _error("Cross-domain patient-link administration is not authorised", 403)
+        return fn(*args, **kwargs)
+    return wrapped
+
+
 @source_workflow_bp.post("/patient-keys")
 @require_membership
+@require_cross_domain_link_write
 def create_canonical_patient_key():
     """Create a pseudonymous cross-system journey key; no patient identifiers are stored."""
     if g.jlight_actor["role"] not in {"owner", "admin"}:
@@ -485,6 +500,7 @@ def create_canonical_patient_key():
 
 @source_workflow_bp.post("/patient-links")
 @require_membership
+@require_cross_domain_link_write
 def create_patient_link_event():
     """Append an admin-verified link/unlink event; raw source identifiers are HMACed."""
     if g.jlight_actor["role"] not in {"owner", "admin"}:
@@ -556,6 +572,7 @@ def create_patient_link_event():
 
 @source_workflow_bp.get("/patient-keys")
 @require_membership
+@require_patient_journey_report
 def list_canonical_patient_keys():
     if g.jlight_actor["role"] not in {"owner", "admin", "clinician", "laboratory", "bioinformatics"}:
         return _error("This membership cannot view patient journey keys", 403)
