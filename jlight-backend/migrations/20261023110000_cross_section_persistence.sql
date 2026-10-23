@@ -94,10 +94,11 @@ CREATE POLICY jlight_event_tenant_insert ON jlight_workflow_events
     FOR INSERT
     WITH CHECK (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
 
--- Runtime role is non-login, non-owner, and cannot bypass RLS. The backend must
--- connect using a dedicated login role granted membership in jlight_runtime and
--- SET ROLE jlight_runtime for each connection. Never deploy with a table-owner or
--- BYPASSRLS login credential.
+-- Runtime role is non-login, non-owner, and cannot bypass RLS. For this managed
+-- staging project, grant the existing postgres login permission to SET ROLE; the
+-- backend must SET ROLE jlight_runtime on every connection. For production, use a
+-- dedicated login role granted membership in jlight_runtime, not a BYPASSRLS login.
+GRANT jlight_runtime TO postgres;
 REVOKE ALL ON TABLE jlight_source_record_versions, jlight_workflow_events FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA public TO jlight_runtime;
 GRANT SELECT, INSERT ON TABLE jlight_source_record_versions, jlight_workflow_events TO jlight_runtime;
