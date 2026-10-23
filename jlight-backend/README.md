@@ -203,3 +203,22 @@ Before staging use:
 8. A trusted owner/admin must create a pseudonymous journey key and verify source-system patient crosswalks before events can be combined across Hospital, Laboratory and Bioinformatics. Source references are stored as keyed HMAC digests, not raw identifiers. This verification process must be governed by the organisation's patient-identity and POPIA procedures.
 
 These migrations are not automatically applied by the API. No live source-system connector or production deployment is implied by these endpoints.
+
+
+### Free synthetic-data validation
+
+Use the checked-in, fully synthetic FHIR R4 fixture to test the adapter without real patient data:
+
+```bash
+cd jlight-backend
+python -m unittest tests.test_synthetic_fhir_interop -v
+python scripts/validate_fhir_export.py --file tests/fixtures/synthetic_fhir_r4_bundle.json --domain hospital
+```
+
+For broader repeatable coverage, download a synthetic FHIR export from [Synthea](https://synthetichealth.github.io/downloads.html), extract a FHIR R4 Bundle JSON file, and run:
+
+```bash
+python scripts/validate_fhir_export.py --file /path/to/synthetic-bundle.json --domain laboratory
+```
+
+Use `hospital`, `laboratory`, or `bioinformatics` to validate the same export through the relevant domain mapping. The tool reports aggregate counts only; it does not print patient references or clinical values. The checked-in fixture is locally authored synthetic data, not a downloaded Synthea patient. Public test servers and external sandboxes are optional supplementary checks, not runtime dependencies. Do not submit real patient exports to public endpoints.
