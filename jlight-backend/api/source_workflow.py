@@ -131,6 +131,64 @@ def require_membership(fn):
     return wrapped
 
 
+
+
+VALID_DOMAINS = {"hospital", "laboratory", "bioinformatics", "clinical_trials"}
+
+
+def _domain_permission(domain: str, action: str = "read") -> bool:
+    """Fail-closed check against explicit per-membership domain grants."""
+    if domain not in VALID_DOMAINS or action not in {"read", "write", "report"}:
+        return False
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                cur.execute("SELECT set_config('jlight.auth_subject', %s, true)",
+                            (g.jlight_actor["subject"],))
+                column = {"read": "can_read", "write": "can_write", "report": "can_report"}[action]
+                cur.execute(
+                    f"""SELECT {column} AS allowed
+                        FROM jlight_membership_domain_permissions
+                        WHERE organization_id = %s AND auth_subject = %s AND domain = %s""",
+                    (g.jlight_actor["organization_id"], g.jlight_actor["subject"], domain),
+                )
+                row = cur.fetchone()
+                return bool(row and row["allowed"])
+    except Exception:
+        current_app.logger.exception("JLIGHT domain permission check failed")
+        return False
+
+
+def require_domain_scope(action: str = "read"):
+    """Require explicit permission for the selected workspace domain."""
+    def decorate(fn):
+        @wraps(fn)
+        def wrapped(*args, **kwargs):
+            domain = request.headers.get("X-JLIGHT-Domain", "").strip().lower()
+            if domain not in VALID_DOMAINS:
+                return _error("A valid X-JLIGHT-Domain is required", 400)
+            if not _domain_permission(domain, action):
+                return _error("Access to this domain is not authorised", 403)
+            g.jlight_domain = domain
+            return fn(*args, **kwargs)
+        return wrapped
+    return decorate
+
+
+def require_patient_journey_report(fn):
+    """Cross-domain aggregation requires a separate explicit report grant."""
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        allowed = any(_domain_permission(domain, "report")
+                      for domain in ("hospital", "laboratory", "bioinformatics"))
+        if not allowed:
+            return _error("Patient-journey reporting is not authorised", 403)
+        return fn(*args, **kwargs)
+    return wrapped
+
+
 @source_workflow_bp.post("/source-records")
 @require_membership
 def ingest_source_record():
@@ -203,6 +261,7 @@ def _lookup_patient_link(conn, organization_id: str, source_system: str, source_
 
 @source_workflow_bp.post("/connectors/ingest")
 @require_membership
+@require_domain_scope("write")
 def ingest_source_export():
     """Ingest a read-only FHIR Bundle, HL7 v2 status message, or mapped CSV export."""
     if request.content_length is not None and request.content_length > 2 * 1024 * 1024:
@@ -270,6 +329,7 @@ def ingest_source_export():
 
 @source_workflow_bp.post("/connectors/queue")
 @require_membership
+@require_domain_scope("write")
 def queue_source_export():
     """Durably queue an export for processing/replay; does not contact source systems."""
     if not request.is_json:
@@ -303,6 +363,7 @@ def queue_source_export():
 
 @source_workflow_bp.post("/connectors/queue/process")
 @require_membership
+@require_domain_scope("write")
 def process_queued_exports():
     """Process queued exports for the current tenant; retries failures without dropping them."""
     if g.jlight_actor["role"] not in {"owner", "admin"}:
@@ -501,6 +562,7 @@ def list_canonical_patient_keys():
 
 @source_workflow_bp.get("/patient-journeys")
 @require_membership
+@require_patient_journey_report
 def get_patient_journeys():
     """Return one verified timeline across Hospital, Laboratory and Bioinformatics."""
     try:
@@ -534,6 +596,7 @@ def get_patient_journeys():
 
 @source_workflow_bp.get("/decision-cards")
 @require_membership
+@require_domain_scope("read")
 def get_decision_cards():
     """Generate traceable operational cards from the tenant's observed source events."""
     try:
@@ -551,9 +614,9 @@ def get_decision_cards():
                     """SELECT event_id, source_system, source_record_id, domain, event_type,
                               observed_at, source_status
                        FROM jlight_workflow_events
-                       WHERE organization_id = %s
+                       WHERE organization_id = %s AND domain = %s
                        ORDER BY observed_at DESC, event_id LIMIT 5000""",
-                    (g.jlight_actor["organization_id"],),
+                    (g.jlight_actor["organization_id"], g.jlight_domain),
                 )
                 rows = cur.fetchall()
         events = [{
@@ -586,6 +649,7 @@ def get_decision_cards():
 
 @source_workflow_bp.get("/connector-freshness")
 @require_membership
+@require_domain_scope("read")
 def get_connector_freshness():
     """Report when source feeds last delivered an event; does not probe source systems."""
     try:
@@ -603,10 +667,10 @@ def get_connector_freshness():
                     """SELECT source_system, domain, max(observed_at) AS last_observed_at,
                               count(*) AS event_count
                        FROM jlight_workflow_events
-                       WHERE organization_id = %s
+                       WHERE organization_id = %s AND domain = %s
                        GROUP BY source_system, domain
                        ORDER BY source_system, domain""",
-                    (g.jlight_actor["organization_id"],),
+                    (g.jlight_actor["organization_id"], g.jlight_domain),
                 )
                 rows = cur.fetchall()
         now = datetime.now(timezone.utc)
@@ -631,6 +695,7 @@ def get_connector_freshness():
 
 @source_workflow_bp.get("/workflow-timelines")
 @require_membership
+@require_domain_scope("read")
 def get_workflow_timelines():
     """Read a tenant's stored source-observed events as a traceability timeline."""
     try:
@@ -643,9 +708,9 @@ def get_workflow_timelines():
                               observed_at, source_status, jlight_patient_id,
                               patient_link_verified, source_values_modified
                        FROM jlight_workflow_events
-                       WHERE organization_id = %s
+                       WHERE organization_id = %s AND domain = %s
                        ORDER BY observed_at, event_id LIMIT 5000""",
-                    (g.jlight_actor["organization_id"],),
+                    (g.jlight_actor["organization_id"], g.jlight_domain),
                 )
                 rows = cur.fetchall()
         events = [{
