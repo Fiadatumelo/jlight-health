@@ -93,7 +93,10 @@ def parse_fhir_bundle(bundle: Mapping[str, Any], *, source_system: str, domain: 
             source_system, f"{resource_type}/{resource_id}", domain, event_type,
             str(observed_at), stable_id, status,
         )
+        # FHIR resources use subject for clinical records and Task.for for the target patient.
         subject = resource.get("subject") if isinstance(resource.get("subject"), Mapping) else {}
+        if not subject and isinstance(resource.get("for"), Mapping):
+            subject = resource.get("for")
         event["source_patient_ref"] = str(subject.get("reference") or "").strip() or None
         events.append(event)
     return events
