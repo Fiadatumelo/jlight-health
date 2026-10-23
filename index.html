@@ -2843,23 +2843,138 @@ function resetSourceImportPreview() {
   const el = document.getElementById('source-import-preview')
   if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
 }
+function jlightInteropApiBase() {
+  const input = document.getElementById('interop-api-base')
+  const value = String((input && input.value) || localStorage.getItem('jlight_interop_api_base') || '').trim().replace(/\/+$/, '')
+  if (!value) throw new Error('Enter the deployed JLIGHT backend URL first.')
+  try { new URL(value) } catch (_) { throw new Error('Backend URL must be a valid HTTPS URL (localhost is allowed for development).') }
+  if (!/^https:\/\//i.test(value) && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(value)) {
+    throw new Error('Use HTTPS for the backend except on localhost development.')
+  }
+  localStorage.setItem('jlight_interop_api_base', value)
+  return value
+}
+async function jlightInteropRequest(path, options = {}) {
+  const sb = getSupabase()
+  if (!sb) throw new Error('Supabase sign-in is unavailable in this workspace.')
+  const { data, error } = await sb.auth.getSession()
+  if (error) throw error
+  const session = data && data.session
+  if (!session || !session.access_token) throw new Error('Your sign-in session has expired. Sign in again.')
+  const orgId = String(STATE.orgId || '')
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orgId)) {
+    throw new Error('The selected workspace does not have a valid organisation UUID for the interoperability API.')
+  }
+  const base = jlightInteropApiBase()
+  const response = await fetch(base + path, {
+    ...options,
+    headers: {
+      'Authorization': 'Bearer ' + session.access_token,
+      'X-JLIGHT-Organization': orgId,
+      ...(options.body ? {'Content-Type':'application/json'} : {}),
+      ...(options.headers || {})
+    }
+  })
+  let body
+  try { body = await response.json() } catch (_) { body = {} }
+  if (!response.ok || body.success === false) throw new Error(body.error || ('JLIGHT API request failed (' + response.status + ').'))
+  return body
+}
+function handleInteropFile(event) {
+  const file = event && event.target && event.target.files ? event.target.files[0] : null
+  if (!file) return
+  if (file.size > 2 * 1024 * 1024) {
+    toast('File too large', 'Exports must be 2 MB or smaller for this import endpoint.', 'warn')
+    event.target.value = ''
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = e => {
+    const area = document.getElementById('interop-payload')
+    if (area) area.value = String(e.target.result || '')
+  }
+  reader.onerror = () => toast('File read failed', 'Save the export as UTF-8 text and try again.', 'crit')
+  reader.readAsText(file)
+}
+async function submitInteropExport() {
+  const button = document.getElementById('interop-submit')
+  const output = document.getElementById('interop-message')
+  if (button) { button.disabled = true; button.textContent = 'Sending…' }
+  if (output) output.textContent = ''
+  try {
+    const sourceSystem = String((document.getElementById('interop-source-system') || {}).value || '').trim()
+    const domain = String((document.getElementById('interop-domain') || {}).value || '')
+    const format = String((document.getElementById('interop-format') || {}).value || '')
+    const text = String((document.getElementById('interop-payload') || {}).value || '')
+    if (!sourceSystem) throw new Error('Enter the source-system name, such as hospital-his or laboratory-lis.')
+    if (!text.trim()) throw new Error('Choose a file or paste a source export.')
+    const payload = format === 'fhir' ? JSON.parse(text) : text
+    const result = await jlightInteropRequest('/api/connectors/ingest', {
+      method:'POST', body:JSON.stringify({format, source_system:sourceSystem, domain, payload})
+    })
+    const message = 'Import accepted: ' + result.inserted_events + ' new events, ' + result.duplicate_events + ' duplicates. Patient links remain unverified; the source system was not changed.'
+    if (output) output.textContent = message
+    toast('Source export ingested', message, 'good')
+    await refreshInteropInsights()
+  } catch (error) {
+    const message = error && error.message ? error.message : 'Import failed.'
+    if (output) output.textContent = message
+    toast('Interoperability import failed', message, 'warn')
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Import source status events' }
+  }
+}
+async function refreshInteropInsights() {
+  const output = document.getElementById('interop-insights')
+  if (output) output.innerHTML = '<p class="source-import-help">Loading tenant-scoped source events and Decision Cards…</p>'
+  try {
+    const [cards, timelines, freshness] = await Promise.all([
+      jlightInteropRequest('/api/decision-cards'),
+      jlightInteropRequest('/api/workflow-timelines'),
+      jlightInteropRequest('/api/connector-freshness')
+    ])
+    const cardHtml = cards.cards.length ? cards.cards.map(card =>
+      '<div class="connector" style="margin-bottom:10px"><div class="connector-head"><div class="connector-name">' + esc(card.title) + '</div><div class="connector-status ready">' + esc(card.state) + '</div></div>' +
+      '<div class="connector-desc"><b>' + esc(card.domain) + '</b> · ' + esc(card.issue) + '</div>' +
+      '<div class="connector-desc">Why it matters: ' + esc(card.why_it_matters) + '</div>' +
+      '<div class="connector-desc">Suggested check: ' + esc(card.suggested_step) + '</div>' +
+      '<div class="connector-desc">Evidence: ' + esc(card.evidence.map(e => e.source_system + ' / ' + e.source_record_id + ' / events ' + e.event_ids.join(', ')).join('; ')) + '</div></div>'
+    ).join('') : '<div class="connector"><div class="connector-name">No current workflow-delay cards</div><div class="connector-desc">No source-observed workflow exceeded the configured monitoring window. This does not certify clinical safety or source-system availability.</div></div>'
+    const timelineHtml = timelines.timelines.length ? timelines.timelines.map(t =>
+      '<div class="connector" style="margin-bottom:8px"><div class="connector-head"><div class="connector-name">' + esc(t.source_key) + '</div><div class="connector-status ready">' + esc(t.latest_event_type) + '</div></div>' +
+      '<div class="connector-desc">' + esc(t.domain) + ' · ' + esc(t.events.length) + ' observed event(s) · last observed ' + esc(t.last_observed_at) + ' · patient link: ' + esc(t.patient_link_status) + '</div></div>'
+    ).join('') : '<p class="source-import-help">No workflow events have been imported yet.</p>'
+    const feedHtml = freshness.feeds.length ? freshness.feeds.map(feed =>
+      '<div class="connector" style="margin-bottom:8px"><div class="connector-head"><div class="connector-name">' + esc(feed.source_system) + ' · ' + esc(feed.domain) + '</div><div class="connector-status ' + (feed.freshness === 'recent' ? 'ready' : 'warn') + '">' + esc(feed.freshness) + '</div></div>' +
+      '<div class="connector-desc">' + esc(feed.event_count) + ' event(s) · last event ' + esc(feed.minutes_since_last_event) + ' minute(s) ago. This is feed freshness, not a direct connection probe.</div></div>'
+    ).join('') : '<p class="source-import-help">Feed freshness appears after the first source event is received.</p>'
+    if (output) output.innerHTML =
+      '<div class="section-title">Explainable Decision Cards (' + cards.card_count + ')</div>' + cardHtml +
+      '<div class="section-title" style="margin-top:22px">Cross-section timelines (' + timelines.timelines.length + ')</div>' + timelineHtml +
+      '<div class="section-title" style="margin-top:22px">Source-feed freshness (' + freshness.feeds.length + ')</div>' + feedHtml
+  } catch (error) {
+    if (output) output.innerHTML = '<p class="source-import-help">' + esc(error && error.message ? error.message : 'Could not load interoperability data.') + '</p>'
+  }
+}
 function renderConnectors() {
   const page = document.getElementById('page-connectors')
   if (!page) return
-  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources & Interoperability</div><div class="page-sub">Standalone source-data intake and compatibility with existing healthcare systems</div></div></div>' +
-    '<div class="form-card" style="max-width:none;margin-bottom:18px"><div style="font-weight:700;font-size:15px;margin-bottom:8px">JLIGHT scope</div><p style="color:var(--text-2);line-height:1.7">JLIGHT organises and analyses authorised operational data. It does not collect or process specimens, perform diagnostic tests, create laboratory measurements, or control instruments. Source-system records remain authoritative. Clinical Trials use separate data paths and participant identity.</p></div>' +
-    '<div class="connector-grid">' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Import</div><div class="connector-status ready">Preview + validation</div></div><div class="connector-desc">Import allow-listed source records with header validation, row checks, duplicate detection, organisation scope and audit trail.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">LIS / Hospital Systems</div><div class="connector-status ready">Requires adapter</div></div><div class="connector-desc">HL7 or FHIR adapters must be configured and validated end-to-end before they are treated as live connections.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">Clinical Trial Systems</div><div class="connector-status ready">Separate adapter</div></div><div class="connector-desc">CTMS or approved export integration requires trial-specific permissions, consent safeguards and validation.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">Custom API</div><div class="connector-status ready">Requires adapter</div></div><div class="connector-desc">API exchange requires authentication, authorisation, mapping, monitoring, error handling and end-to-end testing.</div></div></div>' +
-    '<div class="source-import-card"><div class="source-import-heading"><div><div class="section-title">Import authorised source records</div><p class="source-import-help">Preview validates the file without saving it. Import writes only supported fields and never runs specimen-processing or diagnostic engines.</p></div><span class="source-import-tag">CSV / TSV</span></div>' +
-    '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online or de-identified offline)</option></select></div>' +
-    '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
-    '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
-    '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
-    '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
+  const savedBase = localStorage.getItem('jlight_interop_api_base') || ''
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">Interoperability & Health Informatics</div><div class="page-sub">A read-only intelligence layer over existing Hospital, Laboratory and Bioinformatics systems</div></div><button class="btn" onclick="refreshInteropInsights()">Refresh intelligence</button></div>' +
+    '<div class="form-card" style="max-width:none;margin-bottom:18px"><div style="font-weight:700;font-size:15px;margin-bottom:8px">JLIGHT operating boundary</div><p style="color:var(--text-2);line-height:1.7">JLIGHT connects to authorised source-system exports, keeps a separate traceable record of observed events, identifies potential workflow delays and produces explainable Decision Cards. It does not analyse specimens, operate analysers, replace source systems or write back to them. Clinical Trials remain a separate participant workflow. Patient identifiers in source exports are not automatically trusted or linked.</p></div>' +
+    '<div class="source-import-card"><div class="source-import-heading"><div><div class="section-title">Connect a source export</div><p class="source-import-help">Configure the deployed JLIGHT backend URL, then send a synthetic or approved status export. The API currently supports FHIR R4 Bundle status metadata, mapped CSV events and HL7 v2 order-status metadata.</p></div><span class="source-import-tag">Read-only import</span></div>' +
+    '<div class="source-import-grid">' +
+    '<div class="form-row source-import-full"><label class="form-label" for="interop-api-base">JLIGHT backend URL</label><input class="form-input" id="interop-api-base" type="url" placeholder="https://your-jlight-api.example.com" value="' + esc(savedBase) + '"/></div>' +
+    '<div class="form-row"><label class="form-label" for="interop-source-system">Source-system identifier</label><input class="form-input" id="interop-source-system" placeholder="e.g. synthetic-his or facility-lis"/></div>' +
+    '<div class="form-row"><label class="form-label" for="interop-domain">Health domain</label><select class="form-input" id="interop-domain"><option value="hospital">Hospital / HIS</option><option value="laboratory">Laboratory / LIS</option><option value="bioinformatics">Bioinformatics</option></select></div>' +
+    '<div class="form-row"><label class="form-label" for="interop-format">Export format</label><select class="form-input" id="interop-format"><option value="fhir">FHIR R4 Bundle (JSON)</option><option value="csv">Mapped CSV status events</option><option value="hl7v2">HL7 v2 status message</option></select></div>' +
+    '<div class="form-row"><label class="form-label" for="interop-file">Load a text export (max 2 MB)</label><input class="form-input" type="file" id="interop-file" accept=".json,.csv,.tsv,.hl7,.txt,text/plain,application/json" onchange="handleInteropFile(event)"/></div>' +
+    '<div class="form-row source-import-full"><label class="form-label" for="interop-payload">FHIR JSON, CSV rows, or HL7 v2 message</label><textarea class="form-input" id="interop-payload" rows="8" placeholder="For CSV, headers must include source_record_id,event_type,observed_at. All timestamps must include a timezone."></textarea></div>' +
+    '</div><div class="source-import-actions"><button class="btn btn-primary" id="interop-submit" onclick="submitInteropExport()">Import source status events</button><button class="btn" onclick="refreshInteropInsights()">Load timelines & Decision Cards</button></div><p id="interop-message" class="source-import-help" aria-live="polite"></p></div>' +
+    '<div class="source-import-card" style="margin-top:18px"><div class="section-title">Cross-section intelligence</div><p class="source-import-help">Cards are operational signals based on observed events, not diagnoses. The delay threshold defaults to 120 minutes until configured for your workflow. A stale feed can mean a delayed export or disconnected source; it is not a direct source-system health check.</p><div id="interop-insights"><p class="source-import-help">Select “Load timelines & Decision Cards” to query the authenticated backend.</p></div></div>'
 }
+
 function handleSourceImportFile(event) {
   const file = event && event.target && event.target.files ? event.target.files[0] : null
   if (!file) return
