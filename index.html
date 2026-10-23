@@ -1114,7 +1114,7 @@ async function doSignIn() {
       const hadWorkspaceMetadata = !!meta.org_id
       await ensureJlightOrganisation(user, {
         org: meta.org_name || '',
-        role: meta.role || 'Laboratory',
+        role: selectedPath,
         orgCode: meta.org_code || ''
       })
       await loadOrCreateProfile(user)
