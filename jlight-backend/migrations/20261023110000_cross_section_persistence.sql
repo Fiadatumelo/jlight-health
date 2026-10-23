@@ -67,17 +67,25 @@ CREATE INDEX IF NOT EXISTS idx_jlight_events_org_patient_time
 ALTER TABLE jlight_source_record_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE jlight_workflow_events ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS jlight_record_tenant_isolation ON jlight_source_record_versions;
-CREATE POLICY jlight_record_tenant_isolation ON jlight_source_record_versions
-    USING (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid)
+DROP POLICY IF EXISTS jlight_record_tenant_select ON jlight_source_record_versions;
+CREATE POLICY jlight_record_tenant_select ON jlight_source_record_versions
+    FOR SELECT
+    USING (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
+DROP POLICY IF EXISTS jlight_record_tenant_insert ON jlight_source_record_versions;
+CREATE POLICY jlight_record_tenant_insert ON jlight_source_record_versions
+    FOR INSERT
     WITH CHECK (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
 
-DROP POLICY IF EXISTS jlight_event_tenant_isolation ON jlight_workflow_events;
-CREATE POLICY jlight_event_tenant_isolation ON jlight_workflow_events
-    USING (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid)
+DROP POLICY IF EXISTS jlight_event_tenant_select ON jlight_workflow_events;
+CREATE POLICY jlight_event_tenant_select ON jlight_workflow_events
+    FOR SELECT
+    USING (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
+DROP POLICY IF EXISTS jlight_event_tenant_insert ON jlight_workflow_events;
+CREATE POLICY jlight_event_tenant_insert ON jlight_workflow_events
+    FOR INSERT
     WITH CHECK (organization_id = NULLIF(current_setting('jlight.organization_id', true), '')::uuid);
 
--- These are immutable evidence tables: app roles receive no UPDATE/DELETE policy.
+-- No UPDATE/DELETE policies are defined: these source-evidence tables are append-only.
 -- Table owners and BYPASSRLS roles can bypass RLS; production deployment must use
 -- a restricted non-owner runtime role and must not expose raw SQL to clients.
 
