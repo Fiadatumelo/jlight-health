@@ -1742,22 +1742,17 @@ function renderDashboard() {
   let kpiHTML = ''
 
   if (STATE.role === 'Laboratory') {
-    const samples = STATE.samples
-    const completed = samples.filter(s => s.stage === 'reported')
-    const errors = samples.filter(s => s.errors && s.errors.length > 0)
-    const contam = samples.filter(s => s.flags && s.flags.contamination)
-    const fp = samples.filter(s => s.flags && s.flags.suspectedFalsePositive)
-    const fn = samples.filter(s => s.flags && s.flags.suspectedFalseNegative)
-    const errorRate = samples.length ? Math.round((errors.length / samples.length) * 100) : 0
-    const contamRate = samples.length ? ((contam.length / samples.length) * 100).toFixed(1) : '0.0'
-    const cls = errorRate > 5 ? 'crit' : errorRate > 2 ? 'warn' : 'good'
+    // JLIGHT analyses authorised source-system records; it does not process specimens or create test results.
+    const orders = STATE.labOrders || []
+    const results = STATE.results || []
+    const pending = orders.filter(o => !['resulted','cancelled','completed'].includes(String(o.status || '').toLowerCase()))
+    const missingPatient = orders.filter(o => !o.patientId).length + results.filter(r => !r.patientId).length
     kpiHTML = `
-      <div class="kpi ${cls}"><div class="kpi-label">Sample Error Rate</div><div class="kpi-value">${errorRate}%</div><div class="kpi-trend">${errors.length}/${samples.length} samples flagged</div></div>
-      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical · ${cards.filter(c=>c.severity==='warn'&&!c.acknowledged).length} warning</div></div>
-      <div class="kpi ${parseFloat(contamRate) > 1 ? 'warn' : ''}"><div class="kpi-label">Contamination Rate</div><div class="kpi-value">${contamRate}%</div><div class="kpi-trend">${contam.length} samples flagged</div></div>
-      <div class="kpi ${(fp.length + fn.length) > 0 ? 'warn' : ''}"><div class="kpi-label">FP / FN Detected</div><div class="kpi-value">${fp.length}/${fn.length}</div><div class="kpi-trend">False pos / false neg</div></div>
-      <div class="kpi"><div class="kpi-label">Samples in Pipeline</div><div class="kpi-value">${samples.length - completed.length}</div><div class="kpi-trend">${completed.length} reported</div></div>
-      <div class="kpi"><div class="kpi-label">Total Samples</div><div class="kpi-value">${samples.length}</div><div class="kpi-trend">Lifecycle tracked</div></div>
+      <div class="kpi"><div class="kpi-label">Source Orders</div><div class="kpi-value">${orders.length}</div><div class="kpi-trend">Authorised records loaded</div></div>
+      <div class="kpi ${pending.length ? 'warn' : 'good'}"><div class="kpi-label">Orders Not Marked Complete</div><div class="kpi-value">${pending.length}</div><div class="kpi-trend">Status from source records</div></div>
+      <div class="kpi"><div class="kpi-label">Result Records</div><div class="kpi-value">${results.length}</div><div class="kpi-trend">Imported or authorised data</div></div>
+      <div class="kpi ${missingPatient ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingPatient}</div><div class="kpi-trend">Review data mapping</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical · ${cards.filter(c=>c.severity==='warn'&&!c.acknowledged).length} warnings</div></div>
     `
   } else if (STATE.role === 'Trial') {
     const visits = STATE.entries.length
