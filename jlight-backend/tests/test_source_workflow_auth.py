@@ -8,7 +8,9 @@ from api.source_workflow import source_workflow_bp
 
 class SourceWorkflowAuthTests(unittest.TestCase):
     def setUp(self):
-        app = Flask(__name__)\n        app.register_blueprint(source_workflow_bp)\n        self.client = app.test_client()
+        app = Flask(__name__)
+        app.register_blueprint(source_workflow_bp)
+        self.client = app.test_client()
 
     def test_source_record_requires_bearer_token(self):
         response = self.client.post("/api/source-records", json={})
