@@ -1,7 +1,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "")
-  .split(";").map((x) => x.trim()).filter(Boolean));
+const siteUrl = (Deno.env.get("JLIGHT_SITE_URL") ?? "https://jlight-health.co.za").replace(/\/$/, "");
+const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? siteUrl)
+  .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
 
 const corsHeaders = (origin: string) => ({
   "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "null",
