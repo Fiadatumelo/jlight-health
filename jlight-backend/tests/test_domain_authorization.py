@@ -81,7 +81,7 @@ class DomainAuthorisationTests(unittest.TestCase):
                 response, status = wrapped()
             self.assertEqual((response, status), ("ok", 200))
             self.assertEqual(check.call_count, 3)
-            self.assertTrue(all(call.args[1] == "write" for call in check.call_args_list)
+            self.assertTrue(all(call.args[1] == "write" for call in check.call_args_list))
 
 
 if __name__ == "__main__":
