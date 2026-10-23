@@ -118,13 +118,14 @@ def persist_workflow_event(connection: Any, organization_id: str, event: Mapping
                 """INSERT INTO jlight_workflow_events
                    (organization_id, event_id, source_system, source_record_id, domain,
                     event_type, observed_at, source_status, jlight_patient_id,
-                    patient_link_verified, source_values_modified)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+                    patient_link_verified, source_values_modified, source_patient_ref_hash)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE, %s)
                    ON CONFLICT (organization_id, event_id) DO NOTHING
                    RETURNING id""",
                 (org_id, str(event["event_id"]).strip(), str(event["source_system"]).strip(),
                  str(event["source_record_id"]).strip(), domain, str(event["event_type"]).strip(),
-                 event["observed_at"], event.get("source_status"), patient_id, verified),
+                 event["observed_at"], event.get("source_status"), patient_id, verified,
+                 event.get("source_patient_ref_hash")),
             )
             inserted = cur.fetchone()
         if commit:
