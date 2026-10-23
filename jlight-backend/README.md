@@ -173,7 +173,9 @@ The source-workflow API is a **read-only integration layer** over events and rec
 New authenticated endpoints:
 - `POST /api/source-records` — append an immutable, versioned source record.
 - `POST /api/workflow-events` — append a source-observed workflow event.
-- `POST /api/connectors/ingest` — ingest a read-only FHIR R4 Bundle, HL7 v2 status message, or mapped CSV export. This is a push/import adapter, not an automatic live-system connector.
+- `POST /api/connectors/ingest` — ingest a read-only FHIR R4 Bundle, HL7 v2 status message, or mapped CSV export directly. This is a push/import adapter, not an automatic live-system connector.
+- `POST /api/connectors/queue` — durably enqueue a FHIR/HL7 v2/CSV export using `Idempotency-Key` (or `idempotency_key` in the JSON body); repeated keys with changed content are rejected for review.
+- `POST /api/connectors/queue/process` — owner/admin-only processing of queued exports with bounded retries, worker leases, duplicate-safe event persistence, and dead-letter status after repeated failures.
 - `GET /api/workflow-timelines` — read the tenant's event timeline.
 - `GET /api/decision-cards` — generate explainable operational delay cards with exact source-event evidence.
 - `GET /api/connector-freshness` — report when each source feed last delivered an event; this does not directly probe the source system.
@@ -181,15 +183,15 @@ New authenticated endpoints:
 - `POST /api/patient-links` — append an owner/admin-verified source identity link or unlink event. Raw source references are HMACed and not stored.
 - `GET /api/patient-journeys` — combine verified Hospital, Laboratory and Bioinformatics events into one patient journey; unverified events are excluded and Clinical Trials remains separate.
 
-All three endpoints require a valid Supabase Auth bearer token and an `X-JLIGHT-Organization` UUID. The API verifies active membership against `jlight_organization_memberships`. Viewer memberships are read-only. Client-supplied patient IDs are deliberately not accepted as verified links; records remain unlinked until a separate trusted patient-linking workflow is implemented.
+All listed API endpoints require a valid Supabase Auth bearer token and an `X-JLIGHT-Organization` UUID. The API verifies active membership against `jlight_organization_memberships`. Viewer memberships are read-only. Client-supplied patient IDs are deliberately not accepted as verified links; records remain unlinked until a separate trusted patient-linking workflow is implemented.
 
 Before staging use:
 1. Configure `SUPABASE_URL`, `DATABASE_URL`, and a random `JLIGHT_LINKING_SECRET` of at least 32 characters in the backend environment. Keep the linking secret identical across API instances and rotate it only through a planned re-hash migration.
-2. Apply `migrations/20261023110000_cross_section_persistence.sql` and `migrations/20261023123000_organization_memberships.sql` to a **non-production** PostgreSQL database.
+2. Apply `migrations/20261023110000_cross_section_persistence.sql`, `migrations/20261023123000_organization_memberships.sql`, `migrations/20261023160000_trusted_patient_linking.sql`, and `migrations/20261023180000_durable_ingestion_queue.sql` to a **non-production** PostgreSQL database.
 3. Provision an organization and membership using a trusted administrative process; never expose membership self-assignment to clients.
 4. Configure `DATABASE_URL` with a dedicated database login that is explicitly granted membership in the non-login `jlight_runtime` role. The API executes `SET ROLE jlight_runtime` on every connection. Do not use the table-owner or a `BYPASSRLS` login for the deployed API.
 5. Verify row-level security with two synthetic organizations, then run the synthetic tests and exercise the endpoints with synthetic Hospital/Laboratory/Bioinformatics records before connecting real systems.
-6. Configure a source-specific export/push job in the existing HIS/LIS/EMR to send a FHIR Bundle, supported HL7 v2 status message, or mapped CSV export to `/api/connectors/ingest`. The current adapter does not poll remote systems or provide a durable offline spool when JLIGHT itself is disconnected.
+6. Configure a source-specific export/push job in the existing HIS/LIS/EMR to send a FHIR Bundle, supported HL7 v2 status message, or mapped CSV export to `/api/connectors/queue`, using a stable idempotency key for each export. When service is restored, an authenticated owner/admin can call `/api/connectors/queue/process` to process and retry queued exports. The queue protects exports already received by JLIGHT; it cannot receive data while JLIGHT is fully offline, and does not poll remote systems automatically.
 7. Review each generated Decision Card with an operational subject-matter expert and configure a workflow-appropriate delay threshold before using alerts operationally.
 8. A trusted owner/admin must create a pseudonymous journey key and verify source-system patient crosswalks before events can be combined across Hospital, Laboratory and Bioinformatics. Source references are stored as keyed HMAC digests, not raw identifiers. This verification process must be governed by the organisation's patient-identity and POPIA procedures.
 
