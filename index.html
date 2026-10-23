@@ -2838,6 +2838,8 @@ let SOURCE_IMPORT_FILE_NAME = ''
 let SOURCE_IMPORT_LAST_SYNC = null
 function resetSourceImportPreview() {
   SOURCE_IMPORT_PREVIEW = null
+  const commit = document.getElementById('source-import-commit')
+  if (commit) commit.disabled = true
   const el = document.getElementById('source-import-preview')
   if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
 }
@@ -2999,7 +3001,7 @@ async function commitSourceCsv() {
   STATE[schema.stateKey] = current.concat(imported)
   SOURCE_IMPORT_LAST_SYNC = MODE.isOnline ? { domain, schema, imported } : null
   try { localStorage.setItem(jlightStorageKey(schema.storageKey()), JSON.stringify(STATE[schema.stateKey].slice(-2000))) }
-  catch (e) { STATE[schema.stateKey] = current; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
+  catch (e) { STATE[schema.stateKey] = current; SOURCE_IMPORT_LAST_SYNC = null; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
   let sync = { ok: false, reason: 'offline' }
   if (MODE.isOnline) {
     const syncResults = []
