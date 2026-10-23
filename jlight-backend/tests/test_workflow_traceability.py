@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-from engine.workflow_traceability import build_workflow_timelines, normalize_workflow_event
+from engine.workflow_traceability import build_workflow_timelines, build_patient_journeys, normalize_workflow_event
 
 
 def event(event_id, event_type, observed_at, patient_id="JL-SYN-001", domain="laboratory"):
@@ -44,6 +44,33 @@ class WorkflowTraceabilityTests(unittest.TestCase):
         second = normalize_workflow_event(second_raw)
         result = build_workflow_timelines([first, second])
         self.assertEqual(result["timelines"][0]["patient_link_status"], "unlinked_or_inconsistent")
+
+    def test_verified_events_form_one_cross_domain_patient_journey(self):
+        events = [
+            {"event_id":"EV-H","source_system":"synthetic-his","source_record_id":"ENC-1",
+             "domain":"hospital","event_type":"admission_opened","observed_at":"2026-10-23T08:00:00Z",
+             "jlight_patient_id":"00000000-0000-4000-8000-000000000001","patient_link_verified":True},
+            {"event_id":"EV-L","source_system":"synthetic-lis","source_record_id":"ORD-1",
+             "domain":"laboratory","event_type":"released","observed_at":"2026-10-23T09:00:00Z",
+             "jlight_patient_id":"00000000-0000-4000-8000-000000000001","patient_link_verified":True},
+            {"event_id":"EV-B","source_system":"synthetic-bio","source_record_id":"BIO-1",
+             "domain":"bioinformatics","event_type":"analysis_completed","observed_at":"2026-10-23T10:00:00Z",
+             "jlight_patient_id":"00000000-0000-4000-8000-000000000001","patient_link_verified":True},
+        ]
+        result = build_patient_journeys(events)
+        self.assertEqual(len(result["journeys"]), 1)
+        journey = result["journeys"][0]
+        self.assertEqual(journey["domains_seen"], ["bioinformatics", "hospital", "laboratory"])
+        self.assertTrue(journey["cross_domain"])
+        self.assertEqual([e["event_id"] for e in journey["events"]], ["EV-H", "EV-L", "EV-B"])
+
+    def test_unverified_events_never_enter_patient_journey(self):
+        event = {"event_id":"EV-U","source_system":"synthetic-lis","source_record_id":"ORD-2",
+                 "domain":"laboratory","event_type":"work_started","observed_at":"2026-10-23T09:00:00Z",
+                 "jlight_patient_id":"00000000-0000-4000-8000-000000000001","patient_link_verified":False}
+        result = build_patient_journeys([event])
+        self.assertEqual(result["journeys"], [])
+        self.assertEqual(result["unlinked_event_ids"], ["EV-U"])
 
     def test_clinical_trials_stay_separate(self):
         with self.assertRaisesRegex(ValueError, "separate participant workflow"):
