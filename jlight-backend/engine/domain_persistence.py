@@ -97,7 +97,7 @@ def persist_source_record(connection: Any, organization_id: str, record: Mapping
         raise
 
 
-def persist_workflow_event(connection: Any, organization_id: str, event: Mapping[str, Any]) -> dict[str, Any]:
+def persist_workflow_event(connection: Any, organization_id: str, event: Mapping[str, Any], *, commit: bool = True) -> dict[str, Any]:
     """Append one immutable source-observed event; do not write to the source system."""
     org_id = _organization_id(organization_id)
     if not isinstance(event, Mapping):
@@ -127,7 +127,8 @@ def persist_workflow_event(connection: Any, organization_id: str, event: Mapping
                  event["observed_at"], event.get("source_status"), patient_id, verified),
             )
             inserted = cur.fetchone()
-        connection.commit()
+        if commit:
+            connection.commit()
         return {"action": "insert" if inserted else "duplicate_noop", "event_id": str(event["event_id"])}
     except Exception:
         connection.rollback()
