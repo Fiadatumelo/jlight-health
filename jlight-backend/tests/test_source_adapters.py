@@ -32,7 +32,7 @@ class SourceAdapterTests(unittest.TestCase):
             parse_hl7v2_status(msg, source_system="synthetic-lis", domain="laboratory")
 
     def test_hl7_adapter_accepts_explicit_non_utc_offset(self):
-        msg = "MSH|^~\\\\&|SYS|FAC|JLIGHT|FAC|20261023130000+0200||ORM^O01|MSG-2|P|2.5\\rORC|NW|ORD-1|||SC"
+        msg = "MSH|^~\\&|SYS|FAC|JLIGHT|FAC|20261023130000+0200||ORM^O01|MSG-2|P|2.5\rORC|NW|ORD-1|||SC"
         events = parse_hl7v2_status(msg, source_system="synthetic-lis", domain="laboratory")
         self.assertEqual(events[0]["observed_at"], "2026-10-23T11:00:00Z")
         self.assertEqual(events[0]["event_type"], "order_received")
