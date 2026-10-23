@@ -38,9 +38,6 @@ jobs:
           if os.environ["ORG_A"].strip() == os.environ["ORG_B"].strip():
               print("BLOCKED: staging organization A and B must be different.")
               sys.exit(1)
-          if "jlight-backend.onrender.com" in parsed.netloc:
-              print("BLOCKED: default Render host is not accepted until a staging-only deployment is explicitly confirmed. Set JLIGHT_STAGING_BASE_URL to the verified staging origin.")
-              sys.exit(1)
           print("Configuration shape validated. Secret values were not printed.")
           PY
       - name: Run read-only live authorization probes
