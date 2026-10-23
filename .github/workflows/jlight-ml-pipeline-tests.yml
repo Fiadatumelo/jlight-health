@@ -1,0 +1,40 @@
+name: JLIGHT ML Pipeline Test Suite
+
+on:
+  pull_request:
+    paths:
+      - "jlight-backend/engine/ml_engine.py"
+      - "jlight-backend/engine/csv_engine.py"
+      - "jlight-backend/engine/bio_engine.py"
+      - "jlight-backend/tests/test_all.py"
+      - ".github/workflows/jlight-ml-pipeline-tests.yml"
+  push:
+    branches:
+      - "feat/source-workflow-traceability"
+    paths:
+      - "jlight-backend/engine/ml_engine.py"
+      - "jlight-backend/engine/csv_engine.py"
+      - "jlight-backend/engine/bio_engine.py"
+      - "jlight-backend/tests/test_all.py"
+      - ".github/workflows/jlight-ml-pipeline-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  ml-pipeline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: jlight-backend/requirements.txt
+      - name: Install JLIGHT backend dependencies
+        run: python -m pip install -r jlight-backend/requirements.txt
+      - name: Compile ML and domain engines
+        run: python -m py_compile jlight-backend/engine/ml_engine.py jlight-backend/engine/csv_engine.py jlight-backend/engine/bio_engine.py
+      - name: Execute repository ML, CSV and bioinformatics suite
+        working-directory: jlight-backend
+        run: python tests/test_all.py
