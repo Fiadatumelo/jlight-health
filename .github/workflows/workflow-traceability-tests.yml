@@ -23,6 +23,12 @@ on:
       - main
       - "feat/source-workflow-traceability"
     paths:
+      - "jlight-backend/tests/test_decision_cards.py"
+      - "jlight-backend/tests/test_source_adapters.py"
+      - "jlight-backend/tests/test_frontend_syntax.py"
+      - "jlight-backend/engine/decision_cards.py"
+      - "jlight-backend/engine/source_adapters.py"
+      - "index.html"
       - "jlight-backend/engine/workflow_traceability.py"
       - "jlight-backend/engine/domain_persistence.py"
       - "jlight-backend/tests/test_workflow_traceability.py"
