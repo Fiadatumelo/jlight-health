@@ -34,7 +34,7 @@ class RegressionResult:
     trend_label: str          # RISING / GRADUAL / STABLE / DECLINING
     forecast: List[float]     # Next 3 periods
     breach_in_periods: int    # -1 = not forecast, else periods until ISO breach
-    iso_threshold: float = 3.0
+    iso_threshold: Optional[float] = None
 
 @dataclass
 class ZScoreResult:
@@ -90,7 +90,7 @@ class RegressionEngine:
     Uses sklearn LinearRegression with scipy for p-value computation.
     """
 
-    def __init__(self, iso_threshold: float = 3.0):
+    def __init__(self, iso_threshold: Optional[float] = None):
         self.iso_threshold = iso_threshold
         self.model = LinearRegression()
 
@@ -136,12 +136,12 @@ class RegressionEngine:
         # When does forecast breach ISO threshold?
         breach_in = -1
         for i, val in enumerate(forecast):
-            if val >= self.iso_threshold:
+            if self.iso_threshold is not None and val >= self.iso_threshold:
                 breach_in = i + 1
                 break
 
         # If current data already breaching, look backwards
-        if breach_in == -1 and y[-1] >= self.iso_threshold:
+        if breach_in == -1 and self.iso_threshold is not None and y[-1] >= self.iso_threshold:
             breach_in = 0
 
         return RegressionResult(
@@ -359,7 +359,7 @@ class RiskStratifier:
         components["westgard"] = round(westgard_contribution, 1)
 
         # Proximity to ISO threshold (0-20 pts)
-        if iso_threshold > 0:
+        if iso_threshold is not None and iso_threshold > 0:
             proximity = min(20, max(0, (current_value / iso_threshold) * 20))
         else:
             proximity = 0
@@ -453,10 +453,10 @@ class BreachForecaster:
             factors.append("Westgard 1₃s warning rule triggered")
 
         # Proximity to threshold
-        if current_value >= iso_threshold:
+        if iso_threshold is not None and current_value >= iso_threshold:
             logit += 3.0
             factors.append(f"Already at/above ISO threshold ({current_value:.2f}%)")
-        elif current_value >= iso_threshold * 0.8:
+        elif iso_threshold is not None and current_value >= iso_threshold * 0.8:
             logit += 1.5
             factors.append(f"Within 20% of ISO threshold ({current_value:.2f}% / {iso_threshold}%)")
 
@@ -499,10 +499,12 @@ class JLIGHTMLPipeline:
 
     def __init__(
         self,
-        iso_threshold: float = 3.0,
+        iso_threshold: Optional[float] = None,
         anomaly_threshold: float = 3.0,
         tea: float = 10.0,
         bias: float = 0.0,
+        domain: str = "general",
+        qc_mode: bool = False,
     ):
         self.regression_engine = RegressionEngine(iso_threshold)
         self.zscore_engine = ZScoreEngine(anomaly_threshold)
@@ -512,6 +514,14 @@ class JLIGHTMLPipeline:
         self.iso_threshold = iso_threshold
         self.tea = tea
         self.bias = bias
+        self.domain = domain.strip().lower()
+        self.qc_mode = qc_mode
+        if self.domain not in {"general", "hospital", "laboratory", "bioinformatics"}:
+            raise ValueError("Unsupported JLIGHT domain; clinical trials are separate")
+        if self.qc_mode and self.domain != "laboratory":
+            raise ValueError("Westgard QC mode is only valid for the laboratory domain")
+        if self.domain == "laboratory" and self.qc_mode and self.iso_threshold is None:
+            self.iso_threshold = 3.0
 
     def run(
         self,
@@ -526,8 +536,7 @@ class JLIGHTMLPipeline:
 
         arr = np.array(values, dtype=float)
 
-        # Use first 60% of data as BASELINE for Westgard (clinically correct practice)
-        # Westgard limits should be established from a stable calibration period
+        # Use an initial reference window for anomaly detection. Westgard QC is only enabled explicitly for laboratory QC data.
         baseline_n = max(3, int(len(arr) * 0.6))
         baseline = arr[:baseline_n]
         mean = float(np.mean(baseline))
@@ -536,9 +545,8 @@ class JLIGHTMLPipeline:
         # Run all engines
         regression = self.regression_engine.fit(values)
         z_scores = self.zscore_engine.detect(values, timestamps, window=baseline_n)
-        westgard = self.westgard_engine.evaluate(
-            values, mean, sd, self.tea, self.bias, cv
-        )
+        westgard = (self.westgard_engine.evaluate(values, mean, sd, self.tea, self.bias, cv)
+                    if self.qc_mode else WestgardResult(False, False, False, False, False, [], 0.0))
         risk = self.risk_stratifier.score(
             regression, z_scores, westgard, arr[-1], self.iso_threshold
         )
@@ -549,7 +557,7 @@ class JLIGHTMLPipeline:
 
         # Build human-readable summary
         summary_parts = [
-            f"Analysed {len(values)} QC windows.",
+            f"Analysed {len(values)} observations in the {self.domain} domain.",
             f"Trend: {regression.trend_label} (slope={regression.slope:+.3f}/period, R²={regression.r_squared:.3f}).",
             f"Anomalies: {z_scores.anomaly_count} windows above {self.iso_threshold}SD.",
         ]
