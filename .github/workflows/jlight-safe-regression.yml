@@ -40,6 +40,8 @@ jobs:
           print(f"Checking {len(inline)} inline script block(s)")
           PY
           node --check /tmp/jlight-inline.js
+      - name: Check proposal-aligned frontend contract
+        run: python jlight-backend/tests/test_frontend_contract.py
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

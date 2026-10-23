@@ -469,6 +469,16 @@ input,select,textarea { font-size:14px; }
   *,*::before,*::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
 }
 
+/* JLIGHT accessible light theme and colourful path chooser */
+:root{--ink:#f4f7fc;--ink-2:#edf2fa;--surface:#fff;--surface-2:#fff;--surface-3:#f4f7fc;--surface-4:#eaf0fa;--teal:#087f8c;--teal-2:#066b76;--amber:#a65d00;--red:#b42343;--green:#16794b;--blue:#285bc5;--purple:#7044b8;--border:rgba(28,43,72,.10);--border-2:rgba(28,43,72,.16);--border-strong:rgba(28,43,72,.25);--text:#182338;--text-2:#526078;--text-3:#6d7890;--text-4:#8993a7}
+body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--text)}body::before{display:none}.sidebar,.topbar{background:rgba(255,255,255,.97);border-color:#e5eaf2;color:var(--text)}.sb-link{color:#526078}.sb-link:hover{background:#f3f6fc;color:#1e2a42}.sb-link.active{background:linear-gradient(90deg,rgba(8,127,140,.10),rgba(40,91,197,.06));color:#087f8c}.sb-link.active::before{background:linear-gradient(180deg,#087f8c,#7044b8)}
+.auth-screen{background:radial-gradient(ellipse at 12% 8%,rgba(49,214,197,.16),transparent 34%),radial-gradient(ellipse at 88% 85%,rgba(193,163,255,.20),transparent 34%),#f4f7fc}.auth-card{max-width:700px;padding:30px;background:rgba(255,255,255,.97);border:1px solid #dfe7f4;box-shadow:0 24px 70px rgba(28,43,72,.12)}.auth-title,.auth-name,.sb-brand-name,.tb-title{color:#182338}.auth-tagline,.auth-sub{color:#64718a}.auth-card input,.auth-card select{color:#182338;background:#f7f9fd;border:1px solid #dce4f0;border-radius:9px}
+.path-picker{margin:0 0 24px;padding:16px;background:linear-gradient(135deg,#f8fbff,#f9f6ff);border:1px solid #e1e8f5;border-radius:16px}.path-picker-title{font-size:17px;font-weight:800;color:#182338;margin-bottom:4px}.path-picker-sub{color:#64718a;font-size:12px;margin-bottom:13px}.path-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.path-choice{display:flex;align-items:center;gap:10px;text-align:left;min-width:0;padding:12px;border:1px solid #dfe6f2;border-radius:12px;background:#fff;color:#182338}.path-choice:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(28,43,72,.08)}.path-choice.selected{box-shadow:0 0 0 2px currentColor,0 8px 18px rgba(28,43,72,.07)}.path-choice-icon{display:flex;flex:0 0 42px;width:42px;height:42px;align-items:center;justify-content:center;border-radius:12px;font-size:10px;font-weight:900}.path-choice-copy{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0}.path-choice-copy strong{font-size:12px;color:#182338}.path-choice-copy small{color:#64718a;font-size:10px;line-height:1.45}.path-choice-check{opacity:0;font-weight:900}.path-choice.selected .path-choice-check{opacity:1}
+.path-lab{border-top:3px solid #285bc5;color:#285bc5}.path-lab .path-choice-icon{background:#e8f1ff;color:#285bc5}.path-hospital{border-top:3px solid #c73552;color:#b42343}.path-hospital .path-choice-icon{background:#ffebef;color:#b42343}.path-bio{border-top:3px solid #7044b8;color:#7044b8}.path-bio .path-choice-icon{background:#efe8fb;color:#7044b8}.path-trial{border-top:3px solid #a65d00;color:#a65d00}.path-trial .path-choice-icon{background:#fff0da;color:#9a5900}.btn-primary,.tb-btn.primary{background:linear-gradient(110deg,#087f8c,#456ee8 62%,#7756d8);border-color:transparent;color:#fff}.kpi,.dc,.form-card,.panel,.stat-card{background:#fff;border-color:#e2e9f4;box-shadow:0 5px 18px rgba(28,43,72,.035)}.section-title,.page-title{color:#182338}
+@media(max-width:700px){.auth-card{padding:22px 16px}.path-picker-grid{grid-template-columns:1fr}}
+.journey-banner{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:22px;margin-bottom:16px;border-radius:16px;color:#fff;background:linear-gradient(115deg,#087f8c,#285bc5 58%,#7044b8);box-shadow:0 12px 28px rgba(40,91,197,.15)}.journey-banner h3{margin:5px 0;font-size:20px}.journey-banner p{font-size:12px;opacity:.9}.journey-eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;opacity:.8}.journey-badge{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.18);white-space:nowrap}
+.journey-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.journey-metric{display:flex;flex-direction:column;gap:8px;padding:17px;background:#fff;border:1px solid #e2e9f4;border-radius:14px;border-top:3px solid #285bc5}.journey-metric span{color:#526078;font-size:11px;font-weight:700}.journey-metric strong{color:#182338;font-size:29px}.journey-metric small{color:#6d7890;font-size:10px;line-height:1.45}.journey-metric.tone-purple{border-top-color:#7044b8}.journey-metric.tone-amber{border-top-color:#b86b00}.journey-metric.tone-green{border-top-color:#16794b}
+.journey-panel{padding:18px;border:1px solid #e2e9f4;border-radius:14px;margin-bottom:14px;background:#fff}.journey-table-wrap{overflow-x:auto}.journey-table{width:100%;border-collapse:collapse;font-size:12px}.journey-table th,.journey-table td{text-align:left;padding:11px 12px;border-bottom:1px solid #e8edf5;white-space:nowrap}.journey-table th{color:#64718a;background:#f7f9fd;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.journey-table td{color:#26354e}.journey-notes{margin:12px 0 10px 18px;color:#526078;font-size:12px;line-height:1.8}.journey-footnote{margin-top:10px;color:#64718a;font-size:11px;line-height:1.6}.journey-json{margin-top:12px;padding:12px;max-height:320px;overflow:auto;background:#f5f8fd;border:1px solid #e1e8f3;border-radius:10px;color:#26354e;font:11px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:700px){.journey-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-banner{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -481,8 +491,14 @@ input,select,textarea { font-size:14px; }
       <div class="auth-name">JLIGHT</div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
+    <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
+      <button type="button" class="path-choice path-lab" data-path="Laboratory" aria-pressed="false" onclick="selectJlightPath('Laboratory')"><span class="path-choice-icon">LAB</span><span class="path-choice-copy"><strong>Laboratory</strong><small>Workflow traceability, turnaround time and source-data quality</small></span><span class="path-choice-check">✓</span></button>
+      <button type="button" class="path-choice path-hospital" data-path="Hospital" aria-pressed="false" onclick="selectJlightPath('Hospital')"><span class="path-choice-icon">HIS</span><span class="path-choice-copy"><strong>Hospital &amp; Health Informatics</strong><small>Patient journey, orders, results and operational bottlenecks</small></span><span class="path-choice-check">✓</span></button>
+      <button type="button" class="path-choice path-bio" data-path="Bioinformatics" aria-pressed="false" onclick="selectJlightPath('Bioinformatics')"><span class="path-choice-icon">BIO</span><span class="path-choice-copy"><strong>Bioinformatics</strong><small>Review imported analysis outputs and quality metrics</small></span><span class="path-choice-check">✓</span></button>
+      <button type="button" class="path-choice path-trial" data-path="Trial" aria-pressed="false" onclick="selectJlightPath('Trial')"><span class="path-choice-icon">CTL</span><span class="path-choice-copy"><strong>Clinical Trials</strong><small>Separate study workflows, visit windows and protocol traceability</small></span><span class="path-choice-check">✓</span></button>
+    </div></div>
     <div class="auth-title" id="si-title">Sign in</div>
-    <div class="auth-sub" id="si-sub">Access your workspace</div>
+    <div class="auth-sub" id="si-sub">Choose a path, then access your workspace</div>
     <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px">
       <div class="form-row">
         <label class="form-label">Email</label>
@@ -523,6 +539,7 @@ input,select,textarea { font-size:14px; }
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
+      <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
       <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
@@ -655,6 +672,7 @@ input,select,textarea { font-size:14px; }
         <div id="page-audit" class="page"></div>
         <div id="page-settings" class="page"></div>
         <div id="page-patients" class="page"></div>
+        <div id="page-journey" class="page"></div>
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
         <div id="page-hl7" class="page"></div>
@@ -737,6 +755,7 @@ const ROLES = {
       { key: 'dashboard',  label: 'Dashboard',          icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',     icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
+      { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
       { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'requests',   label: 'Sample Requests',    icon: '⇄' },
@@ -757,7 +776,7 @@ const ROLES = {
       { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
-      { key: 'predictive', label: 'Predictive Engine', icon: '◉' },
+      { key: 'predictive', label: 'Data Trends & Signals', icon: '◉' },
       { key: 'analytics',  label: 'Retention',         icon: '◊' },
       { key: 'connectors', label: 'Data Sources',      icon: '⇆' },
       { key: 'audit',      label: 'Audit Trail',       icon: '☷' },
@@ -771,11 +790,12 @@ const ROLES = {
       { key: 'dashboard',  label: 'Dashboard',           icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
+      { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
       { key: 'register',   label: 'Log Event',           icon: '+' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'wards',      label: 'Ward Registry',      icon: '⊞' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
-      { key: 'predictive', label: 'Predictive Engine',   icon: '◉' },
+      { key: 'predictive', label: 'Data Trends & Signals', icon: '◉' },
       { key: 'analytics',  label: 'Ward Intelligence',   icon: '◊' },
       { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
       { key: 'audit',      label: 'Audit Trail',         icon: '☷' },
@@ -786,18 +806,16 @@ const ROLES = {
   Bioinformatics: {
     label: 'Bioinformatics', short: 'BIO', iconClass: 'bio', user: 'Bioinformatician',
     nav: [
-      { key: 'dashboard',    label: 'Dashboard',          icon: '&#9671;' },
-      { key: 'cards',        label: 'Decision Cards',     icon: '&#9672;' },
-      { key: 'register',     label: 'New Analysis',       icon: '+' },
-      { key: 'bio-pipeline', label: 'Pipeline Queue',     icon: '&#9633;' },
-      { key: 'bio-report',   label: 'Reports',            icon: '&#8801;' },
-      { key: 'connectors',   label: 'Data Sources',       icon: '&#8646;' },
-      { key: 'import',       label: 'Import Data',        icon: '&#8593;' },
-      { key: 'thresholds',   label: 'Thresholds',         icon: '&#9681;' },
-      { key: 'audit',        label: 'Audit Trail',        icon: '&#9783;' },
-      { key: 'settings',     label: 'Settings',           icon: '&#9881;' },
+      { key: 'dashboard',  label: 'Dashboard',           icon: '◇' },
+      { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
+      { key: 'journey',    label: 'Patient Journey',     icon: '↗' },
+      { key: 'register',   label: 'Review Imported Data', icon: '+' },
+      { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
+      { key: 'analytics',  label: 'Analytics',            icon: '◊' },
+      { key: 'audit',      label: 'Audit Trail',          icon: '☷' },
+      { key: 'settings',   label: 'Settings',             icon: '⚙' },
     ],
-    intro: 'NGS pipeline QC · variant calling · AMR detection · contamination screening · full reports',
+    intro: 'Review imported bioinformatics outputs, quality metrics and traceability signals',
   },
 }
 
@@ -880,7 +898,7 @@ const BACKEND = {
   url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
   key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
 }
-const MODE = { isOnline: true, organisationName: null, signupMode: false }
+const MODE = { isOnline: true, organisationName: null, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
 
@@ -1038,10 +1056,27 @@ function toggleSignupMode() {
   toggleJoinType()
 }
 
+function selectJlightPath(role) {
+  if (!Object.prototype.hasOwnProperty.call(ROLES, role)) return
+  sessionStorage.setItem("jl_selected_path", role)
+  document.querySelectorAll(".path-choice").forEach(el => { const on = el.dataset.path === role; el.classList.toggle("selected", on); el.setAttribute("aria-pressed", on ? "true" : "false") })
+  const chosen = document.querySelector(".path-choice.selected .path-choice-copy strong"), sub = document.getElementById("si-sub")
+  if (sub && !MODE.signupMode) sub.textContent = chosen ? "Selected: " + chosen.textContent + " · sign in to continue" : "Choose a path, then access your workspace"
+  const next = document.getElementById("si-continue"); if (next) next.style.display = MODE.hasRestoredSession ? "flex" : "none"
+  const roleSelect = document.getElementById("si-role"); if (roleSelect) roleSelect.value = role
+}
+async function continueWithSelectedPath() {
+  const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
+  if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
+}
 async function doSignIn() {
-  const email = (document.getElementById('si-email')||{}).value?.trim() || ''
-  const pass  = (document.getElementById('si-password')||{}).value || ''
-  const status = document.getElementById('si-status')
+  const email = (document.getElementById("si-email")||{}).value?.trim() || ""
+  const pass  = (document.getElementById("si-password")||{}).value || ""
+  const status = document.getElementById("si-status")
+  const selectedPath = sessionStorage.getItem("jl_selected_path")
+  if (!selectedPath || !ROLES[selectedPath]) { if(status){status.textContent="Choose a JLIGHT path before signing in";status.className="auth-status error"} return }
   if (!email || !pass) { if(status){status.textContent='Email and password required';status.className='auth-status error'} return }
   if (pass.length < 8) { if(status){status.textContent='Password must be at least 8 characters';status.className='auth-status error'} return }
   const btn = document.getElementById('si-btn')
@@ -1053,7 +1088,7 @@ async function doSignIn() {
     if (MODE.signupMode) {
       const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
       const org = (document.getElementById('si-org') || {}).value?.trim() || ''
-      const role = (document.getElementById('si-role') || {}).value || 'Laboratory'
+      const role = sessionStorage.getItem("jl_selected_path") || (document.getElementById('si-role') || {}).value || 'Laboratory'
       const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
 
       // Shared-workspace membership is verified by the server-side
@@ -1116,10 +1151,10 @@ async function doSignIn() {
       const user = data.session.user
       const meta = user.user_metadata || {}
       STATE.user = user.email || email
-      STATE.role = meta.role || 'Laboratory'
+      STATE.role = selectedPath
       await ensureJlightOrganisation(user, {
         org: meta.org_name || '',
-        role: meta.role || 'Laboratory',
+        role: meta.role || selectedPath,
         orgCode: meta.org_code || ''
       })
       await loadOrCreateProfile(user)
@@ -1536,7 +1571,7 @@ function goPage(page) {
   const target = $(`page-${page}`)
   if (target) target.classList.add('active')
   const titles = {
-    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail',
+    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     process: 'Source Data Review', samples: 'Laboratory Data Traceability', 'sample-detail': 'Source Data Detail',
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
@@ -1559,6 +1594,7 @@ function goPage(page) {
     case 'audit':     renderAudit(); break
     case 'settings':    renderSettings(); break
     case 'patients':      renderPatients(); break
+    case 'journey':       renderJourney(); break
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
     case 'hl7':           renderHL7Receiver(); break
@@ -1584,6 +1620,8 @@ document.addEventListener('keydown', (e) => {
 
 // ── Boot: handle Supabase password-recovery links and restore session ──
 setTimeout(async () => {
+  // Every fresh app load requires an explicit workspace-path choice.
+  sessionStorage.removeItem('jl_selected_path')
   const sb = getSupabase()
   if (!sb) { showScreen('screen-signin'); return }
 
@@ -1627,13 +1665,15 @@ setTimeout(async () => {
     }
 
     if (data.session) {
-      MODE.isOnline = true
+      MODE.isOnline = true; MODE.hasRestoredSession = true
       const meta = data.session.user.user_metadata || {}
-      STATE.user  = data.session.user.email
-      STATE.role  = meta.role || 'Laboratory'
-      MODE.organisationName = meta.org_name || 'Workspace'
+      STATE.user = data.session.user.email
+      MODE.organisationName = meta.org_name || "Workspace"
       await loadOrCreateProfile(data.session.user)
-      enterApp()
+      showScreen("screen-signin")
+      const sub = document.getElementById("si-sub"); if(sub) sub.textContent="Session restored. Choose a path, then continue without signing in again."
+      const next = document.getElementById("si-continue"); if(next) next.style.display=sessionStorage.getItem("jl_selected_path")?"flex":"none"
+      const status = document.getElementById("si-status"); if(status){status.textContent="Signed in as "+(data.session.user.email||"your account");status.className="auth-status success"}
     } else {
       showScreen('screen-signin')
     }
@@ -1670,6 +1710,39 @@ function filterJlightQuickLinks(query) {
   if (empty) empty.hidden = visible !== 0
 }
 
+function buildJourneyReport() {
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)))
+  const ids=new Set(patients.map(p=>String(p.id))), touched=new Map()
+  const domains=[
+    {key:"hospital",label:"Hospital admissions",rows:STATE.admissions||[]},
+    {key:"hospitalOrders",label:"Hospital orders",rows:STATE.clinicalOrders||[]},
+    {key:"laboratory",label:"Laboratory orders",rows:STATE.labOrders||[]},
+    {key:"labResults",label:"Imported laboratory results",rows:STATE.results||[]},
+    {key:"bioinformatics",label:"Bioinformatics outputs",rows:STATE.bioRuns||[]}
+  ]
+  const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {...d,total:d.rows.length,linked,missing,unmatched}})
+  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,trialRecords:(STATE.participants||[]).length+(STATE.visits||[]).length+(STATE.adverseEvents||[]).length,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.","Clinical Trials remain a separate workflow and are excluded from the shared non-trial patient journey.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
+}
+function renderJourney() {
+  const page=document.getElementById("page-journey");if(!page)return
+  const report=buildJourneyReport()
+  const metric=(label,value,tone,note)=>'<div class="journey-metric '+tone+'"><span>'+esc(label)+'</span><strong>'+value+'</strong><small>'+esc(note)+'</small></div>'
+  const rows=report.counts.map(c=>'<tr><td>'+esc(c.label)+'</td><td>'+c.total+'</td><td>'+c.linked+'</td><td>'+c.unmatched+'</td><td>'+c.missing+'</td><td>'+(c.total?Math.round(c.linked/c.total*100):0)+'%</td></tr>').join("")
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Cross-Domain Patient Journey</div><div class="page-sub">One traceable view across Hospital / Health Informatics, Laboratory and Bioinformatics. Clinical Trials remain separate.</div></div><button class="btn btn-primary" onclick="generateJourneyReport()">Generate traceability report</button></div>'+
+    '<div class="journey-banner"><div><span class="journey-eyebrow">WORKSPACE SNAPSHOT</span><h3>'+esc(report.workspace)+'</h3><p>Mode: '+esc(report.mode.toUpperCase())+' · Generated '+esc(new Date(report.generatedAt).toLocaleString())+'</p></div><span class="journey-badge">'+(report.mode==="online"?"Online session":"Device-only data")+'</span></div>'+
+    '<div class="journey-metrics">'+metric("Active patients",report.patients,"tone-blue","Shared patient registry")+metric("Patients in 2+ domains",report.crossDomainPatients,"tone-purple","Matched by patient ID")+metric("Unmatched references",report.unmatchedReferences,report.unmatchedReferences?"tone-amber":"tone-green","Review source mapping")+metric("Missing patient IDs",report.missingPatientReference,report.missingPatientReference?"tone-amber":"tone-green","Cannot be linked automatically")+'</div>'+
+    '<div class="journey-panel"><div class="section-title">Traceability by compartment</div><p class="journey-footnote">Counts use records currently loaded in this workspace. Empty compartments are not evidence of a failed integration.</p><div class="journey-table-wrap"><table class="journey-table"><thead><tr><th>Compartment</th><th>Records</th><th>Matched</th><th>Unmatched</th><th>Missing ID</th><th>Match rate</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'+
+    '<div class="journey-panel"><div class="section-title">Interpretation and boundaries</div><ul class="journey-notes">'+report.notes.map(n=>'<li>'+esc(n)+'</li>').join("")+'</ul><p class="journey-footnote">This is an operational traceability report, not a diagnostic result or proof that external connectors are live.</p></div>'+
+    '<div id="journey-report-output" class="journey-panel" aria-live="polite"><div class="section-title">Generated report</div><p class="journey-footnote">Generate a fresh snapshot to record an audit event and download aggregate JSON results.</p></div>'
+}
+async function generateJourneyReport() {
+  const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
+  if(output)output.innerHTML='<div class="section-title">Report generated</div><p class="journey-footnote">Generated '+esc(new Date(report.generatedAt).toLocaleString())+'. Download contains aggregate counts, not patient names.</p><pre class="journey-json">'+esc(JSON.stringify(report,null,2))+'</pre>'
+  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.crossDomainPatients+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a")
+  link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
+  toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
+}
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -1678,22 +1751,17 @@ function renderDashboard() {
   let kpiHTML = ''
 
   if (STATE.role === 'Laboratory') {
-    const samples = STATE.samples
-    const completed = samples.filter(s => s.stage === 'reported')
-    const errors = samples.filter(s => s.errors && s.errors.length > 0)
-    const contam = samples.filter(s => s.flags && s.flags.contamination)
-    const fp = samples.filter(s => s.flags && s.flags.suspectedFalsePositive)
-    const fn = samples.filter(s => s.flags && s.flags.suspectedFalseNegative)
-    const errorRate = samples.length ? Math.round((errors.length / samples.length) * 100) : 0
-    const contamRate = samples.length ? ((contam.length / samples.length) * 100).toFixed(1) : '0.0'
-    const cls = errorRate > 5 ? 'crit' : errorRate > 2 ? 'warn' : 'good'
+    // JLIGHT analyses authorised source-system records; it does not process specimens or create test results.
+    const orders = STATE.labOrders || []
+    const results = STATE.results || []
+    const pending = orders.filter(o => !['resulted','cancelled','completed'].includes(String(o.status || '').toLowerCase()))
+    const missingPatient = orders.filter(o => !o.patientId).length + results.filter(r => !r.patientId).length
     kpiHTML = `
-      <div class="kpi ${cls}"><div class="kpi-label">Sample Error Rate</div><div class="kpi-value">${errorRate}%</div><div class="kpi-trend">${errors.length}/${samples.length} samples flagged</div></div>
-      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical · ${cards.filter(c=>c.severity==='warn'&&!c.acknowledged).length} warning</div></div>
-      <div class="kpi ${parseFloat(contamRate) > 1 ? 'warn' : ''}"><div class="kpi-label">Contamination Rate</div><div class="kpi-value">${contamRate}%</div><div class="kpi-trend">${contam.length} samples flagged</div></div>
-      <div class="kpi ${(fp.length + fn.length) > 0 ? 'warn' : ''}"><div class="kpi-label">FP / FN Detected</div><div class="kpi-value">${fp.length}/${fn.length}</div><div class="kpi-trend">False pos / false neg</div></div>
-      <div class="kpi"><div class="kpi-label">Samples in Pipeline</div><div class="kpi-value">${samples.length - completed.length}</div><div class="kpi-trend">${completed.length} reported</div></div>
-      <div class="kpi"><div class="kpi-label">Total Samples</div><div class="kpi-value">${samples.length}</div><div class="kpi-trend">Lifecycle tracked</div></div>
+      <div class="kpi"><div class="kpi-label">Source Orders</div><div class="kpi-value">${orders.length}</div><div class="kpi-trend">Authorised records loaded</div></div>
+      <div class="kpi ${pending.length ? 'warn' : 'good'}"><div class="kpi-label">Orders Not Marked Complete</div><div class="kpi-value">${pending.length}</div><div class="kpi-trend">Status from source records</div></div>
+      <div class="kpi"><div class="kpi-label">Result Records</div><div class="kpi-value">${results.length}</div><div class="kpi-trend">Imported or authorised data</div></div>
+      <div class="kpi ${missingPatient ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingPatient}</div><div class="kpi-trend">Review data mapping</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical · ${cards.filter(c=>c.severity==='warn'&&!c.acknowledged).length} warnings</div></div>
     `
   } else if (STATE.role === 'Trial') {
     const visits = STATE.entries.length
@@ -1706,6 +1774,16 @@ function renderDashboard() {
       <div class="kpi ${critical>0?'crit':''}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical retention risks</div></div>
       <div class="kpi ${noShow > 3 ? 'warn' : ''}"><div class="kpi-label">No-Shows</div><div class="kpi-value">${noShow}</div><div class="kpi-trend">Recent missed visits</div></div>
       <div class="kpi"><div class="kpi-label">Active Participants</div><div class="kpi-value">${new Set(STATE.entries.map(e => e.participantId).filter(Boolean)).size}</div><div class="kpi-trend">Tracked</div></div>
+    `
+  } else if (STATE.role === 'Bioinformatics') {
+    const runs = STATE.bioRuns || []
+    const flagged = runs.filter(r => /fail|flag|review|error/i.test(String(r.status || r.qcStatus || r.qualityStatus || '')))
+    const missingPatient = runs.filter(r => !r.patientId).length
+    kpiHTML = `
+      <div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">${runs.length}</div><div class="kpi-trend">Source-system records</div></div>
+      <div class="kpi ${flagged.length ? 'warn' : 'good'}"><div class="kpi-label">Source Flags to Review</div><div class="kpi-value">${flagged.length}</div><div class="kpi-trend">Based on supplied status labels</div></div>
+      <div class="kpi ${missingPatient ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingPatient}</div><div class="kpi-trend">Review source mapping</div></div>
+      <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else {
     const events = STATE.entries.length
@@ -1722,7 +1800,7 @@ function renderDashboard() {
   }
 
   const recentCards = cards.sort((a, b) => b.ts - a.ts).slice(0, 5)
-  const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event')
+  const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : (STATE.role === 'Bioinformatics' ? 'Review Imported Data' : 'Review Hospital Data'))
 
   $('page-dashboard').innerHTML = `
     <div class="page-head">
@@ -1938,6 +2016,15 @@ function renderRegister() {
   if (STATE.role === 'Laboratory') return renderLabRegister()
   if (STATE.role === 'Trial')      return renderTrialRegister()
   if (STATE.role === 'Hospital')   return renderHospitalRegister()
+  if (STATE.role === 'Bioinformatics') return renderBioinformaticsReview()
+}
+function renderBioinformaticsReview() {
+  const page = document.getElementById('page-register')
+  if (!page) return
+  const runs = STATE.bioRuns || []
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Review Imported Bioinformatics Data</div><div class="page-sub">JLIGHT analyses supplied outputs; it does not run sequencing or wet-lab pipelines.</div></div></div>' +
+    '<div class="kpis"><div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">' + runs.length + '</div><div class="kpi-trend">Records currently loaded</div></div><div class="kpi"><div class="kpi-label">Open Decisions</div><div class="kpi-value">' + (STATE.cards || []).filter(c => !c.acknowledged).length + '</div><div class="kpi-trend">Signals for professional review</div></div></div>' +
+    '<div class="form-card"><p style="color:var(--text-2);line-height:1.7">Connect a validated source or approved export to review existing analysis outputs. Imports require documented field mapping, access controls, patient-ID matching, error handling and auditability. JLIGHT does not sequence samples or perform wet-lab processing.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button><button class="btn" onclick="goPage(\'journey\')">View Patient Journey</button><button class="btn" onclick="goPage(\'cards\')">Review Decision Cards</button></div></div>'
 }
 
 function renderLabRegister() {
@@ -2724,40 +2811,44 @@ function renderConnectors() {
 
 function renderAnalytics() {
   const cfg = ROLES[STATE.role]
-  const items = STATE.role === 'Laboratory' ? STATE.samples : STATE.entries
-  const cards = STATE.cards
+  const withTime = rows => (rows || []).map(row => ({...row, ts: row.ts || row.orderedAt || row.resultedAt || row.createdAt || row.updatedAt || null}))
+  let items = [], label = 'records'
+  if (STATE.role === 'Laboratory') { items = withTime([...(STATE.labOrders || []), ...(STATE.results || [])]); label = 'authorised laboratory source records' }
+  else if (STATE.role === 'Hospital') { items = withTime([...(STATE.admissions || []), ...(STATE.clinicalOrders || []), ...(STATE.infections || [])]); label = 'hospital / health-informatics records' }
+  else if (STATE.role === 'Bioinformatics') { items = withTime([...(STATE.bioRuns || []), ...(STATE.bioQc || [])]); label = 'imported bioinformatics records' }
+  else { items = withTime([...(STATE.participants || []), ...(STATE.visits || []), ...(STATE.adverseEvents || []), ...(STATE.entries || [])]); label = 'clinical-trial records' }
+  const cards = (STATE.cards || []).filter(c => !c.role || c.role === STATE.role)
+  const title = STATE.role === 'Trial' ? 'Clinical Trial Oversight' : cfg.label + ' Analytics'
   $('page-analytics').innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="page-title">${esc(cfg.label)} Analytics</div>
-        <div class="page-sub">Trends from ${items.length} ${STATE.role === 'Laboratory' ? 'samples' : 'entries'}</div>
-      </div>
-    </div>
+    <div class="page-head"><div><div class="page-title">${esc(title)}</div><div class="page-sub">Trends from ${items.length} ${esc(label)} · based on records currently loaded</div></div></div>
     <div class="kpis">
-      <div class="kpi"><div class="kpi-label">Total ${STATE.role === 'Laboratory' ? 'Samples' : 'Entries'}</div><div class="kpi-value">${items.length}</div><div class="kpi-trend">All-time</div></div>
+      <div class="kpi"><div class="kpi-label">Source Records</div><div class="kpi-value">${items.length}</div><div class="kpi-trend">${esc(label)}</div></div>
       <div class="kpi"><div class="kpi-label">Decision Cards</div><div class="kpi-value">${cards.length}</div><div class="kpi-trend">${cards.filter(c => !c.acknowledged).length} open</div></div>
-      <div class="kpi ${cards.filter(c => c.severity === 'crit').length > 0 ? 'crit' : ''}"><div class="kpi-label">Critical</div><div class="kpi-value">${cards.filter(c => c.severity === 'crit').length}</div><div class="kpi-trend">High severity</div></div>
-      <div class="kpi"><div class="kpi-label">Resolution Rate</div><div class="kpi-value">${cards.length ? Math.round(cards.filter(c => c.acknowledged).length / cards.length * 100) : 0}%</div><div class="kpi-trend">Acknowledged</div></div>
+      <div class="kpi ${cards.some(c => c.severity === 'crit' && !c.acknowledged) ? 'crit' : ''}"><div class="kpi-label">Open Critical</div><div class="kpi-value">${cards.filter(c => c.severity === 'crit' && !c.acknowledged).length}</div><div class="kpi-trend">Signals requiring review</div></div>
+      <div class="kpi"><div class="kpi-label">Acknowledgement Rate</div><div class="kpi-value">${cards.length ? Math.round(cards.filter(c => c.acknowledged).length / cards.length * 100) : 0}%</div><div class="kpi-trend">Decision cards acknowledged</div></div>
     </div>
     <div class="chart-grid">
-      <div class="chart-card"><div class="chart-title">Activity — Last 30 Days</div><div class="chart-sub">Daily volume in your workspace</div>${renderTimeChart(items)}</div>
-      <div class="chart-card"><div class="chart-title">Decision Severity Distribution</div><div class="chart-sub">All generated cards</div>${renderSeverityChart(cards)}</div>
+      <div class="chart-card"><div class="chart-title">Activity — Last 30 Days</div><div class="chart-sub">Records with usable timestamps</div>${renderTimeChart(items)}</div>
+      <div class="chart-card"><div class="chart-title">Decision Severity Distribution</div><div class="chart-sub">Current workspace decision cards</div>${renderSeverityChart(cards)}</div>
     </div>
+    <p class="journey-footnote">Analytics are operational signals, not diagnostic conclusions. Source-system data remains authoritative.</p>
   `
 }
 
 function renderTimeChart(items) {
-  if (!items.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No data yet</div>'
+  if (!items.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No source records yet</div>'
+  const validItems = items.filter(e => Number.isFinite(new Date(e.ts).getTime()))
+  if (!validItems.length) return '<div style="text-align:center;color:var(--text-3);padding:32px;font-size:12px">No usable timestamps in the loaded source records</div>'
   const days = {}
   for (let i = 29; i >= 0; i--) { const d = new Date(Date.now() - i * 86400000); days[d.toISOString().split('T')[0]] = 0 }
-  items.forEach(e => { const k = new Date(e.ts).toISOString().split('T')[0]; if (k in days) days[k]++ })
+  validItems.forEach(e => { const k = new Date(e.ts).toISOString().split('T')[0]; if (k in days) days[k]++ })
   const data = Object.values(days), labels = Object.keys(days)
   const max = Math.max(...data, 1) * 1.2
   const W = 700, H = 220, pL = 36, pR = 12, pT = 16, pB = 32
   const points = data.map((v, i) => [pL + (i / (data.length - 1)) * (W - pL - pR), H - pB - (v / max) * (H - pT - pB)])
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
   const fillD = `${pathD} L${points[points.length-1][0].toFixed(1)},${H-pB} L${points[0][0].toFixed(1)},${H-pB} Z`
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:220px"><defs><linearGradient id="cf" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00C9A7" stop-opacity="0.25"/><stop offset="100%" stop-color="#00C9A7" stop-opacity="0"/></linearGradient></defs><line x1="${pL}" y1="${H-pB}" x2="${W-pR}" y2="${H-pB}" stroke="rgba(255,255,255,0.07)"/><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H-pB}" stroke="rgba(255,255,255,0.07)"/><path d="${fillD}" fill="url(#cf)"/><path d="${pathD}" fill="none" stroke="#00C9A7" stroke-width="2"/>${points.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#00C9A7"/>`).join('')}${[0, 7, 14, 21, 29].map(i => { const x = pL + (i / (data.length - 1)) * (W - pL - pR); return `<text x="${x}" y="${H-12}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9.5" font-family="DM Mono, monospace">${labels[i].slice(5)}</text>` }).join('')}</svg>`
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:220px"><defs><linearGradient id="cf" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#00C9A7" stop-opacity="0.25"/><stop offset="100%" stop-color="#00C9A7" stop-opacity="0"/></linearGradient></defs><line x1="${pL}" y1="${H-pB}" x2="${W-pR}" y2="${H-pB}" stroke="#e3e9f3"/><line x1="${pL}" y1="${pT}" x2="${pL}" y2="${H-pB}" stroke="#e3e9f3"/><path d="${fillD}" fill="url(#cf)"/><path d="${pathD}" fill="none" stroke="#00C9A7" stroke-width="2"/>${points.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="#00C9A7"/>`).join('')}${[0, 7, 14, 21, 29].map(i => { const x = pL + (i / (data.length - 1)) * (W - pL - pR); return `<text x="${x}" y="${H-12}" text-anchor="middle" fill="#64718a" font-size="9.5" font-family="DM Mono, monospace">${labels[i].slice(5)}</text>` }).join('')}</svg>`
 }
 
 function renderSeverityChart(cards) {
@@ -2770,7 +2861,7 @@ function renderSeverityChart(cards) {
   ].filter(d => d.value > 0)
   const total = data.reduce((s, d) => s + d.value, 0) || 1
   const W = 700, barH = 28, gap = 14, pL = 110, pR = 40
-  return `<svg viewBox="0 0 ${W} ${data.length * (barH + gap) + 8}" style="width:100%">${data.map((d, i) => { const y = i * (barH + gap); const barW = (d.value / total) * (W - pL - pR); const pct = Math.round((d.value / total) * 100); return `<text x="${pL - 12}" y="${y + barH/2 + 4}" text-anchor="end" fill="rgba(255,255,255,0.7)" font-size="12" font-family="Syne, sans-serif" font-weight="600">${d.label}</text><rect x="${pL}" y="${y}" width="${barW}" height="${barH}" fill="${d.color}" rx="4" opacity="0.85"/><text x="${pL + barW + 8}" y="${y + barH/2 + 4}" fill="rgba(255,255,255,0.85)" font-size="12" font-family="DM Mono, monospace" font-weight="600">${d.value} · ${pct}%</text>` }).join('')}</svg>`
+  return `<svg viewBox="0 0 ${W} ${data.length * (barH + gap) + 8}" style="width:100%">${data.map((d, i) => { const y = i * (barH + gap); const barW = (d.value / total) * (W - pL - pR); const pct = Math.round((d.value / total) * 100); return `<text x="${pL - 12}" y="${y + barH/2 + 4}" text-anchor="end" fill="#526078" font-size="12" font-family="Syne, sans-serif" font-weight="600">${d.label}</text><rect x="${pL}" y="${y}" width="${barW}" height="${barH}" fill="${d.color}" rx="4" opacity="0.85"/><text x="${pL + barW + 8}" y="${y + barH/2 + 4}" fill="#182338" font-size="12" font-family="DM Mono, monospace" font-weight="600">${d.value} · ${pct}%</text>` }).join('')}</svg>`
 }
 
 function renderAudit() {
@@ -4495,103 +4586,18 @@ function resetThresholds() {
 // ── CSV BULK IMPORT ──
 // Runs all intelligence engines on every imported row.
 // Same analysis pipeline as manual entry — no shortcuts.
+// The former CSV importer generated simulated specimen/result records and ran analyser-like rules.
+// Keep the legacy entry points safe until a proposal-aligned source-data adapter is configured.
 function renderImport() {
-  const examples = {
-    Laboratory: 'sampleId,patientId,test,sampleType,priority,instrument,value,qcValue,lotNumber,clinicalContext',
-    Trial: 'eventCategory,participantId,site,eventDate,visitName,scheduledDate,attended,distance',
-    Hospital: 'eventType,ward,patientId,eventTime,priority,tatHours,specimenTest',
-    Bioinformatics: 'sampleId,analysisType,platform,reference,pipeline,coverage,mappingRate,qscore,dupRate,gcContent,contamination,variantCount',
-  }
-  $('page-import').innerHTML = '<div class="page-head"><div><div class="page-title">Bulk CSV Import</div><div class="page-sub">Import historical data · all intelligence engines run on every row</div></div></div>' +
-    '<div class="form-card" style="background:var(--purple-bg);border-color:rgba(167,139,250,0.18);max-width:none;margin-bottom:18px">' +
-    '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--purple);margin-bottom:8px">How this works</div>' +
-    '<div style="font-size:13px;line-height:1.65">Every imported row goes through the same intelligence engines as manual entry. JLIGHT will generate Decision Cards for any issues found — exactly as if you had entered each row by hand. This is the fastest way to audit historical data.</div></div>' +
-    '<div class="form-card" style="max-width:none">' +
-    '<div class="form-grid">' +
-    '<div class="form-row span-2"><label class="form-label">Required columns for ' + esc(STATE.role) + '</label>' +
-    '<pre style="background:var(--surface-3);padding:14px;border-radius:8px;font-family:DM Mono,monospace;font-size:11px;overflow-x:auto;color:var(--text-2);line-height:1.5">' + esc(examples[STATE.role] || '') + '</pre></div>' +
-    '<div class="form-row span-2"><label class="form-label">Upload CSV file</label><input class="form-input" type="file" id="csv-file" accept=".csv,.tsv" onchange="handleCSVFile(event)"/></div>' +
-    '<div class="form-row span-2"><label class="form-label">— or paste CSV text —</label><textarea class="form-input" id="csv-text" style="min-height:160px;font-family:DM Mono,monospace;font-size:12px" placeholder="Paste CSV here..."></textarea></div>' +
-    '</div>' +
-    '<div class="form-actions"><button class="btn btn-primary" onclick="importCSV()">Import and analyse</button><button class="btn" onclick="goPage(\'dashboard\')">Cancel</button></div>' +
-    '</div>' +
-    '<div id="import-results" style="margin-top:16px"></div>'
+  toast('Import adapter not configured', 'Use Data Sources to review supported integration requirements. JLIGHT does not create specimens or laboratory measurements.', 'warn')
+  goPage('connectors')
 }
-
-function handleCSVFile(ev) {
-  const file = ev.target.files[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = e => { const ta = document.getElementById('csv-text'); if (ta) ta.value = e.target.result }
-  reader.readAsText(file)
-}
-
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/)
-  if (lines.length < 2) return []
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
-  return lines.slice(1).filter(l => l.trim()).map(line => {
-    const vals = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
-    const row = {}
-    headers.forEach((h, i) => { row[h] = vals[i] || '' })
-    return row
-  })
-}
-
+function handleCSVFile() { renderImport() }
+function parseCSV() { throw new Error('Legacy specimen-processing import disabled; use a validated source-data adapter.') }
 function importCSV() {
-  const text = (document.getElementById('csv-text') || {}).value || ''
-  if (!text.trim()) { toast('Empty', 'Paste CSV or upload a file', 'crit'); return }
-  let rows
-  try { rows = parseCSV(text) } catch (e) { toast('Parse error', e.message, 'crit'); return }
-  if (!rows.length) { toast('No data', 'CSV has no data rows', 'crit'); return }
-  let imported = 0, cards = 0, errors = []
-  rows.forEach((row, idx) => {
-    try {
-      const base = { id: uid(), ts: Date.now() - (rows.length - idx) * 60000, role: STATE.role }
-      if (STATE.role === 'Laboratory') {
-        const s = Object.assign(base, { sampleId: row.sampleId, patientId: row.patientId, test: row.test, sampleType: row.sampleType, priority: row.priority || 'Routine', instrument: row.instrument, value: parseFloat(row.value), qcValue: parseFloat(row.qcValue), lotNumber: row.lotNumber, clinicalContext: row.clinicalContext, resultType: 'Quantitative (numeric)', processedAt: base.ts, stage: 'reported', history: [], errors: [], flags: {} })
-        STATE.samples.push(s)
-        const issues = analyseLabSample(s)
-        issues.forEach(iss => { STATE.cards.push({ id: uid(), ts: base.ts, role: STATE.role, severity: iss.severity, source: iss.source, title: iss.title, description: iss.description, signals: iss.signals, insight: iss.insight, rootCause: iss.rootCause, actions: iss.actions, trace: 'CSV→' + s.sampleId + '→' + iss.engine, sampleId: s.id, acknowledged: false }); cards++ })
-      } else if (STATE.role === 'Trial') {
-        const e = Object.assign(base, row)
-        STATE.entries.push(e)
-        const cs = analyseTrialEvent(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      } else if (STATE.role === 'Hospital') {
-        const e = Object.assign(base, row)
-        STATE.entries.push(e)
-        const cs = analyseHospitalEvent(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      } else if (STATE.role === 'Bioinformatics') {
-        const e = Object.assign(base, { analysisType: row.analysisType, sampleId: row.sampleId, platform: row.platform, reference: row.reference, pipeline: row.pipeline, coverage: parseFloat(row.coverage), mappingRate: parseFloat(row.mappingRate), qscore: parseFloat(row.qscore), dupRate: parseFloat(row.dupRate), gcContent: parseFloat(row.gcContent), contamination: parseFloat(row.contamination), variantCount: parseInt(row.variantCount, 10) || 0 })
-        STATE.entries.push(e)
-        const cs = analyseBioEntry(e)
-        cs.forEach(c => { STATE.cards.push(c); cards++ })
-      }
-      imported++
-    } catch (e) { errors.push('Row ' + (idx + 2) + ': ' + e.message) }
-  })
-  if (STATE.role === 'Laboratory') STORAGE.saveSamples(STATE.role, STATE.samples)
-  else STORAGE.saveEntries(STATE.role, STATE.entries)
-  STORAGE.saveCards(STATE.role, STATE.cards)
-  audit('CSV import', imported + ' rows · ' + cards + ' cards')
-  const res = document.getElementById('import-results')
-  if (res) res.innerHTML = '<div class="form-card" style="max-width:none;background:var(--green-bg);border-color:rgba(46,232,154,0.18)">' +
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;color:var(--green);margin-bottom:12px">Import complete</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">IMPORTED</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800">' + imported + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">CARDS GENERATED</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:' + (cards > 0 ? 'var(--amber)' : 'var(--green)') + '">' + cards + '</div></div>' +
-    '<div><div style="font-size:10px;color:var(--text-3);font-family:DM Mono,monospace;letter-spacing:1px">ERRORS</div><div style="font-family:Syne,sans-serif;font-size:26px;font-weight:800;color:' + (errors.length > 0 ? 'var(--red)' : 'var(--text-3)') + '">' + errors.length + '</div></div>' +
-    '</div>' +
-    '<div style="display:flex;gap:8px">' +
-    '<button class="btn btn-primary" onclick="goPage(\'cards\')">View cards →</button>' +
-    '<button class="btn" onclick="goPage(\'dashboard\')">Dashboard</button></div>' +
-    (errors.length ? '<div style="margin-top:12px;font-size:11px;color:var(--red);font-family:DM Mono,monospace">' + errors.slice(0, 5).map(esc).join('<br>') + '</div>' : '') +
-    '</div>'
-  toast('Import complete', imported + ' rows · ' + cards + ' cards', 'good')
+  toast('Legacy import disabled', 'The old importer created simulated specimens/results and is out of scope. Use an approved source-system integration.', 'warn')
+  goPage('connectors')
 }
-
 // ── AUDIT INTEGRITY CHECK UI ──
 async function checkAuditIntegrity() {
   const el = document.getElementById('audit-integrity')
@@ -5692,8 +5698,7 @@ function loadAllDomainData() {
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
   STATE.instruments   = lsGet('jl_v10_instruments')
-  STATE.entries       = STATE.samples  // legacy compat
-  STATE.entries       = STATE.samples
+  // Keep role-scoped STATE.entries loaded by enterApp; trial events must not be overwritten by legacy sample cache.
 }
 
 function saveAllDomainData() {
