@@ -479,6 +479,8 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .journey-banner{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:22px;margin-bottom:16px;border-radius:16px;color:#fff;background:linear-gradient(115deg,#087f8c,#285bc5 58%,#7044b8);box-shadow:0 12px 28px rgba(40,91,197,.15)}.journey-banner h3{margin:5px 0;font-size:20px}.journey-banner p{font-size:12px;opacity:.9}.journey-eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;opacity:.8}.journey-badge{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.18);white-space:nowrap}
 .journey-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.journey-metric{display:flex;flex-direction:column;gap:8px;padding:17px;background:#fff;border:1px solid #e2e9f4;border-radius:14px;border-top:3px solid #285bc5}.journey-metric span{color:#526078;font-size:11px;font-weight:700}.journey-metric strong{color:#182338;font-size:29px}.journey-metric small{color:#6d7890;font-size:10px;line-height:1.45}.journey-metric.tone-purple{border-top-color:#7044b8}.journey-metric.tone-amber{border-top-color:#b86b00}.journey-metric.tone-green{border-top-color:#16794b}
 .journey-panel{padding:18px;border:1px solid #e2e9f4;border-radius:14px;margin-bottom:14px;background:#fff}.journey-table-wrap{overflow-x:auto}.journey-table{width:100%;border-collapse:collapse;font-size:12px}.journey-table th,.journey-table td{text-align:left;padding:11px 12px;border-bottom:1px solid #e8edf5;white-space:nowrap}.journey-table th{color:#64718a;background:#f7f9fd;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.journey-table td{color:#26354e}.journey-notes{margin:12px 0 10px 18px;color:#526078;font-size:12px;line-height:1.8}.journey-footnote{margin-top:10px;color:#64718a;font-size:11px;line-height:1.6}.journey-json{margin-top:12px;padding:12px;max-height:320px;overflow:auto;background:#f5f8fd;border:1px solid #e1e8f3;border-radius:10px;color:#26354e;font:11px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:700px){.journey-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-banner{align-items:flex-start;flex-direction:column}}
+.source-import-card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dfe7f4;border-radius:16px;box-shadow:0 6px 22px rgba(28,43,72,.04)}
+.source-import-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}.source-import-tag{padding:6px 9px;border-radius:999px;background:#e8f1ff;color:#285bc5;font-size:10px;font-weight:800;white-space:nowrap}.source-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.source-import-full{grid-column:1/-1}.source-import-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.source-import-help{color:#64718a;font-size:12px;line-height:1.6}.source-import-preview{margin-top:16px}.source-import-result{padding:14px;border-radius:12px;border:1px solid #dfe7f4;background:#f8fbff}.source-import-result strong{font-size:13px;color:#182338}.source-import-result p{margin-top:6px;font-size:12px;line-height:1.6;color:#526078}.source-import-result.success{background:#eefaf4;border-color:#ccebd9}.source-import-result.error{background:#fff1f3;border-color:#f2cbd3}.source-import-table-wrap{overflow:auto;margin-top:12px}.source-import-table-wrap table{min-width:480px}@media(max-width:700px){.source-import-card{padding:14px}.source-import-grid{grid-template-columns:1fr}.source-import-full{grid-column:1}}
 </style>
 </head>
 <body>
@@ -2809,20 +2811,238 @@ function analyseJourneyGap(e) {
 // ═══════════════════════════════════════════════════════════
 // CONNECTORS / ANALYTICS / AUDIT / SETTINGS
 // ═══════════════════════════════════════════════════════════
-function renderConnectors() {
-  const page = document.getElementById('page-connectors');
-  if (!page) return;
-  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">Import authorised information from existing systems</div></div></div>' +
-    '<div class="form-card" style="max-width:none;margin-bottom:18px"><div style="font-weight:700;font-size:15px;margin-bottom:8px">JLIGHT scope</div>' +
-    '<p style="color:var(--text-2);line-height:1.7">JLIGHT is a health-intelligence and traceability platform, not a laboratory analyser or LIMS for specimen processing. It does not register physical specimens, perform tests, generate measurements, control instruments, or manage calibration. It analyses authorised data supplied by existing systems and helps identify completeness, traceability, workflow, and data-quality issues. Every integration must be implemented, secured, tested, and validated before operational use.</p></div>' +
-    '<div class="connector-grid">' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Import</div><div class="connector-status ready">Validation required</div></div><div class="connector-desc">Import existing source-system records after confirming field mapping, validation, access controls, error handling, and audit trails.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">LIS / Hospital Systems</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Proposed HL7 or FHIR exchange for authorised orders, result status, encounter events, and traceability. No live connection is implied.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">Clinical Trial Systems</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Proposed CTMS or approved export integration, subject to trial permissions, consent safeguards, and validation.</div></div>' +
-    '<div class="connector"><div class="connector-head"><div class="connector-name">Custom API</div><div class="connector-status ready">Requires implementation</div></div><div class="connector-desc">Secure API exchange requires endpoint implementation, authentication, authorisation, mapping, monitoring, and end-to-end testing.</div></div></div>';
+const SOURCE_IMPORT_SCHEMAS = {
+  patients: { label: 'Patient registry', stateKey: 'patients', storageKey: () => PATIENT_KEY, backendDomain: 'patients', required: ['patientId'], fields: ['id','patientId','mrn','fullName','gender','dateOfBirth','ageGroup','site','externalPatientId','sourceSystem','createdAt','ts'] },
+  labOrders: { label: 'Laboratory order status', stateKey: 'labOrders', storageKey: () => ORDERS_KEY, backendDomain: 'labOrders', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','orderCode','testRequested','testName','priority','status','orderedAt','completedAt','turnaroundHours','sourceSystem','sourceRecordId','createdAt','ts'] },
+  results: { label: 'Imported laboratory result records', stateKey: 'results', storageKey: () => RESULTS_KEY, backendDomain: 'results', required: ['patientId','testName','resultValue','sourceRecordId'], fields: ['id','patientId','orderId','testName','resultValue','resultUnit','interpretation','referenceRange','resultedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  admissions: { label: 'Hospital admissions', stateKey: 'admissions', storageKey: () => ADMIT_KEY, backendDomain: 'admissions', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','admissionId','ward','status','admittedAt','dischargedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  clinicalOrders: { label: 'Hospital orders', stateKey: 'clinicalOrders', storageKey: () => CORD_KEY, backendDomain: 'clinicalOrders', required: ['patientId','status','sourceRecordId'], fields: ['id','patientId','orderType','status','orderedAt','completedAt','sourceSystem','sourceRecordId','createdAt','ts'] },
+  bioRuns: { label: 'Imported bioinformatics outputs', stateKey: 'bioRuns', storageKey: () => BIORUN_KEY, backendDomain: 'bioRuns', required: ['analysisType','sourceRecordId'], fields: ['id','patientId','analysisType','outputType','status','qualityStatus','summary','createdAt','sourceSystem','sourceRecordId','ts'] }
 }
-
+const SOURCE_IMPORT_ALIASES = {
+  id:'id', recordid:'sourceRecordId', sourcerecordid:'sourceRecordId', patientid:'patientId', patient:'patientId',
+  idnumber:'idNumber', nationalid:'idNumber', identitynumber:'idNumber', passportnumber:'idNumber', email:'email', phone:'phone', address:'address',
+  mrn:'mrn', medicalrecordnumber:'mrn', fullname:'fullName', patientname:'fullName', name:'fullName',
+  gender:'gender', sex:'gender', dateofbirth:'dateOfBirth', dob:'dateOfBirth', agegroup:'ageGroup',
+  externalpatientid:'externalPatientId', sourcepatientid:'externalPatientId', site:'site', sourcesystem:'sourceSystem',
+  orderid:'orderCode', ordercode:'orderCode', testrequested:'testRequested', testname:'testName', test:'testName',
+  priority:'priority', status:'status', orderedat:'orderedAt', completedat:'completedAt', turnaroundhours:'turnaroundHours',
+  resultvalue:'resultValue', value:'resultValue', result:'resultValue', resultunit:'resultUnit', unit:'resultUnit',
+  interpretation:'interpretation', referencerange:'referenceRange', resultedat:'resultedAt',
+  admissionid:'admissionId', ward:'ward', admittedat:'admittedAt', dischargedat:'dischargedAt',
+  ordertype:'orderType', analysistype:'analysisType', outputtype:'outputType', qualitystatus:'qualityStatus',
+  summary:'summary', createdat:'createdAt', timestamp:'ts', ts:'ts'
+}
+let SOURCE_IMPORT_PREVIEW = null
+let SOURCE_IMPORT_FILE_NAME = ''
+let SOURCE_IMPORT_LAST_SYNC = null
+function resetSourceImportPreview() {
+  SOURCE_IMPORT_PREVIEW = null
+  const commit = document.getElementById('source-import-commit')
+  if (commit) commit.disabled = true
+  const el = document.getElementById('source-import-preview')
+  if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+}
+function renderConnectors() {
+  const page = document.getElementById('page-connectors')
+  if (!page) return
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources & Interoperability</div><div class="page-sub">Standalone source-data intake and compatibility with existing healthcare systems</div></div></div>' +
+    '<div class="form-card" style="max-width:none;margin-bottom:18px"><div style="font-weight:700;font-size:15px;margin-bottom:8px">JLIGHT scope</div><p style="color:var(--text-2);line-height:1.7">JLIGHT organises and analyses authorised operational data. It does not collect or process specimens, perform diagnostic tests, create laboratory measurements, or control instruments. Source-system records remain authoritative. Clinical Trials use separate data paths and participant identity.</p></div>' +
+    '<div class="connector-grid">' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Import</div><div class="connector-status ready">Preview + validation</div></div><div class="connector-desc">Import allow-listed source records with header validation, row checks, duplicate detection, organisation scope and audit trail.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">LIS / Hospital Systems</div><div class="connector-status ready">Requires adapter</div></div><div class="connector-desc">HL7 or FHIR adapters must be configured and validated end-to-end before they are treated as live connections.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">Clinical Trial Systems</div><div class="connector-status ready">Separate adapter</div></div><div class="connector-desc">CTMS or approved export integration requires trial-specific permissions, consent safeguards and validation.</div></div>' +
+    '<div class="connector"><div class="connector-head"><div class="connector-name">Custom API</div><div class="connector-status ready">Requires adapter</div></div><div class="connector-desc">API exchange requires authentication, authorisation, mapping, monitoring, error handling and end-to-end testing.</div></div></div>' +
+    '<div class="source-import-card"><div class="source-import-heading"><div><div class="section-title">Import authorised source records</div><p class="source-import-help">Preview validates the file without saving it. Import writes only supported fields and never runs specimen-processing or diagnostic engines.</p></div><span class="source-import-tag">CSV / TSV</span></div>' +
+    '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online or de-identified offline)</option></select></div>' +
+    '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
+    '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
+    '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
+    '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
+}
+function handleSourceImportFile(event) {
+  const file = event && event.target && event.target.files ? event.target.files[0] : null
+  if (!file) return
+  SOURCE_IMPORT_FILE_NAME = file.name || 'CSV source file'
+  const reader = new FileReader()
+  reader.onload = e => {
+    const text = document.getElementById('source-import-text')
+    if (text) text.value = String(e.target.result || '')
+    resetSourceImportPreview()
+  }
+  reader.onerror = () => toast('File read failed', 'The selected file could not be read. Try exporting it as UTF-8 CSV.', 'crit')
+  reader.readAsText(file)
+}
+function parseSourceCSV(text) {
+  const input = String(text || '').replace(/^\uFEFF/, '')
+  const firstLine = input.split(/\r?\n/).find(line => line.trim()) || ''
+  let commas = 0, tabs = 0, headerQuoted = false
+  for (let i = 0; i < firstLine.length; i++) {
+    if (firstLine[i] === '"' && firstLine[i + 1] === '"' && headerQuoted) { i++; continue }
+    if (firstLine[i] === '"') headerQuoted = !headerQuoted
+    else if (!headerQuoted && firstLine[i] === ',') commas++
+    else if (!headerQuoted && firstLine[i] === '\t') tabs++
+  }
+  const delimiter = tabs > commas ? '\t' : ','
+  const records = []
+  let row = [], field = '', quoted = false
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i]
+    if (quoted) {
+      if (ch === '"' && input[i + 1] === '"') { field += '"'; i++ }
+      else if (ch === '"') quoted = false
+      else field += ch
+    } else if (ch === '"' && field.length === 0) quoted = true
+    else if (ch === delimiter) {
+      row.push(field); field = ''
+      if (ch === '\t') { /* TSV is supported when a tab delimiter is used */ }
+    } else if (ch === '\n') {
+      row.push(field); field = ''
+      if (row.some(v => String(v).trim() !== '')) records.push(row)
+      row = []
+    } else if (ch !== '\r') field += ch
+  }
+  if (quoted) throw new Error('A quoted field is not closed. Check the CSV file.')
+  row.push(field)
+  if (row.some(v => String(v).trim() !== '')) records.push(row)
+  if (records.length < 2) throw new Error('The file must contain a header row and at least one data row.')
+  const headers = records[0].map(h => {
+    const key = String(h || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+    return SOURCE_IMPORT_ALIASES[key] || key
+  })
+  if (headers.some(h => !h)) throw new Error('The header row contains an empty column name.')
+  if (new Set(headers).size !== headers.length) throw new Error('Two or more columns map to the same field. Keep one canonical column per field.')
+  const rows = records.slice(1).map((values, index) => {
+    if (values.length > headers.length) throw new Error('Row ' + (index + 2) + ' has more columns than the header row.')
+    const out = {}
+    headers.forEach((h, i) => { out[h] = String(values[i] == null ? '' : values[i]).trim() })
+    return out
+  })
+  return { headers, rows }
+}
+async function previewSourceCsv() {
+  SOURCE_IMPORT_PREVIEW = null
+  const commit = document.getElementById('source-import-commit')
+  if (commit) commit.disabled = true
+  const output = document.getElementById('source-import-preview')
+  const domain = (document.getElementById('source-import-domain') || {}).value || ''
+  const text = (document.getElementById('source-import-text') || {}).value || ''
+  const schema = SOURCE_IMPORT_SCHEMAS[domain]
+  if (!schema) { toast('Choose a record type', 'Select a supported source-record type.', 'warn'); return }
+  try {
+    const parsed = parseSourceCSV(text)
+    const headers = new Set(parsed.headers)
+    const missingHeaders = schema.required.filter(h => !headers.has(h) && !(h === 'patientId' && headers.has('id')) && !(h === 'sourceRecordId' && headers.has('id')))
+    if (missingHeaders.length) throw new Error('Required column(s) missing: ' + missingHeaders.join(', '))
+    const sensitive = ['fullName','mrn','dateOfBirth','gender','phone','idNumber','address','email']
+    if (!MODE.isOnline && parsed.headers.some(h => sensitive.includes(h))) throw new Error('Offline imports must be de-identified. Remove names, MRNs, dates of birth, gender, phone numbers and addresses.')
+    if (!MODE.isOnline && !(document.getElementById('source-import-deidentified') || {}).checked) throw new Error('Confirm that offline data is de-identified and patientId values are pseudonymous before previewing.')
+    if (MODE.isOnline) {
+      const sb = getSupabase()
+      if (!sb || !STATE.orgId || STATE.orgId === 'default') throw new Error('No verified online organisation is active. Sign in again before importing.')
+      const { data, error } = await sb.auth.getSession()
+      if (error) throw error
+      if (!data || !data.session) throw new Error('Your online session expired. Sign in again before importing.')
+    }
+    const errors = []
+    parsed.rows.forEach((row, i) => {
+      schema.required.forEach(field => {
+        const value = field === 'patientId' ? (row.patientId || (domain === 'patients' ? row.id : '')) : (field === 'sourceRecordId' ? (row.sourceRecordId || row.id) : row[field])
+        if (!String(value || '').trim()) errors.push('Row ' + (i + 2) + ': ' + field + ' is empty.')
+      })
+    })
+    if (errors.length) throw new Error(errors.slice(0, 8).join(' ') + (errors.length > 8 ? ' +' + (errors.length - 8) + ' more row errors.' : ''))
+    SOURCE_IMPORT_PREVIEW = { domain, schema, headers: parsed.headers, rows: parsed.rows, fileName: SOURCE_IMPORT_FILE_NAME || 'CSV source import' }
+    if (commit) commit.disabled = false
+    const unsupported = parsed.headers.filter(h => !schema.fields.includes(h))
+    const seenIds = new Set((STATE[schema.stateKey] || []).map(item => String(item.id)))
+    const rowIds = parsed.rows.map(row => domain === 'patients' ? String(row.patientId || row.id || '') : String(row.id || row.sourceRecordId || '')).filter(Boolean)
+    let duplicateRows = 0
+    rowIds.forEach(id => { if (seenIds.has(id)) duplicateRows++; else seenIds.add(id) })
+    const existingPatientIds = new Set((STATE.patients || []).map(patient => String(patient.id)))
+    const unmatchedRefs = domain === 'patients' ? [] : Array.from(new Set(parsed.rows.map(row => String(row.patientId || '')).filter(id => id && !existingPatientIds.has(id))))
+    const previewRows = parsed.rows.slice(0, 5).map(row => '<tr>' + parsed.headers.slice(0, 8).map(h => '<td>' + esc(row[h] || '') + '</td>').join('') + '</tr>').join('')
+    output.innerHTML = '<div class="source-import-result success"><strong>Validation passed</strong><p>' + parsed.rows.length + ' row(s) passed required-field checks. ' + unsupported.length + ' unsupported column(s) will be ignored. ' + duplicateRows + ' row(s) appear to duplicate an existing or repeated record ID and will be skipped. ' + unmatchedRefs.length + ' patient reference(s) are not currently in the shared patient registry; JLIGHT will not infer identity. Nothing has been saved yet.</p><div class="source-import-table-wrap"><table class="journey-table"><thead><tr>' + parsed.headers.slice(0, 8).map(h => '<th>' + esc(h) + '</th>').join('') + '</tr></thead><tbody>' + previewRows + '</tbody></table></div></div>'
+  } catch (e) {
+    if (output) output.innerHTML = '<div class="source-import-result error"><strong>Validation failed</strong><p>' + esc(e.message || 'The file could not be validated.') + '</p></div>'
+    toast('Import validation failed', e.message || 'Check the file and try again.', 'warn')
+  }
+}
+async function commitSourceCsv() {
+  const preview = SOURCE_IMPORT_PREVIEW
+  const output = document.getElementById('source-import-preview')
+  if (!preview) { toast('Preview first', 'Validate the CSV before importing any records.', 'warn'); return }
+  const { domain, schema, rows, fileName } = preview
+  const current = Array.isArray(STATE[schema.stateKey]) ? STATE[schema.stateKey] : []
+  const seen = new Set(current.map(item => String(item.id)))
+  const imported = [], duplicates = []
+  const now = Date.now()
+  rows.forEach((row, index) => {
+    const clean = {}
+    schema.fields.forEach(field => { if (row[field] != null && String(row[field]).trim() !== '') clean[field] = row[field] })
+    const id = domain === 'patients' ? String(clean.patientId || clean.id || '') : String(clean.id || clean.sourceRecordId || '')
+    clean.id = id || uid()
+    if (domain === 'patients') clean.patientId = clean.patientId || clean.id
+    if (seen.has(String(clean.id))) { duplicates.push(index + 2); return }
+    seen.add(String(clean.id))
+    clean.orgId = STATE.orgId || 'default'
+    clean.role = STATE.role
+    clean.sourceSystem = clean.sourceSystem || fileName || 'CSV source import'
+    clean.sourceImportedAt = now
+    const parsedTime = Date.parse(clean.ts || clean.createdAt || clean.orderedAt || clean.resultedAt || clean.admittedAt || '')
+    clean.ts = Number.isFinite(parsedTime) ? parsedTime : now
+    imported.push(clean)
+  })
+  if (!imported.length) {
+    if (output) output.innerHTML = '<div class="source-import-result error"><strong>No new records imported</strong><p>Every row duplicates an existing record ID. Nothing was changed.</p></div>'
+    toast('No new records', 'All rows matched existing record IDs.', 'warn')
+    return
+  }
+  STATE[schema.stateKey] = current.concat(imported)
+  SOURCE_IMPORT_LAST_SYNC = MODE.isOnline ? { domain, schema, imported } : null
+  try { localStorage.setItem(jlightStorageKey(schema.storageKey()), JSON.stringify(STATE[schema.stateKey].slice(-2000))) }
+  catch (e) { STATE[schema.stateKey] = current; SOURCE_IMPORT_LAST_SYNC = null; toast('Local save failed', 'Browser storage is unavailable. No records were imported.', 'crit'); return }
+  let sync = { ok: false, reason: 'offline' }
+  if (MODE.isOnline) {
+    const syncResults = []
+    for (let offset = 0; offset < imported.length; offset += 200) {
+      syncResults.push(await syncDomainToBackend(schema.backendDomain, imported.slice(offset, offset + 200)))
+    }
+    const failed = syncResults.find(result => !result || !result.ok)
+    sync = failed ? { ok: false, reason: failed.reason || 'one_or_more_batches_failed' } : { ok: true, count: syncResults.reduce((sum, result) => sum + (result.count || 0), 0) }
+  }
+  if (sync.ok) SOURCE_IMPORT_LAST_SYNC = null
+  try { await audit('Validated source-data import', schema.label + ': ' + imported.length + ' records; ' + duplicates.length + ' duplicates skipped; mode=' + (MODE.isOnline ? 'online' : 'offline')) }
+  catch (e) { console.warn('[JLIGHT] import audit could not be saved:', e.message) }
+  SOURCE_IMPORT_PREVIEW = null
+  const cloudMessage = MODE.isOnline
+    ? (sync.ok ? 'Cloud sync confirmed for ' + (sync.count == null ? imported.length : sync.count) + ' record(s).' : 'Local cache updated, but cloud sync failed: ' + (sync.reason || 'unknown error') + '. Retry before relying on the cloud copy.')
+    : 'Saved on this device only. Cloud sync is not active in offline mode.'
+  if (output) output.innerHTML = '<div class="source-import-result ' + (MODE.isOnline && !sync.ok ? 'error' : 'success') + '"><strong>' + imported.length + ' record(s) imported</strong><p>' + duplicates.length + ' duplicate row(s) skipped. ' + esc(cloudMessage) + '</p><p>JLIGHT stored the supplied source values; it did not perform tests, infer results or run analyser rules.</p>' + (MODE.isOnline && !sync.ok ? '<button class="btn btn-primary" onclick="retrySourceImportSync()">Retry cloud sync</button> ' : '') + '<button class="btn" onclick="goPage(\'journey\')">Review Patient Journey</button></div>'
+  const commit = document.getElementById('source-import-commit')
+  if (commit) commit.disabled = true
+  toast(MODE.isOnline && !sync.ok ? 'Import needs cloud-sync review' : 'Source records imported', cloudMessage, MODE.isOnline && !sync.ok ? 'warn' : 'good')
+}
+async function retrySourceImportSync() {
+  const last = SOURCE_IMPORT_LAST_SYNC
+  if (!last || !MODE.isOnline) { toast('No pending cloud sync', 'There is no online import batch available to retry.', 'warn'); return }
+  const results = []
+  for (let offset = 0; offset < last.imported.length; offset += 200) {
+    results.push(await syncDomainToBackend(last.schema.backendDomain, last.imported.slice(offset, offset + 200)))
+  }
+  const failed = results.find(result => !result || !result.ok)
+  const output = document.getElementById('source-import-preview')
+  if (failed) {
+    toast('Cloud sync still failing', failed.reason || 'Retry later after checking workspace connectivity.', 'crit')
+    return
+  }
+  SOURCE_IMPORT_LAST_SYNC = null
+  try { await audit('Source import cloud sync retried', last.schema.label + ': ' + last.imported.length + ' records synced') } catch (e) {}
+  if (output) output.innerHTML = '<div class="source-import-result success"><strong>Cloud sync confirmed</strong><p>' + last.imported.length + ' previously imported record(s) are now synchronised to the active organisation.</p></div>'
+  toast('Cloud sync confirmed', last.imported.length + ' records synced.', 'good')
+}
 function renderAnalytics() {
+
   const cfg = ROLES[STATE.role]
   const withTime = rows => (rows || []).map(row => ({...row, ts: row.ts || row.orderedAt || row.resultedAt || row.createdAt || row.updatedAt || null}))
   let items = [], label = 'records'

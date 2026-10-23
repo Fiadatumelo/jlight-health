@@ -42,6 +42,8 @@ jobs:
           node --check /tmp/jlight-inline.js
       - name: Check proposal-aligned frontend contract
         run: python jlight-backend/tests/test_frontend_contract.py
+      - name: Test source CSV parser
+        run: node jlight-backend/tests/test_source_import_parser.cjs
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
