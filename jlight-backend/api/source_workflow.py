@@ -7,10 +7,12 @@ No patient identity supplied by a source payload is trusted as a verified JLIGHT
 from __future__ import annotations
 
 import os
+import hashlib
+import hmac
 from datetime import datetime, timezone
 from contextlib import contextmanager
 from functools import wraps
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt
 import psycopg2
@@ -18,7 +20,7 @@ from psycopg2.extras import RealDictCursor
 from flask import Blueprint, current_app, g, jsonify, request
 
 from engine.domain_persistence import persist_source_record, persist_workflow_event
-from engine.workflow_traceability import normalize_workflow_event, build_workflow_timelines
+from engine.workflow_traceability import normalize_workflow_event, build_workflow_timelines, build_patient_journeys
 from engine.source_adapters import parse_source_export
 from engine.decision_cards import build_decision_cards
 
@@ -177,6 +179,27 @@ def ingest_workflow_event():
         return _error("Workflow event could not be persisted", 500)
 
 
+
+
+def _source_patient_hash(source_system: str, source_patient_ref: str) -> str:
+    secret = os.environ.get("JLIGHT_LINKING_SECRET", "")
+    if len(secret) < 32:
+        raise RuntimeError("JLIGHT_LINKING_SECRET must contain at least 32 characters")
+    canonical = source_system.strip() + "\x1f" + source_patient_ref.strip()
+    return hmac.new(secret.encode("utf-8"), canonical.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def _lookup_patient_link(conn, organization_id: str, source_system: str, source_hash: str):
+    with conn.cursor() as cur:
+        cur.execute("SELECT set_config('jlight.organization_id', %s, true)", (organization_id,))
+        cur.execute(
+            """SELECT action, jlight_patient_id FROM jlight_patient_link_events
+               WHERE organization_id = %s AND source_system = %s AND source_patient_ref_hash = %s
+               ORDER BY created_at DESC, id DESC LIMIT 1""",
+            (organization_id, source_system, source_hash),
+        )
+        return cur.fetchone()
+
 @source_workflow_bp.post("/connectors/ingest")
 @require_membership
 def ingest_source_export():
@@ -207,8 +230,16 @@ def ingest_source_export():
         duplicates = 0
         with _db() as conn:
             for event in events:
+                source_patient_ref = str(event.pop("source_patient_ref", "") or "").strip()
+                source_hash = _source_patient_hash(source_system, source_patient_ref) if source_patient_ref and os.environ.get("JLIGHT_LINKING_SECRET") else None
+                event["source_patient_ref_hash"] = source_hash
                 event["link_status"] = "unlinked"
                 event["jlight_patient_id"] = None
+                if source_hash:
+                    link = _lookup_patient_link(conn, g.jlight_actor["organization_id"], source_system, source_hash)
+                    if link and link["action"] == "link" and link["jlight_patient_id"]:
+                        event["link_status"] = "verified"
+                        event["jlight_patient_id"] = str(link["jlight_patient_id"])
                 result = persist_workflow_event(
                     conn, g.jlight_actor["organization_id"], event, commit=False
                 )
@@ -232,6 +263,161 @@ def ingest_source_export():
     except Exception:
         current_app.logger.exception("Source export ingestion failed")
         return _error("Source export could not be persisted", 500)
+
+
+@source_workflow_bp.post("/patient-keys")
+@require_membership
+def create_canonical_patient_key():
+    """Create a pseudonymous cross-system journey key; no patient identifiers are stored."""
+    if g.jlight_actor["role"] not in {"owner", "admin"}:
+        return _error("Only organization owners or admins can create patient journey keys", 403)
+    key = str(uuid4())
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                cur.execute(
+                    """INSERT INTO jlight_canonical_patients (id, organization_id, created_by)
+                       VALUES (%s, %s, %s) RETURNING id, created_at""",
+                    (key, g.jlight_actor["organization_id"], g.jlight_actor["subject"]),
+                )
+                row = cur.fetchone()
+        return jsonify({"success": True, "jlight_patient_id": str(row["id"]),
+                        "created_at": row["created_at"].isoformat(),
+                        "privacy": "pseudonymous key only; no source identifier stored"}), 201
+    except Exception:
+        current_app.logger.exception("Canonical patient key creation failed")
+        return _error("Patient journey key could not be created", 500)
+
+
+@source_workflow_bp.post("/patient-links")
+@require_membership
+def create_patient_link_event():
+    """Append an admin-verified link/unlink event; raw source identifiers are HMACed."""
+    if g.jlight_actor["role"] not in {"owner", "admin"}:
+        return _error("Only organization owners or admins can verify patient links", 403)
+    if not request.is_json:
+        return _error("JSON object required", 415)
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return _error("JSON object required", 400)
+    source_system = str(body.get("source_system") or "").strip()
+    source_ref = str(body.get("source_patient_ref") or "").strip()
+    action = str(body.get("action") or "link").strip().lower()
+    reason = str(body.get("reason") or "").strip()
+    if not source_system or not source_ref or not reason:
+        return _error("source_system, source_patient_ref and reason are required", 400)
+    if action not in {"link", "unlink"}:
+        return _error("action must be link or unlink", 400)
+    try:
+        source_hash = _source_patient_hash(source_system, source_ref)
+    except RuntimeError as exc:
+        return _error(str(exc), 503)
+    patient_id = None
+    if action == "link":
+        try:
+            patient_id = str(UUID(str(body.get("jlight_patient_id") or "")))
+        except (ValueError, TypeError, AttributeError):
+            return _error("A valid jlight_patient_id UUID is required for a link action", 400)
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                if patient_id:
+                    cur.execute(
+                        """SELECT id FROM jlight_canonical_patients
+                           WHERE organization_id = %s AND id = %s AND active = TRUE""",
+                        (g.jlight_actor["organization_id"], patient_id),
+                    )
+                    if not cur.fetchone():
+                        return _error("The patient journey key is not active in this organization", 404)
+                cur.execute(
+                    """SELECT action, jlight_patient_id FROM jlight_patient_link_events
+                       WHERE organization_id = %s AND source_system = %s AND source_patient_ref_hash = %s
+                       ORDER BY created_at DESC, id DESC LIMIT 1""",
+                    (g.jlight_actor["organization_id"], source_system, source_hash),
+                )
+                previous = cur.fetchone()
+                if previous and previous["action"] == action and str(previous["jlight_patient_id"] or "") == str(patient_id or ""):
+                    return jsonify({"success": True, "action": "duplicate_noop",
+                                    "source_system": source_system, "patient_link_verified": action == "link"}), 200
+                cur.execute(
+                    """INSERT INTO jlight_patient_link_events
+                       (organization_id, source_system, source_patient_ref_hash, action,
+                        jlight_patient_id, reason, verified_by)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s)
+                       RETURNING id, created_at""",
+                    (g.jlight_actor["organization_id"], source_system, source_hash, action,
+                     patient_id, reason, g.jlight_actor["subject"]),
+                )
+                row = cur.fetchone()
+        return jsonify({"success": True, "action": action, "link_event_id": row["id"],
+                        "created_at": row["created_at"].isoformat(),
+                        "patient_link_verified": action == "link",
+                        "source_patient_identifier_stored": False}), 201
+    except Exception:
+        current_app.logger.exception("Patient link event could not be saved")
+        return _error("Patient link event could not be saved", 500)
+
+
+@source_workflow_bp.get("/patient-keys")
+@require_membership
+def list_canonical_patient_keys():
+    if g.jlight_actor["role"] not in {"owner", "admin", "clinician", "laboratory", "bioinformatics"}:
+        return _error("This membership cannot view patient journey keys", 403)
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                cur.execute(
+                    """SELECT id, created_at FROM jlight_canonical_patients
+                       WHERE organization_id = %s AND active = TRUE ORDER BY created_at DESC LIMIT 1000""",
+                    (g.jlight_actor["organization_id"],),
+                )
+                rows = cur.fetchall()
+        return jsonify({"success": True, "patient_keys": [
+            {"jlight_patient_id": str(row["id"]), "created_at": row["created_at"].isoformat()}
+            for row in rows
+        ]})
+    except Exception:
+        current_app.logger.exception("Patient journey keys could not be loaded")
+        return _error("Patient journey keys could not be loaded", 500)
+
+
+@source_workflow_bp.get("/patient-journeys")
+@require_membership
+def get_patient_journeys():
+    """Return one verified timeline across Hospital, Laboratory and Bioinformatics."""
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                cur.execute(
+                    """SELECT event_id, source_system, source_record_id, domain, event_type,
+                              observed_at, source_status, jlight_patient_id,
+                              patient_link_verified, source_values_modified
+                       FROM jlight_workflow_events
+                       WHERE organization_id = %s AND patient_link_verified = TRUE
+                       ORDER BY observed_at, event_id LIMIT 10000""",
+                    (g.jlight_actor["organization_id"],),
+                )
+                rows = cur.fetchall()
+        events = [{
+            "event_id": row["event_id"], "source_system": row["source_system"],
+            "source_record_id": row["source_record_id"], "domain": row["domain"],
+            "event_type": row["event_type"], "observed_at": row["observed_at"].isoformat(),
+            "source_status": row["source_status"], "jlight_patient_id": row["jlight_patient_id"],
+            "patient_link_verified": row["patient_link_verified"],
+            "source_values_modified": row["source_values_modified"],
+        } for row in rows]
+        return jsonify({"success": True, **build_patient_journeys(events)})
+    except Exception:
+        current_app.logger.exception("Cross-domain patient journeys could not be loaded")
+        return _error("Patient journeys could not be loaded", 500)
 
 
 @source_workflow_bp.get("/decision-cards")
