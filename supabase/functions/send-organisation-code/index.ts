@@ -1,9 +1,21 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const json = (body: unknown, status = 200) =>
+const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "")
+  .split(";").map((x) => x.trim()).filter(Boolean));
+
+const corsHeaders = (origin: string) => ({
+  "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "null",
+  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin",
+});
+
+const json = (body: unknown, status = 200, origin = "") =>
   new Response(JSON.stringify(body), {
     status,
     headers: {
+      ...corsHeaders(origin),
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "Pragma": "no-cache",
@@ -16,7 +28,13 @@ const escapeHtml = (value: string) =>
   })[c] ?? c);
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const origin = req.headers.get("origin") ?? "";
+  if (req.method === "OPTIONS") {
+    if (!allowedOrigins.has(origin)) return new Response("Forbidden origin", { status: 403 });
+    return new Response("ok", { headers: corsHeaders(origin) });
+  }
+  if (!allowedOrigins.has(origin)) return json({ error: "Origin not allowed" }, 403, origin);
+  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -25,17 +43,17 @@ Deno.serve(async (req: Request) => {
   const fromEmail = Deno.env.get("JLIGHT_FROM_EMAIL");
 
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    return json({ error: "Organisation-code service is not configured" }, 503);
+    return json({ error: "Organisation-code service is not configured" }, 503, origin);
   }
   if (!resendApiKey || !fromEmail) {
     return json({
       error: "Organisation-code email is not configured. Configure RESEND_API_KEY and JLIGHT_FROM_EMAIL in Supabase Edge Function secrets.",
       code_available_in_app: true,
-    }, 503);
+    }, 503, origin);
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Sign in is required" }, 401);
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Sign in is required" }, 401, origin);
 
   const userClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -47,17 +65,17 @@ Deno.serve(async (req: Request) => {
 
   const { data: authData, error: authError } = await userClient.auth.getUser();
   const user = authData?.user;
-  if (authError || !user?.id || !user.email) return json({ error: "Session is invalid or expired" }, 401);
+  if (authError || !user?.id || !user.email) return json({ error: "Session is invalid or expired" }, 401, origin);
 
   let body: { organisation_id?: unknown };
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Request body must be valid JSON" }, 400);
+    return json({ error: "Request body must be valid JSON" }, 400, origin);
   }
   const organisationId = typeof body.organisation_id === "string" ? body.organisation_id : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!uuidPattern.test(organisationId)) return json({ error: "Organisation is invalid" }, 400);
+  if (!uuidPattern.test(organisationId)) return json({ error: "Organisation is invalid" }, 400, origin);
 
   // Only the verified organisation owner can request delivery of its code.
   const { data: org, error: orgError } = await adminClient
@@ -67,8 +85,8 @@ Deno.serve(async (req: Request) => {
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
-  if (orgError) return json({ error: "Could not verify organisation ownership" }, 500);
-  if (!org?.org_code) return json({ error: "Only the organisation owner can request this code" }, 403);
+  if (orgError) return json({ error: "Could not verify organisation ownership" }, 500, origin);
+  if (!org?.org_code) return json({ error: "Only the organisation owner can request this code" }, 403, origin);
 
   const name = String(org.name ?? "JLIGHT workspace");
   const code = String(org.org_code);
@@ -93,8 +111,8 @@ Deno.serve(async (req: Request) => {
   if (!response.ok) {
     const details = await response.text();
     console.error("[send-organisation-code] provider rejected message", response.status, details.slice(0, 300));
-    return json({ error: "Email provider could not send the organisation code. The code remains available in JLIGHT." }, 502);
+    return json({ error: "Email provider could not send the organisation code. The code remains available in JLIGHT." }, 502, origin);
   }
 
-  return json({ success: true, sent_to: user.email });
+  return json({ success: true, sent_to: user.email }, 200, origin);
 });
