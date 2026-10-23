@@ -39,6 +39,8 @@ from engine.bio_engine import (
     parse_fasta,
 )
 
+from api.source_workflow import source_workflow_bp
+
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
@@ -51,6 +53,9 @@ CORS(app, origins=[
 ])
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max upload
+
+
+app.register_blueprint(source_workflow_bp)
 
 
 # ─── Database (optional) ─────────────────────────────────────────────────────
