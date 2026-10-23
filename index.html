@@ -2267,8 +2267,8 @@ function analyseLabSample(s) {
             `Hold the patient result for ${s.sampleId} — do not report`,
             'Repeat QC with fresh aliquot of control material',
             `Verify reagent lot ${s.lotNumber || '(specify)'} expiry, storage, and lot history`,
-            'Check instrument maintenance log and recent service interventions',
-            'If repeat fails, escalate to vendor and open a CAPA',
+            'Check the instrument maintenance and service records in the laboratory’s approved process',
+            'If repeat QC fails, follow the laboratory’s approved escalation and CAPA process',
             'Document the rejection in the QC log',
           ],
         })
@@ -3560,15 +3560,14 @@ function renderConnectors() {
     <div class="form-card" style="max-width:none;margin-bottom:18px;background:var(--purple-bg);border-color:rgba(167,139,250,0.18)">
       <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;color:var(--purple)">How JLIGHT works</div>
       <div style="font-size:13px;color:var(--text);line-height:1.65">
-        JLIGHT is a <strong>read-only intelligence layer</strong> that sits above your existing systems. It does not replace your LIS, CTMS, or HIS — it ingests data they produce and applies real-time analysis.<br><br>
-        Data reaches JLIGHT through one of four pathways: <strong>(1) manual entry</strong> via the forms in this app, <strong>(2) CSV / file upload</strong> from any system that exports data, <strong>(3) instrument middleware</strong> for direct lab analyser feeds, or <strong>(4) standards-based integration</strong> via HL7 v2.5, FHIR R4, or REST APIs for full automation.<br><br>
-        Every data point — however it enters — flows through the same intelligence engines that produce Decision Cards.
+        JLIGHT combines laboratory information management (LIMS) workflows with a health intelligence layer. It can manage sample records, worklists, result records and traceability, while connecting permitted information across laboratory, hospital, bioinformatics and clinical-trial domains. It does not physically test specimens or operate laboratory analysers.<br><br>
+        Information can be entered manually or imported from files and external systems. HL7/FHIR/API and instrument-middleware connections require deployment-specific configuration and verification; do not treat them as live unless a successful connection has been tested. JLIGHT analyses recorded or imported information and produces traceable alerts; it does not perform laboratory testing.
       </div>
     </div>
     <div class="connector-grid">
       <div class="connector"><div class="connector-head"><div class="connector-name">Manual Entry</div><div class="connector-status active">Active</div></div><div class="connector-desc">The simplest pathway. Operators register samples / log visits / log events directly in JLIGHT. Useful for facilities without LIMS, paper-based workflows, or as backup during system downtime.</div><div class="connector-detail">PATHWAY · Forms in this app · zero infrastructure required</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Upload</div><div class="connector-status ready">Ready</div></div><div class="connector-desc">Bulk import from any system that exports tabular data. JLIGHT auto-maps columns, validates, and runs analysis on every row. Works with QC logs, instrument exports, trial visit registers.</div><div class="connector-detail">PATHWAY · Settings → Import CSV · supports .csv, .xlsx, .tsv</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">Instrument Middleware</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Direct integration with laboratory analyser middleware (Roche cobas IT, Sysmex SNCS, Abbott AlinIQ, Beckman REMISOL). JLIGHT subscribes to result and QC streams in real time — no manual entry for connected instruments.</div><div class="connector-detail">PROTOCOL · TCP/IP · ASTM 1394 · vendor-specific drivers</div></div>
+      <div class="connector"><div class="connector-head"><div class="connector-name">Instrument / LIS Data Integration</div><div class="connector-status ready">Requires implementation and verification</div></div><div class="connector-desc">JLIGHT may be integrated with an instrument middleware service or an existing LIS to receive results and QC data. A vendor-specific connection, interface configuration, security review and end-to-end test are required before any connection can be described as operational. JLIGHT does not control or operate the analyser.</div><div class="connector-detail">INTEGRATION · Interface and vendor requirements must be confirmed per site</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">HL7 v2.5 Listener</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Standards-based integration with any LIS supporting HL7 messaging — virtually all modern lab systems. JLIGHT runs an MLLP listener and parses ORU^R01 result messages, OML^O21 orders, and ADT events.</div><div class="connector-detail">PROTOCOL · HL7 v2.5 · MLLP port 2575 · TLS optional</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">FHIR R4</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Modern hospital systems and EMRs (Meditech, Epic, Oracle Cerner, openEHR) speak FHIR. JLIGHT consumes Observation, Patient, ServiceRequest, DiagnosticReport resources and triggers analysis.</div><div class="connector-detail">PROTOCOL · FHIR R4 · REST/JSON · OAuth 2.0</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">CTMS / Trial Database</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Connects to clinical trial management systems (Veeva, Medidata Rave, OpenClinica, REDCap) via REST API. JLIGHT polls visit schedules, consent logs, protocol deviations.</div><div class="connector-detail">PROTOCOL · REST API · token auth · polling configurable</div></div>
@@ -3892,8 +3891,8 @@ function renderHandover() {
       <div class="section">
         <div class="section-head">
           <div>
-            <div class="section-title">Instrument activity · last 24h</div>
-            <div class="section-sub">Volume and flag rate per analyser</div>
+            <div class="section-title">Recorded result activity by instrument · last 24h</div>
+            <div class="section-sub">Based on instrument labels recorded with results; not a live instrument feed</div>
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
@@ -7272,7 +7271,7 @@ function newLabOrderForPatient(patientId) {
 }
 
 // ── LAB INTELLIGENCE ENGINE ──
-// Runs automatically on every result — no manual trigger needed
+// Applies software checks to a result record after it is entered or imported; it does not control or perform laboratory testing.
 function runLabIntelligence(result, order) {
   const cards = []
   const th = STATE.thresholds || defaultThresholds()
@@ -8028,7 +8027,7 @@ function renderInstruments() {
     '<div id="instrument-form-wrap" style="display:none;margin-bottom:18px"></div>' +
     (instruments.length === 0 ?
       renderEmpty('No instruments registered',
-        'Register your laboratory instruments to enable QC tracking and result linking.',
+        'Record instrument details for traceability and linking recorded QC/results. This registry does not connect to or control instruments.',
         null, null) :
       '<div style="display:grid;gap:10px">' +
       instruments.map(i => renderInstrumentCard(i)).join('') +
