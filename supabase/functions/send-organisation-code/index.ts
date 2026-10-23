@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const siteUrl = (Deno.env.get("JLIGHT_SITE_URL") ?? "https://jlight-health.co.za").replace(/\/$/, "");
-const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? siteUrl)
+const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? (siteUrl + ";https://deploy-preview-11--jlight-health.netlify.app"))
   .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
 
 const corsHeaders = (origin: string) => ({
