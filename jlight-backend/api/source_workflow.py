@@ -710,3 +710,45 @@ def get_connector_freshness():
                 "meaning": "Feed freshness only; this endpoint does not directly probe source-system availability.",
             })
         return jsonify({"success": True, "feeds": feeds, "stale_after_minutes": stale_after})
+    except Exception:
+        current_app.logger.exception("Connector freshness query failed")
+        return _error("Connector freshness could not be loaded", 500)
+
+
+@source_workflow_bp.get("/workflow-timelines")
+@require_membership
+@require_domain_scope("read")
+def get_workflow_timelines():
+    """Read a tenant's stored source-observed events as a traceability timeline."""
+    try:
+        with _db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT set_config('jlight.organization_id', %s, true)",
+                            (g.jlight_actor["organization_id"],))
+                cur.execute(
+                    """SELECT event_id, source_system, source_record_id, domain, event_type,
+                              observed_at, source_status, jlight_patient_id,
+                              patient_link_verified, source_values_modified
+                       FROM jlight_workflow_events
+                       WHERE organization_id = %s AND domain = %s
+                       ORDER BY observed_at, event_id LIMIT 5000""",
+                    (g.jlight_actor["organization_id"], g.jlight_domain),
+                )
+                rows = cur.fetchall()
+        events = [{
+            "event_id": row["event_id"],
+            "source_system": row["source_system"],
+            "source_record_id": row["source_record_id"],
+            "source_key": f'{row["source_system"]}::{row["source_record_id"]}',
+            "domain": row["domain"],
+            "event_type": row["event_type"],
+            "observed_at": row["observed_at"].isoformat(),
+            "source_status": row["source_status"],
+            "jlight_patient_id": row["jlight_patient_id"],
+            "link_status": "verified" if row["patient_link_verified"] else "unlinked",
+            "source_values_modified": row["source_values_modified"],
+        } for row in rows]
+        return jsonify({"success": True, **build_workflow_timelines(events)})
+    except Exception:
+        current_app.logger.exception("Workflow timeline query failed")
+        return _error("Workflow timelines could not be loaded", 500)
