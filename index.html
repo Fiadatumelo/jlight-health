@@ -658,7 +658,6 @@ input,select,textarea { font-size:14px; }
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
         <div id="page-hl7" class="page"></div>
-        <div id="page-instruments" class="page"></div>
         <div id="page-wards" class="page"></div>
         <div id="page-protocols" class="page"></div>
 
@@ -742,7 +741,6 @@ const ROLES = {
       { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' },
       { key: 'process',    label: 'Record Result',      icon: '▶' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
-      { key: 'instruments', label: 'Instruments',        icon: '⚙' },
       { key: 'requests',   label: 'Sample Requests',    icon: '⇄' },
       { key: 'predictive', label: 'Predictive Engine',  icon: '◉' },
       { key: 'handover',   label: 'Daily Handover',     icon: '☰' },
@@ -1569,7 +1567,6 @@ function goPage(page) {
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
     case 'hl7':           renderHL7Receiver(); break
-    case 'instruments':  renderInstruments(); break
     case 'wards':        renderWards(); break
     case 'protocols':    renderProtocols(); break
 
@@ -2042,7 +2039,7 @@ function renderProcess() {
     </div>
     <div class="form-card">
       <div class="form-grid">
-        <div class="form-row"><label class="form-label">Instrument Used</label><select class="form-input" id="pf-instrument"><option value="">— Select —</option><option>Roche cobas 8000</option><option>Sysmex XN-1000</option><option>Abbott Architect</option><option>Beckman AU680</option><option>BD FACSCanto</option><option>Bio-Rad D-100</option><option>Manual / Microscopy</option><option>Other</option></select><div class="form-help">JLIGHT tracks per-instrument drift</div></div>
+        
         <div class="form-row"><label class="form-label">Result Value</label><input class="form-input" id="pf-value" type="number" step="any" placeholder="0.00"/><div class="form-help">${target.test && REF_RANGES[target.test] ? `Reference: ${REF_RANGES[target.test].min}–${REF_RANGES[target.test].max} ${REF_RANGES[target.test].unit}` : 'Numeric result value'}</div></div>
         <div class="form-row"><label class="form-label">QC Run on Same Batch</label><input class="form-input" id="pf-qcValue" type="number" step="any" placeholder="0.00"/><div class="form-help">QC value at time of run (for Westgard analysis)</div></div>
         <div class="form-row"><label class="form-label">Reagent Lot Number</label><input class="form-input" id="pf-lotNumber" type="text" placeholder="e.g. RGT-2026-04-A"/></div>
@@ -2730,7 +2727,7 @@ function computePredictions() {
       const healthScore = Math.max(0, 100 - flagRate * 70 - contamRate * 100)
       if (healthScore < 70) {
         predictions.push({
-          engine: 'Instrument Health Predictor',
+          engine: 'Laboratory Data Trend',
           icon: '⚠',
           title: `${inst} — declining health score`,
           description: `${inst} has flagged ${d.flagged}/${d.total} samples (${(flagRate * 100).toFixed(0)}%), with ${d.contam} contamination events. Composite health score: ${healthScore.toFixed(0)}/100. Without intervention, more samples will be affected.`,
@@ -3554,21 +3551,21 @@ function renderConnectors() {
     <div class="page-head">
       <div>
         <div class="page-title">Data Sources</div>
-        <div class="page-sub">How JLIGHT gets data — manual entry, file upload, instrument middleware, or system integration</div>
+        <div class="page-sub">How JLIGHT receives existing operational and clinical data for health-intelligence analysis</div>
       </div>
     </div>
     <div class="form-card" style="max-width:none;margin-bottom:18px;background:var(--purple-bg);border-color:rgba(167,139,250,0.18)">
       <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;color:var(--purple)">How JLIGHT works</div>
       <div style="font-size:13px;color:var(--text);line-height:1.65">
         JLIGHT is a <strong>read-only intelligence layer</strong> that sits above your existing systems. It does not replace your LIS, CTMS, or HIS — it ingests data they produce and applies real-time analysis.<br><br>
-        Data reaches JLIGHT through one of four pathways: <strong>(1) manual entry</strong> via the forms in this app, <strong>(2) CSV / file upload</strong> from any system that exports data, <strong>(3) instrument middleware</strong> for direct lab analyser feeds, or <strong>(4) standards-based integration</strong> via HL7 v2.5, FHIR R4, or REST APIs for full automation.<br><br>
+        JLIGHT does not collect specimens, run tests, control laboratory instruments, or process samples. It analyses data entered or exported by existing systems. Supported data-ingestion pathways must be configured and validated before being represented as live integrations.<br><br>
         Every data point — however it enters — flows through the same intelligence engines that produce Decision Cards.
       </div>
     </div>
     <div class="connector-grid">
       <div class="connector"><div class="connector-head"><div class="connector-name">Manual Entry</div><div class="connector-status active">Active</div></div><div class="connector-desc">The simplest pathway. Operators register samples / log visits / log events directly in JLIGHT. Useful for facilities without LIMS, paper-based workflows, or as backup during system downtime.</div><div class="connector-detail">PATHWAY · Forms in this app · zero infrastructure required</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">CSV / File Upload</div><div class="connector-status ready">Ready</div></div><div class="connector-desc">Bulk import from any system that exports tabular data. JLIGHT auto-maps columns, validates, and runs analysis on every row. Works with QC logs, instrument exports, trial visit registers.</div><div class="connector-detail">PATHWAY · Settings → Import CSV · supports .csv, .xlsx, .tsv</div></div>
-      <div class="connector"><div class="connector-head"><div class="connector-name">Instrument Middleware</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Direct integration with laboratory analyser middleware (Roche cobas IT, Sysmex SNCS, Abbott AlinIQ, Beckman REMISOL). JLIGHT subscribes to result and QC streams in real time — no manual entry for connected instruments.</div><div class="connector-detail">PROTOCOL · TCP/IP · ASTM 1394 · vendor-specific drivers</div></div>
+      
       <div class="connector"><div class="connector-head"><div class="connector-name">HL7 v2.5 Listener</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Standards-based integration with any LIS supporting HL7 messaging — virtually all modern lab systems. JLIGHT runs an MLLP listener and parses ORU^R01 result messages, OML^O21 orders, and ADT events.</div><div class="connector-detail">PROTOCOL · HL7 v2.5 · MLLP port 2575 · TLS optional</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">FHIR R4</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Modern hospital systems and EMRs (Meditech, Epic, Oracle Cerner, openEHR) speak FHIR. JLIGHT consumes Observation, Patient, ServiceRequest, DiagnosticReport resources and triggers analysis.</div><div class="connector-detail">PROTOCOL · FHIR R4 · REST/JSON · OAuth 2.0</div></div>
       <div class="connector"><div class="connector-head"><div class="connector-name">CTMS / Trial Database</div><div class="connector-status ready">Ready · setup required</div></div><div class="connector-desc">Connects to clinical trial management systems (Veeva, Medidata Rave, OpenClinica, REDCap) via REST API. JLIGHT polls visit schedules, consent logs, protocol deviations.</div><div class="connector-detail">PROTOCOL · REST API · token auth · polling configurable</div></div>
