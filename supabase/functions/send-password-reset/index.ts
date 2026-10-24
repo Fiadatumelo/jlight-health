@@ -65,21 +65,12 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
   }
 
-  // Prefer the dedicated sender, but fall back to Supabase Auth SMTP if
-  // Resend secrets are not configured. This avoids making recovery depend on
-  // a second email provider when Auth SMTP is already correctly configured.
+  // Do not silently fall back to Supabase's built-in mailer: it may be
+  // restricted or unconfigured and can accept requests without delivering
+  // mail. Require the dedicated sender and report a configuration failure.
   if (!resendApiKey || !fromEmail || !serviceRoleKey) {
-    const authClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await authClient.auth.resetPasswordForEmail(email, {
-      redirectTo: origin + "/?type=recovery",
-    });
-    if (error) {
-      console.error("[send-password-reset] Supabase Auth SMTP fallback failed.");
-      return json({ error: "Password-reset email could not be requested. Check Supabase Auth SMTP settings or configure the dedicated email sender." }, 503, origin);
-    }
-    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+    console.error("[send-password-reset] Dedicated email sender is not fully configured.");
+    return json({ error: "Password recovery email is temporarily unavailable. Please try again later." }, 503, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
