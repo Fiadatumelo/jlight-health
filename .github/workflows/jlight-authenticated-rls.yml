@@ -33,7 +33,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$JLIGH_STAGING_DATABASE_URL" || true
           if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" || -z "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
             echo "::error::Configure JLIGHT_STAGING_DATABASE_URL, JLIGHT_STAGING_PROJECT_REF and JLIGHT_PRODUCTION_PROJECT_REF secrets before release validation."
             exit 1
