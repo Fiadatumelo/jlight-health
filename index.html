@@ -407,29 +407,6 @@ a { color:var(--blue); }
 button,input,select,textarea { transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease; }
 
 
-/* Dashboard quick navigation: large targets, clear hierarchy, colour-coded */
-.jlight-launchpad { margin:20px 0 24px; padding:20px; background:#fff; border:1px solid #e3e9f3; border-radius:16px; box-shadow:0 6px 22px rgba(28,43,72,.035); }
-.jlight-launchpad-head { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,280px); gap:8px 18px; align-items:end; margin-bottom:16px; }
-.jlight-search-label { grid-column:2; grid-row:1; font-size:11px; font-weight:700; color:#526078; margin-bottom:48px; }
-.jlight-nav-search { grid-column:2; grid-row:1; align-self:end; margin-bottom:0; min-height:42px; background:#f7f9fd!important; color:#182338!important; border:1px solid #dce4f0!important; border-radius:10px!important; padding:10px 12px!important; }
-.jlight-quick-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
-.jlight-quick-card { min-width:0; display:flex; align-items:center; gap:11px; padding:15px 12px; text-align:left; border:1px solid #e3e9f3; border-radius:12px; background:#fff; color:#182338; cursor:pointer; transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease; }
-.jlight-quick-card:hover { transform:translateY(-2px); box-shadow:0 8px 22px rgba(28,43,72,.08); border-color:#b9c9e2; }
-.jlight-quick-card:focus-visible { outline:3px solid rgba(40,91,197,.42); outline-offset:2px; }
-.jlight-quick-card[hidden] { display:none; }
-.jlight-quick-card>span:nth-child(2) { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
-.jlight-quick-card strong { font-size:12px; line-height:1.35; }
-.jlight-quick-card small { color:#64718a; font-size:10px; line-height:1.45; }
-.jlight-quick-icon { display:flex; flex:0 0 38px; width:38px; height:38px; align-items:center; justify-content:center; border-radius:11px; font-size:12px; font-weight:800; background:#e8f1ff; color:#285bc5; }
-.jlight-quick-arrow { color:#8993a7; font-size:17px; }
-.quick-blue { border-top:3px solid #285bc5; } .quick-blue .jlight-quick-icon { background:#e8f1ff;color:#285bc5; }
-.quick-purple { border-top:3px solid #7044b8; } .quick-purple .jlight-quick-icon { background:#efe8fb;color:#7044b8; }
-.quick-green { border-top:3px solid #16794b; } .quick-green .jlight-quick-icon { background:#e4f6ed;color:#16794b; }
-.quick-amber { border-top:3px solid #b86b00; } .quick-amber .jlight-quick-icon { background:#fff0da;color:#9a5900; }
-.quick-teal { border-top:3px solid #087f8c; } .quick-teal .jlight-quick-icon { background:#e0f5f4;color:#087f8c; }
-.jlight-no-results { padding:18px; text-align:center; color:#64718a; font-size:13px; }
-@media(max-width:1100px) { .jlight-quick-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:620px) { .jlight-launchpad { padding:14px; } .jlight-launchpad-head { grid-template-columns:1fr; } .jlight-search-label { grid-column:1; grid-row:auto; margin:4px 0 -6px; } .jlight-nav-search { grid-column:1; grid-row:auto; } .jlight-quick-grid { grid-template-columns:1fr; } .jlight-quick-card { padding:13px; } }
 
 
 /* JLIGHT visual refresh: high-contrast, multicolour, keyboard-friendly */
@@ -456,11 +433,6 @@ button,.btn,.sb-link,.role-btn { transition:background-color .16s ease,border-co
 .btn-primary { background:linear-gradient(110deg,#087f8c,#456ee8 62%,#7756d8); border-color:transparent; color:#fff; }
 .btn-primary:hover { filter:brightness(1.12); }
 .form-card,.kpi-card,.panel,.stat-card { border-color:rgba(173,198,235,.16); }
-.jlight-launchpad { border-color:rgba(112,167,255,.25); }
-.jlight-quick-card:nth-child(4n+1) { border-top:2px solid #31d6c5; }
-.jlight-quick-card:nth-child(4n+2) { border-top:2px solid #70a7ff; }
-.jlight-quick-card:nth-child(4n+3) { border-top:2px solid #c1a3ff; }
-.jlight-quick-card:nth-child(4n+4) { border-top:2px solid #ffc15a; }
 .section-title,.page-title,.auth-title,.sb-brand-name { font-family:'Plus Jakarta Sans','Inter',sans-serif; letter-spacing:-.025em; }
 .section-title { color:#f4f7ff; }
 .form-label,.sb-section { letter-spacing:.07em; }
@@ -663,21 +635,6 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 
 <div id="screen-app" class="app-screen">
   <div class="layout">
-    <div id="ws-modal" style="display:none;position:fixed;inset:0;background:rgba(5,8,15,0.92);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(4px)">
-      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:36px;width:100%;max-width:420px;box-shadow:0 40px 100px rgba(0,0,0,0.5)">
-        <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;text-align:center;margin-bottom:18px">Switch Workspace</div>
-        <div style="background:var(--blue-bg,rgba(45,140,255,0.08));border:1px solid rgba(45,140,255,0.2);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12.5px;line-height:1.55">
-          <span style="font-weight:700">One JLIGHT account:</span> Switch between modules without signing out. Your organisation and its access controls remain in place; clinical-trial participant data stays permission-restricted.
-        </div>
-        <div style="display:grid;gap:10px;margin-bottom:16px">
-          <button onclick="doSwitchWorkspace('Laboratory')" class="role-btn"><div class="role-icon lab">LAB</div><div class="role-info"><div class="role-name">Laboratory</div></div><div class="role-arrow">&#8594;</div></button>
-          <button onclick="doSwitchWorkspace('Trial')" class="role-btn"><div class="role-icon trial">TRL</div><div class="role-info"><div class="role-name">Clinical Trial</div></div><div class="role-arrow">&#8594;</div></button>
-          <button onclick="doSwitchWorkspace('Hospital')" class="role-btn"><div class="role-icon hospital">HOS</div><div class="role-info"><div class="role-name">Hospital Operations</div></div><div class="role-arrow">&#8594;</div></button>
-          <button onclick="doSwitchWorkspace('Bioinformatics')" class="role-btn"><div class="role-icon bio">BIO</div><div class="role-info"><div class="role-name">Bioinformatics</div></div><div class="role-arrow">&#8594;</div></button>
-        </div>
-        <button onclick="closeWsModal()" class="btn" style="width:100%;justify-content:center">Cancel</button>
-      </div>
-    </div>
     <aside class="sidebar" id="sidebar">
       <div class="sb-brand">
         <div class="sb-brand-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
@@ -696,7 +653,6 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
             <div class="sb-userrole" id="sb-userrole">role</div>
           </div>
         </div>
-        <button onclick="openWsModal()" style="width:100%;padding:7px 12px;border-radius:7px;font-size:11px;font-weight:700;border:1px solid var(--border-2);background:var(--surface-3);color:var(--text-2);cursor:pointer;margin-bottom:6px;font-family:Syne,sans-serif">&#8644; Switch workspace</button>
         <button class="sb-signout" onclick="signOut()">Sign out</button>
       </div>
     </aside>
@@ -1488,72 +1444,6 @@ function doOfflineMode() {
   showScreen('screen-pin')
 }
 
-function openWsModal() {
-  const m = document.getElementById('ws-modal')
-  if (m) m.style.display = 'flex'
-}
-function closeWsModal() {
-  const m = document.getElementById('ws-modal')
-  if (m) m.style.display = 'none'
-}
-
-async function doSwitchWorkspace(targetRole) {
-  closeWsModal()
-  if (!Object.prototype.hasOwnProperty.call(ROLES, targetRole)) {
-    toast('Unknown JLIGHT module', 'Choose a listed module.', 'error')
-    return
-  }
-  if (targetRole === STATE.role) {
-    toast('Already in ' + ROLES[targetRole].label, '', 'good')
-    return
-  }
-
-  // Validate authentication before changing the active module. A module switch
-  // must never sign out, create another organisation, or mutate org membership.
-  const sb = getSupabase()
-  if (MODE.isOnline) {
-    if (!sb) { toast('Backend unavailable', 'Your current module has not been changed.', 'error'); return }
-    try {
-      const { data, error } = await sb.auth.getSession()
-      if (error) throw error
-      if (!data?.session?.user?.id) throw new Error('Your session has expired. Sign in again.')
-      if (!MODE.organisationId) {
-        const meta = data.session.user.user_metadata || {}
-        if (meta.org_id) {
-          MODE.organisationId = meta.org_id
-          MODE.organisationName = meta.org_name || 'JLIGHT Health Intelligence Platform'
-          MODE.organisationCode = meta.org_code || ''
-        } else {
-          await ensureJlightOrganisation(data.session.user, {
-            org: 'JLIGHT Health Intelligence Platform',
-            role: data.session.user.user_metadata?.role || 'Laboratory',
-            orgCode: data.session.user.user_metadata?.org_code || ''
-          })
-        }
-      }
-      if (!MODE.organisationId) throw new Error('Your organisation could not be resolved. No module changes were made.')
-    } catch (e) {
-      toast('Cannot open module', e.message || 'Please sign in again.', 'error')
-      return
-    }
-  }
-
-  const previousRole = STATE.role
-  STORAGE.saveSamples(previousRole, STATE.samples)
-  STORAGE.saveEntries(previousRole, STATE.entries)
-  STORAGE.saveCards(previousRole, STATE.cards)
-  STORAGE.saveAudit(previousRole, STATE.audit)
-  STATE.role = targetRole
-  try {
-    await enterApp()
-    try { await audit('Module switch', previousRole + ' -> ' + targetRole) }
-    catch (auditError) { console.warn('[JLIGHT] Module opened but switch audit could not be saved:', auditError.message) }
-  } catch (e) {
-    STATE.role = previousRole
-    toast('Module could not be opened', e.message || 'Your previous module remains selected.', 'error')
-  }
-}
-
 function chooseRole(r) { /* legacy — offline mode uses pin screen */ }
 function goBackToRoles() { showScreen('screen-signin') }
 function pinPress(d) {
@@ -1833,7 +1723,6 @@ console.log('v9.0 · Health Intelligence Platform · Production build')
 // ═══════════════════════════════════════════════════════════
 function filterJlightQuickLinks(query) {
   const q = String(query || '').trim().toLowerCase()
-  const cards = Array.from(document.querySelectorAll('#jlight-quick-grid [data-search]'))
   let visible = 0
   cards.forEach(card => {
     const show = !q || (card.dataset.search + ' ' + card.textContent).toLowerCase().includes(q)
