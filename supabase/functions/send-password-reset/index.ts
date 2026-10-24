@@ -48,10 +48,7 @@ Deno.serve(async (req: Request) => {
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   const fromEmail = Deno.env.get("JLIGHT_FROM_EMAIL");
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) return json({ error: "Password recovery is not configured" }, 503, origin);
-  if (!resendApiKey || !fromEmail) {
-    return json({ error: "Password-recovery email delivery is not configured. Configure RESEND_API_KEY and JLIGHT_FROM_EMAIL in Supabase Edge Function secrets." }, 503, origin);
-  }
+  if (!supabaseUrl || !anonKey) return json({ error: "Password recovery is not configured" }, 503, origin);
 
   let email = "";
   try {
@@ -63,6 +60,23 @@ Deno.serve(async (req: Request) => {
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "Enter a valid email address" }, 400, origin);
   }
+  // Prefer the dedicated sender, but fall back to Supabase Auth SMTP if
+  // Resend secrets are not configured. This avoids making recovery depend on
+  // a second email provider when Auth SMTP is already correctly configured.
+  if (!resendApiKey || !fromEmail || !serviceRoleKey) {
+    const authClient = createClient(supabaseUrl, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await authClient.auth.resetPasswordForEmail(email, {
+      redirectTo: origin + "/?type=recovery",
+    });
+    if (error) {
+      console.error("[send-password-reset] Supabase Auth SMTP fallback failed.");
+      return json({ error: "Password-reset email could not be requested. Check Supabase Auth SMTP settings or configure the dedicated email sender." }, 503, origin);
+    }
+    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+  }
+
   const clientIp = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
   if (rateLimited(clientIp)) {
     return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
