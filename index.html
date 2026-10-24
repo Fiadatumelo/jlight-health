@@ -642,6 +642,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
         </select>
       </div>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px">
+      <button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button>
+    </div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
@@ -1419,6 +1422,39 @@ async function ensureJlightOrganisation(user, options = {}) {
   if (metadataError) throw new Error('Workspace created, but account metadata could not be updated: ' + metadataError.message)
   await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
 }
+async function sendOrganisationCodeEmail() {
+  const sb = getSupabase()
+  const status = document.getElementById('si-status')
+  const setStatus = (message, kind = '') => {
+    if (!status) return
+    status.textContent = message
+    status.className = 'auth-status' + (kind ? ' ' + kind : '')
+  }
+  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
+  try {
+    const { data, error } = await sb.auth.getSession()
+    if (error) throw error
+    const session = data?.session
+    const orgId = MODE.organisationId || session?.user?.user_metadata?.org_id
+    if (!session?.access_token || !orgId) {
+      setStatus('Sign in to the workspace owner account first, then request the code from Settings → Organisation.', 'error')
+      return
+    }
+    setStatus('Requesting secure organisation-code email…')
+    const response = await fetch(SB_URL + '/functions/v1/send-organisation-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_KEY, 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ organisation_id: orgId })
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || 'Organisation-code email could not be sent.')
+    setStatus('Organisation code emailed to your verified account address.', 'success')
+  } catch (e) {
+    console.error('[JLIGHT] organisation-code request failed:', e)
+    setStatus(e.message || 'Organisation-code email could not be sent.', 'error')
+  }
+}
+
 async function doForgotPassword() {
   const emailInput = document.getElementById('si-email')
   const addr = (emailInput?.value || '').trim()
