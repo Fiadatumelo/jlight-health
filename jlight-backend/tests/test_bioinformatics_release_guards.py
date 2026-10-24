@@ -29,7 +29,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
 
     def test_bioinformatics_analysis_report_exists_and_blocks_trial_workspace(self):
         start = HTML.index("function exportBioReport(entryId)")
-        end = HTML.index("\\nfunction ", start + 1)
+        end = HTML.index("\nfunction ", start + 1)
         report = HTML[start:end]
         self.assertIn("JLIGHT Bioinformatics Analysis Report", report)
         self.assertIn("qcMetrics", report)
@@ -38,7 +38,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
 
     def test_trial_journey_is_isolated_and_matches_exact_patient_id(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\\nfunction ", start + 1)
+        end = HTML.index("\nfunction ", start + 1)
         journey = HTML[start:end]
         self.assertIn("if(STATE.role==='Trial')", journey)
         self.assertIn("String(row.patientId)!==pid", journey)
