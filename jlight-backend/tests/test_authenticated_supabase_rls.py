@@ -1,7 +1,7 @@
 """Authenticated Supabase RLS integration gates.
 
-Run only against a disposable Supabase staging database. Every fixture is wrapped
-in a transaction and rolled back. Never point this test at production.
+Run only against a disposable Supabase staging database. Fixtures stay inside one
+outer transaction and are rolled back at class teardown. Never use production.
 """
 import os
 import unittest
@@ -134,11 +134,10 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                VALUES (%s, %s, %s, 'PATION-TRIAL-001', 'enrolled', %s)""",
             (cls.participant, cls.trial_org, cls.study, cls.a),
         )
-        cls.conn.commit()
 
     def _as_user(self, uid):
         c = self.conn.cursor()
-        c.execute("BEGIN")
+        c.execute("SAVEPOINT rls_test")
         c.execute("SET LOCAL ROLE authenticated")
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (uid,))
         return c
@@ -147,7 +146,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c = self._as_user(self.a)
         c.execute("SELECT id FROM public.jl_patients WHERE mrn = 'PATION-001'")
         self.assertEqual([row[0] for row in c.fetchall()], [self.patient_a])
-        c.execute("ROLLBACK")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
 
     def test_cross_organisation_encounters_and_findings_are_hidden(self):
         c = self._as_user(self.a)
@@ -188,24 +188,9 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if getattr(cls, "conn", None):
-            # Remove all synthetic fixtures explicitly; never leave test patients in staging.
-            try:
-                cls.conn.rollback()
-                c = cls.conn.cursor()
-                c.execute(
-                    "DELETE FROM public.jl_organisations WHERE id IN (%s, %s, %s)",
-                    (cls.org_a, cls.org_b, cls.trial_org),
-                )
-                c.execute(
-                    "DELETE FROM auth.users WHERE id IN (%s, %s)",
-                    (cls.a, cls.b),
-                )
-                cls.conn.commit()
-            except Exception:
-                cls.conn.rollback()
-                raise
-            finally:
-                cls.conn.close()
+            # Roll back all synthetic users, organisations, patients and events at once.
+            cls.conn.rollback()
+            cls.conn.close()
 
 
 if __name__ == "__main__":
