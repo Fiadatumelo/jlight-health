@@ -30,7 +30,7 @@ class FastqValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "reads.fastq.gz"
             with gzip.open(path, "wb") as handle:
-                handle.write(b"@r1\nACGT\n+\n!!!!\n")
+                    handle.write(b"@r1\nACGT\n+\n!!!!\n")
             pipeline.validate_fastq(path)
 
     def test_rejects_invalid_fastq_record(self):
@@ -86,7 +86,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
             r2 = root / "sample_R2.fastq.gz"
             for path in (r1, r2):
                 with gzip.open(path, "wb") as handle:
-                    handle.write(b"@r1\\nACGT\\n+\\n!!!!\\n")
+                    handle.write(b"@r1\nACGT\n+\n!!!!\n")
             outdir = root / "run"
             with patch.dict(os.environ, {"PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")}):
                 with patch("sys.argv", ["tb_pipeline.py", "--sample-id", "SYNTHETIC-TB-01", "--r1", str(r1), "--r2", str(r2), "--outdir", str(outdir), "--threads", "2"]):
