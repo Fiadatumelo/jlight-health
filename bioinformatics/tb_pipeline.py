@@ -40,7 +40,7 @@ def validate_fastq(path: Path) -> None:
             line_no, record = 0, []
             for line in handle:
                 line_no += 1
-                record.append(line.rstrip("\\r\\n"))
+                record.append(line.rstrip("\r\n"))
                 if len(record) == 4:
                     header, sequence, plus, quality = record
                     if not header.startswith("@") or not plus.startswith("+"):
