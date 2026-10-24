@@ -68,6 +68,8 @@ a { color: var(--teal); text-decoration: none; }
 .pin-key:hover { background: var(--surface-4); border-color: var(--border-2); }
 .pin-key:active { transform: scale(0.95); background: var(--teal-bg); border-color: var(--teal); color: var(--teal); }
 .pin-key.empty { visibility: hidden; }
+.auth-link { appearance:none; border:0; padding:0; background:transparent; font:inherit; font-size:12px; color:var(--text-2); cursor:pointer; text-decoration:underline; text-underline-offset:3px; position:relative; z-index:2; pointer-events:auto; }
+.auth-link:hover,.auth-link:focus-visible { color:var(--teal); outline-offset:3px; }
 .auth-status { text-align: center; font-size: 12.5px; margin-top: 16px; min-height: 20px; color: var(--text-2); }
 .auth-status.error { color: var(--red); }
 .auth-status.success { color: var(--green); }
@@ -597,7 +599,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
+      <button type="button" class="auth-link" id="forgot-password-link" onclick="doForgotPassword()" aria-label="Request password reset">Forgot password?</button>
       <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
     </div>
   </div>
@@ -3024,7 +3026,10 @@ function resetSourceImportPreview() {
   const commit = document.getElementById('source-import-commit')
   if (commit) commit.disabled = true
   const el = document.getElementById('source-import-preview')
-  if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  if (el) el.innerHTML = '<p class="source-import-help">Preview cleared. Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  const file = document.getElementById('source-import-file')
+  if (file) file.value = ''
+  SOURCE_IMPORT_FILE_NAME = ''
 }
 function renderConnectors() {
   const page = document.getElementById('page-connectors')
@@ -3040,7 +3045,7 @@ function renderConnectors() {
     '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online or de-identified offline)</option></select></div>' +
     '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
     '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
-    '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
+    '<div class="source-import-actions"><button class="btn" type="button" onclick="previewSourceCsv()">Preview and validate</button><button class="btn" type="button" onclick="resetSourceImportPreview()">Clear preview</button><button class="btn btn-primary" id="source-import-commit" type="button" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
     '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
 }
 function handleSourceImportFile(event) {
