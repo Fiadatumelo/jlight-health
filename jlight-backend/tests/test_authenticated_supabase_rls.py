@@ -155,13 +155,15 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         self.assertEqual([row[0] for row in c.fetchall()], [self.encounter_a])
         c.execute("SELECT id FROM public.jl_intelligence_findings")
         self.assertEqual([row[0] for row in c.fetchall()], [self.finding_a])
-        c.execute("ROLLBACK")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
 
     def test_issue_resolution_history_is_tenant_scoped(self):
         c = self._as_user(self.a)
         c.execute("SELECT id, finding_id FROM public.jl_finding_review_events")
         self.assertEqual(c.fetchall(), [(self.event_a, self.finding_a)])
-        c.execute("ROLLBACK")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
 
     def test_report_permission_allows_owner_and_denies_other_organisation(self):
         c = self._as_user(self.a)
@@ -175,7 +177,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (self.org_b,),
         )
         self.assertFalse(c.fetchone()[0])
-        c.execute("ROLLBACK")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
 
     def test_clinical_trials_records_are_not_visible_from_hospital_membership(self):
         c = self._as_user(self.b)
@@ -183,7 +186,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         self.assertEqual(c.fetchall(), [])
         c.execute("SELECT id FROM public.jl_trial_participants")
         self.assertEqual(c.fetchall(), [])
-        c.execute("ROLLBACK")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
 
     @classmethod
     def tearDownClass(cls):
