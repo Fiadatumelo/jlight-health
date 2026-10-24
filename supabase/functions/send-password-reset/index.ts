@@ -4,7 +4,7 @@ const siteUrl = (Deno.env.get("JLIGHT_SITE_URL") ?? "https://jlight-health.co.za
 const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? (siteUrl + ";https://www.jlight-health.co.za;https://deploy-preview-33--jlight-health.netlify.app"))
   .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
 
-const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\\d+--jlight-health\\.netlify\\.app$/.test(origin);
+const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\d+--jlight-health\.netlify\.app$/.test(origin);
 const corsHeaders = (origin: string) => ({
   "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "null",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
