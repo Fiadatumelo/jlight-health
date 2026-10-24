@@ -4200,42 +4200,40 @@ function bioRecs(e, qcStatus, cards) {
 }
 
 function exportBioReport(entryId) {
-  const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
-  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics')
-  const lines = [
-    '=====================================================',
-    '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
-    '  Generated: '+new Date().toLocaleString(undefined,{hour12:false}),
-    '  Operator: '+getDisplayName(),
-    '=====================================================','',
-    'RUN ID        : '+e.sampleId,
-    'ANALYSIS TYPE : '+(e.analysisType||''),
-    'PLATFORM      : '+(e.platform||''),
-    'PIPELINE      : '+(e.pipeline||''),
-    'REFERENCE     : '+(e.reference||''),
-    'DATE          : '+new Date(e.ts).toLocaleDateString(),'',
-    'QC METRICS','--------------------------------------------------',
-    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(PASS)':'(REVIEW)') : null,
-    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.variantCount) ? '  Variants      : '+Number(e.variantCount).toLocaleString() : null,'',
-    'QC ISSUES','--------------------------------------------------',
-    ...(cards.length===0 ? ['  No QC issues detected.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
-    '','=====================================================',
-    '  JLIGHT - Health Intelligence Platform',
-    '=====================================================',
-  ].filter(x=>x!==null)
-
-  const blob = new Blob([lines.join('\n')], {type:'text/plain'})
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href=url; a.download='JLIGHT-NGS-'+esc(e.sampleId)+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
-  a.click(); URL.revokeObjectURL(url)
-  audit('Bio report exported', e.sampleId+' by '+getDisplayName())
-  toast('Report exported', e.sampleId, 'good')
+  const e = STATE.entries.find(x=>x.id===entryId); if(!e) return;
+  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics');
+  const generatedAt = new Date();
+  const metricRows = [
+    ['Coverage', e.coverage, 'x', Number(e.coverage)>=30?'Pass':'Review'],
+    ['Mapping rate', e.mappingRate, '%', Number(e.mappingRate)>=85?'Pass':'Review'],
+    ['Q-score', e.qscore, '', Number(e.qscore)>=30?'Pass':'Review'],
+    ['Duplication', e.dupRate, '%', Number(e.dupRate)<=20?'Pass':'Review'],
+    ['GC content', e.gcContent, '%', Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+    ['Contamination', e.contamination, '%', Number(e.contamination)<=5?'Pass':'Review'],
+    ['Variant count', e.variantCount, '', 'Review']
+  ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1])));
+  const report = {
+    reportType:'JLIGHT Bioinformatics Analysis Report',
+    reportId:uid(), generatedAt:generatedAt.toISOString(), generatedBy:getDisplayName(),
+    runId:e.sampleId, analysisType:e.analysisType||'Not supplied', platform:e.platform||'Not supplied',
+    pipeline:e.pipeline||'Not supplied', reference:e.reference||'Not supplied',
+    runDate:e.ts?new Date(e.ts).toISOString():null,
+    qcMetrics:metricRows.map(r=>({metric:r[0],value:Number(r[1]),unit:r[2],reviewStatus:r[3]})),
+    qcIssues:cards.map(c=>({severity:c.severity,title:c.title,description:c.description})),
+    limitations:['This report summarises records currently available in JLIGHT; missing metrics are not inferred.',
+      'QC thresholds are screening indicators and must be checked against the validated workflow and assay.',
+      'Research or bioinformatics outputs are not, by themselves, a clinical diagnosis. Expert review is required.']
+  };
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(generatedAt.toLocaleString())+'<br><b>Operator:</b> '+esc(report.generatedBy)+'</p><h2>Run details</h2><table><tbody>'+
+    [['Run ID',report.runId],['Analysis type',report.analysisType],['Platform',report.platform],['Pipeline',report.pipeline],['Reference',report.reference],['Run date',report.runDate?new Date(report.runDate).toLocaleString():'Not supplied']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+
+    '</tbody></table><h2>Quality metrics</h2>'+(report.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+report.qcMetrics.map(r=>'<tr><td>'+esc(r.metric)+'</td><td>'+esc(r.value)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+
+    '<h2>QC issues</h2>'+(report.qcIssues.length?'<table><thead><tr><th>Severity</th><th>Issue</th><th>Details</th></tr></thead><tbody>'+report.qcIssues.map(c=>'<tr><td>'+esc(c.severity)+'</td><td>'+esc(c.title)+'</td><td>'+esc(c.description)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC issue cards are recorded in the current workspace view. This is not proof that no issues exist.</p>')+
+    '<h2>Limitations and review</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  try{audit('Bioinformatics Analysis report generated',report.reportId+' · run '+report.runId);}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
 }
 
 
