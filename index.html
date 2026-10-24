@@ -1886,6 +1886,23 @@ function openPrintableReport(title,bodyHtml) {
   win.document.close();return true;
 }
 
+
+function generateSelectedPatientJourneyReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Clinical Trials remain outside the shared patient journey.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>String(p.id)===pid&&!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
+  if(!patient){toast('Select a patient','Choose a patient before generating the report.','warn');return;}
+  const events=buildPatientJourneyEvents(patient).map(e=>({source:e.source,event:e.label,date:e.when?e.when.toISOString():(e.rawWhen||null),status:e.status||'Recorded',summary:e.summary||'Source summary not supplied'}));
+  const generatedAt=new Date().toISOString();
+  const report={reportType:'JLIGHT Patient Journey Report',reportId:uid(),generatedAt,workspace:STATE.orgName||'Current workspace',generatedBy:getDisplayName(),patientReference:patient.mrn||patient.id,dataCutoff:generatedAt,eventCount:events.length,events,limitations:['Traceability and decision-support summary only; not an autonomous diagnosis.','Events are linked by exact existing patient ID only. Missing records do not indicate negative findings.','Raw sequence reads, sequence files and unrestricted variant files are excluded.','Clinical Trials remain a separate workflow.']};
+  const html='<h1>JLIGHT Patient Journey Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Workspace:</b> '+esc(report.workspace)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Data cut-off:</b> '+esc(new Date(generatedAt).toLocaleString())+'</p><h2>Journey timeline ('+events.length+' events)</h2>'+(events.length?'<table><thead><tr><th>Date</th><th>Source</th><th>Event</th><th>Status</th><th>Summary</th></tr></thead><tbody>'+events.map(e=>'<tr><td>'+esc(e.date?new Date(e.date).toLocaleString():'Date not supplied')+'</td><td>'+esc(e.source)+'</td><td>'+esc(e.event)+'</td><td>'+esc(e.status)+'</td><td>'+esc(e.summary)+'</td></tr>').join('')+'</tbody></table>':'<p>No authorised linked events were found. This is not evidence that no events occurred.</p>')+'<h2>Limitations and privacy</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p>Source systems remain authoritative. Review permissions before sharing.</p>';
+  if(!openPrintableReport('JLIGHT-Patient-Journey-'+String(patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  try{audit('Patient Journey report generated',report.reportId+' · patient reference '+report.patientReference+' · '+events.length+' events')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Patient-Journey-'+new Date(generatedAt).toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  toast('Patient Journey Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
