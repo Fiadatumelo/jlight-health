@@ -10,7 +10,7 @@ This directory contains the first executable pathogen workflow wrapper: MTB FAST
 - TBProfiler (install from its maintained official distribution and configure its reference/mutation database before use)
 - Sufficient isolated compute, scratch storage and private data storage for the dataset size
 
-The wrapper deliberately does not download tools, containers, reference databases or sequence data automatically. Deployment must pin the exact software/container digests and TBProfiler database version in the approved environment. It records tool versions, the selected database identifier, checksums, stage commands, logs and run status in a manifest. The wrapper does not independently resolve the exact TBProfiler database release; the worker image must pin and document that database version before any benchmark or production run.
+The wrapper deliberately does not download tools, containers, reference databases or sequence data automatically. The environment file pins package versions, but deployment must also pin the exact worker image digest and TBProfiler mutation database commit/version. The manifest records tool versions, selected database identifier, checksums, stage commands, logs and run status. It does not independently resolve the exact mutation database release, so no benchmark or production run should be accepted until that value is supplied by the controlled worker configuration.
 
 ## Example
 
