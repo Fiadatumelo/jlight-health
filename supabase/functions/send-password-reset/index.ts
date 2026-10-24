@@ -115,6 +115,5 @@ Deno.serve(async (req: Request) => {
     console.error("[send-password-reset] Email provider rejected message", mail.status, details.slice(0, 300));
     return json({ error: "The reset email service could not send your message. Please try again later." }, 503, origin);
   }
-  }
   return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
 });
