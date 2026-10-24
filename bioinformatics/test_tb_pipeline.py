@@ -107,15 +107,15 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             r1, r2 = root / "r1.fastq", root / "r2.fastq"
-            r1.write_text("@read1/1\nACGT\n+\n!!!!\n@read2/1\nTGCA\n+\n!!!!\n", encoding="ascii")
-            r2.write_text("@read1/2\nACGT\n+\n!!!!\n@read2/2\nTGCA\n+\n!!!!\n", encoding="ascii")
+            r1.write_text("@read1/1\\nACGT\\n+\\n!!!!\\n@read2/1\\nTGCA\\n+\\n!!!!\\n", encoding="ascii")
+            r2.write_text("@read1/2\\nACGT\\n+\\n!!!!\\n@read2/2\\nTGCA\\n+\\n!!!!\\n", encoding="ascii")
             pipeline.validate_fastq(r1)
             pipeline.validate_fastq(r2)
             self.assertEqual(pipeline.validate_paired_fastq(r1, r2), 2)
-            r2.write_text("@other/2\nACGT\n+\n!!!!\n@read2/2\nTGCA\n+\n!!!!\n", encoding="ascii")
+            r2.write_text("@other/2\\nACGT\\n+\\n!!!!\\n@read2/2\\nTGCA\\n+\\n!!!!\\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "out of sync"):
                 pipeline.validate_paired_fastq(r1, r2)
-            r2.write_text("@read1/2\nACGT\n+\n!!!!\n", encoding="ascii")
+            r2.write_text("@read1/2\\nACGT\\n+\\n!!!!\\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "different record counts"):
                 pipeline.validate_paired_fastq(r1, r2)
 
