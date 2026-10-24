@@ -46,6 +46,7 @@ cp .env.example .env
 
 # 4. Run tests
 python3 tests/test_all.py
+python3 -m pytest -q tests/test_api_security.py
 
 # 5. Start server
 python3 api/app.py
@@ -154,6 +155,8 @@ python3 tests/test_all.py
 # Results: 26/26 tests passed
 ```
 
+The API security tests cover public health probes, missing/invalid bearer tokens, verified-session requests, and fail-closed legacy routes. Passing unit tests does not replace staging validation, tenant-isolation tests, or an independent security review.
+
 ## Standards Compliance
 
 - ISO 15189 — QC CV% threshold (3.0%), Westgard implementation
@@ -164,3 +167,10 @@ python3 tests/test_all.py
 
 ---
 Team JLIGHT · Fiada Mothapo · Gauteng, South Africa · 2026
+
+
+## Supabase authentication and release safety
+
+All API routes except `GET /api/health` require a valid Supabase access token. Configure `SUPABASE_URL` (and only if needed `SUPABASE_JWKS_URL`, `SUPABASE_JWT_ISSUER`, or a legacy server-side `SUPABASE_JWT_SECRET`) in the hosting environment. Never commit secrets. The frontend must send `Authorization: Bearer <current Supabase access token>`.
+
+The legacy `/api/audit`, `/api/cards`, and `/api/cards/acknowledge` endpoints intentionally return HTTP 503 until organisation-scoped authorization is implemented. Do not disable this safety gate or send identifiable patient data to the backend before tenant-scoped access and staging tests are complete.
