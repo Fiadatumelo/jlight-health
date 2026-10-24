@@ -36,6 +36,15 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         self.assertIn("qcIssues", report)
         self.assertIn("if(STATE.role==='Trial')", report)
 
+    def test_each_patient_journey_offers_both_reports_and_bio_runs_are_linked_by_id(self):
+        self.assertIn("Generate Patient Journey Report", HTML)
+        self.assertIn("Generate Bioinformatics Analysis Report", HTML)
+        self.assertIn("function generateSelectedPatientBioinformaticsReport()", HTML)
+        self.assertIn("patientId: get('bf-patient') || null", HTML)
+        self.assertIn("String(e.orgId||'')===orgId", HTML)
+        self.assertIn("String(p.orgId||'')===orgId", HTML)
+        self.assertIn("String(e.patientId||'')===pid", HTML)
+
     def test_trial_journey_is_isolated_and_matches_exact_patient_id(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
         end = HTML.index("\nfunction ", start + 1)
