@@ -1,0 +1,75 @@
+name: JLIGHT backend tests
+
+on:
+  pull_request:
+    paths:
+      - "jlight-backend/**"
+      - "supabase/**"
+      - "index.html"
+      - ".github/workflows/jlight-backend-tests.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "jlight-backend/**"
+      - "supabase/**"
+      - "index.html"
+      - ".github/workflows/jlight-backend-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inline frontend JavaScript syntax
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          html = pathlib.Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\b([^>]*)>([\s\S]*?)</script\s*>", html, re.I)
+          inline = [body for attrs, body in scripts if not re.search(r"\bsrc\s*=", attrs, re.I) and body.strip()]
+          if not inline:
+              raise SystemExit("No inline application JavaScript found")
+          pathlib.Path("/tmp/jlight-inline.js").write_text("\n;\n".join(inline), encoding="utf-8")
+          print(f"Checking {len(inline)} inline script block(s)")
+          PY
+          node --check /tmp/jlight-inline.js
+      - name: Guard existing patient schema compatibility
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          foundation = Path("supabase/migrations/202610220003_cross_section_intelligence_foundation.sql").read_text(encoding="utf-8")
+          integrity = Path("supabase/migrations/202610220004_cross_section_integrity_guards.sql").read_text(encoding="utf-8")
+          if "CREATE TABLE IF NOT EXISTS public.jl_patients" in foundation:
+              raise SystemExit("Integration must reuse the existing jl_patients table")
+          if "'jl_patients'" in foundation:
+              raise SystemExit("Integration must not force RLS on the existing jl_patients table")
+          if "p.organisation_id" in foundation or "p.organisation_id" in integrity:
+              raise SystemExit("Existing jl_patients uses org_id, not organisation_id")
+          if "p.org_id" not in foundation or "p.org_id" not in integrity:
+              raise SystemExit("Patient organisation-integrity guards must validate against org_id")
+          print("Existing patient schema compatibility checks passed")
+          PY
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: jlight-backend/requirements.txt
+      - name: Install backend dependencies
+        working-directory: jlight-backend
+        run: python -m pip install -r requirements.txt pytest
+      - name: Run analytical engine regression tests
+        working-directory: jlight-backend
+        run: python tests/test_all.py
+      - name: Run API authentication regression tests
+        working-directory: jlight-backend
+        run: python -m pytest -q tests/test_api_security.py
