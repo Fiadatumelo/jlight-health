@@ -10,6 +10,7 @@ import argparse
 import gzip
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -141,6 +142,7 @@ def main() -> int:
     parser.add_argument("--single-end", action="store_true")
     parser.add_argument("--threads", type=int, default=4)
     parser.add_argument("--db", default="who_v2+", help="Installed TBProfiler database identifier")
+    parser.add_argument("--db-version", default=os.environ.get("TBPROFILER_DB_COMMIT"), help="Exact TBProfiler mutation database commit loaded in this environment")
     args = parser.parse_args()
     if not args.sample_id.strip() or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for c in args.sample_id):
         parser.error("sample-id may contain only letters, digits, dot, underscore and hyphen")
@@ -179,7 +181,7 @@ def main() -> int:
             "workflow": "jlight-mtb-research",
             "platform": "illumina",
             "database": args.db,
-            "database_version": "not independently resolved by this wrapper; pin the installed TBProfiler database in the worker image before release",
+            "database_version": args.db_version or "UNPINNED: exact mutation database commit was not supplied",
             "threads": args.threads,
             "paired_record_count": paired_record_count,
             "intended_use": "research_and_technical_review_only",
