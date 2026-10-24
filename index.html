@@ -1335,6 +1335,10 @@ async function sendOrganisationCodeEmail() {
     })
     const result = await response.json().catch(() => ({}))
     if (!response.ok) throw new Error(result.error || 'Organisation-code email could not be sent.')
+    if (result.email_sent === false && result.organisation_code) {
+      setStatus('Email delivery is not configured. Your organisation code is: ' + result.organisation_code + '. Copy it now and share it only with authorised colleagues.', 'error')
+      return
+    }
     setStatus('Organisation code emailed to your verified account address.', 'success')
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
 }
