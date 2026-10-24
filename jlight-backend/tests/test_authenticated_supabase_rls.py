@@ -133,6 +133,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (cls.event_a, cls.org_a, cls.finding_a, cls.a),
             (cls.event_b, cls.org_b, cls.finding_b, cls.b),
         ):
+            # Review-event trigger enforces that actor_user_id matches auth.uid().
+            c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (uid,))
             c.execute(
                 """INSERT INTO public.jl_finding_review_events
                    (id, organisation_id, finding_id, action, note, actor_user_id)
