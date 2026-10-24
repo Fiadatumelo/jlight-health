@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
 PIPELINE = (ROOT / "bioinformatics" / "tb_pipeline.py").read_text(encoding="utf-8")
 
