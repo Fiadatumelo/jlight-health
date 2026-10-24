@@ -68,6 +68,17 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    VALUES (%s, %s, %s, %s, %s, 'multi')""",
                 (org_id, name, role, email, uid),
             )
+        # Ensure the newer membership model exists for the two hospital users.
+        # The legacy trigger may intentionally skip mapping depending on org role/type.
+        c.execute(
+            """INSERT INTO public.jlight_organization_memberships
+               (organization_id, auth_subject, role, active, created_by)
+               VALUES (%s, %s, 'hospital', true, %s),
+                      (%s, %s, 'hospital', true, %s)
+               ON CONFLICT (organization_id, auth_subject)
+               DO UPDATE SET role = EXCLUDED.role, active = true""",
+            (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b),
+        )
         # The patients_org policy additionally requires a current organisation
         # in jl_user_profiles; use one active profile per synthetic user.
         for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b)):
@@ -89,16 +100,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                                      can_report = EXCLUDED.can_report""",
                     (org_id, uid, domain, uid),
                 )
-        c.execute(
-            """INSERT INTO public.jlight_membership_domain_permissions
-               (organization_id, auth_subject, domain, can_read, can_write, can_report, granted_by)
-               VALUES (%s, %s, 'clinical_trials', true, true, true, %s)
-               ON CONFLICT (organization_id, auth_subject, domain)
-               DO UPDATE SET can_read = EXCLUDED.can_read,
-                             can_write = EXCLUDED.can_write,
-                             can_report = EXCLUDED.can_report""",
-            (cls.trial_org, cls.a, cls.a),
-        )
+        # Trial organisation is intentionally not added to the hospital-domain membership model.
         c.execute(
             """INSERT INTO public.jl_patients (id, org_id, mrn, full_name)
                VALUES (%s, %s, 'PATION-001', 'PATION-001'), (%s, %s, 'PATION-001', 'PATION-001')""",
