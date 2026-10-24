@@ -897,10 +897,18 @@ function showScreen(name) {
   else console.warn('[JLIGHT] screen not found:', id)
 }
 // ─── Supabase client (lazy init) ───
-const BACKEND = {
-  url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
-  key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
-}
+// Never point deploy previews or local development at production auth/data.
+const PRODUCTION_HOSTS = new Set(['jlight-health.co.za', 'www.jlight-health.co.za'])
+const IS_PRODUCTION_HOST = PRODUCTION_HOSTS.has(window.location.hostname.toLowerCase())
+const BACKEND = IS_PRODUCTION_HOST
+  ? {
+      url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
+      key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
+    }
+  : {
+      url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
+      key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
+    }
 const MODE = { isOnline: true, organisationName: null, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
