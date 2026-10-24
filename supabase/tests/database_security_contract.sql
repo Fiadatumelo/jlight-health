@@ -1,6 +1,6 @@
 -- Run with Supabase CLI: supabase test db
 BEGIN;
-SELECT plan(16);
+SELECT plan(23);
 
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
@@ -68,6 +68,36 @@ SELECT ok(
 SELECT ok(
   EXISTS (SELECT 1 FROM pg_trigger WHERE tgname='jl_organisation_owner_membership_seed' AND NOT tgisinternal),
   'new organisations automatically receive an owner membership'
+);
+
+
+SELECT ok(
+  has_function_privilege('authenticated','public.jlight_has_domain_permission(uuid,text,text)','EXECUTE'),
+  'authenticated requests can evaluate only their own explicit domain grants'
+);
+SELECT ok(
+  NOT has_function_privilege('anon','public.jlight_has_domain_permission(uuid,text,text)','EXECUTE'),
+  'anonymous users cannot evaluate domain grants'
+);
+SELECT ok(
+  has_function_privilege('authenticated','public.jlight_finding_domain_access(uuid,uuid,text)','EXECUTE'),
+  'authenticated requests can use the source-domain finding access guard'
+);
+SELECT ok(
+  NOT has_function_privilege('anon','public.jlight_finding_domain_access(uuid,uuid,text)','EXECUTE'),
+  'anonymous users cannot use the finding access guard'
+);
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_source_observations' AND policyname='jlight_observations_domain_read' AND permissive='RESTRICTIVE'),
+  'source observation reads are restricted by explicit domain grants'
+);
+SELECT ok(
+  EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='jl_intelligence_findings' AND policyname='jlight_findings_domain_read' AND permissive='RESTRICTIVE'),
+  'cross-section findings are restricted by all cited source domains'
+);
+SELECT ok(
+  position('jlight_finding_domain_access' in pg_get_functiondef('public.jl_review_intelligence_finding(uuid,text,text)'::regprocedure)) > 0,
+  'SECURITY DEFINER finding review RPC independently enforces source-domain permissions'
 );
 
 SELECT * FROM finish();
