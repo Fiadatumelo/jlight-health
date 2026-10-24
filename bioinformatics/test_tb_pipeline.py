@@ -100,6 +100,20 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
             self.assertEqual(len(manifest["stages"]), 4)
             self.assertTrue((outdir / "qc" / "multiqc_report.html").exists())
 
+
+    def test_failed_stage_preserves_stage_details(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script = root / "fail-tool"
+            script.write_text("#!/bin/sh\necho deliberate-failure\nexit 7\n", encoding="utf-8")
+            script.chmod(0o755)
+            log = root / "failure.log"
+            with self.assertRaises(pipeline.StageFailure) as raised:
+                pipeline.run_stage("intentional-failure", [str(script)], root, log)
+            self.assertEqual(raised.exception.stage["status"], "failed")
+            self.assertEqual(raised.exception.stage["exit_code"], 7)
+            self.assertTrue(log.exists())
+
     def test_rejects_wrong_extension(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "reads.bam"
