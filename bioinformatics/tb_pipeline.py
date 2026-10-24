@@ -53,6 +53,43 @@ def validate_fastq(path: Path) -> None:
     except (OSError, EOFError, UnicodeError) as exc:
         raise ValueError(f"Invalid or truncated FASTQ file: {path.name}") from exc
 
+def _fastq_records(path: Path):
+    """Yield normalised read identifiers after structural validation."""
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="ascii", errors="strict") as handle:
+        while True:
+            header = handle.readline()
+            if not header:
+                return
+            sequence = handle.readline()
+            plus = handle.readline()
+            quality = handle.readline()
+            if not quality:
+                raise ValueError(f"Truncated FASTQ record at end of file: {path.name}")
+            token = header[1:].strip().split()[0]
+            # Illumina identifiers can encode mate as /1 or /2, or as a
+            # second whitespace-delimited token (1:N:... / 2:N:...).
+            token = token.removesuffix("/1").removesuffix("/2")
+            yield token
+
+
+def validate_paired_fastq(r1: Path, r2: Path) -> int:
+    """Validate pair counts and read-name synchronization without loading reads."""
+    left = _fastq_records(r1)
+    right = _fastq_records(r2)
+    count = 0
+    while True:
+        a = next(left, None)
+        b = next(right, None)
+        if a is None and b is None:
+            return count
+        if a is None or b is None:
+            raise ValueError("Paired FASTQ files contain different record counts")
+        if a != b:
+            raise ValueError(f"Paired FASTQ read names are out of sync at record {count + 1}")
+        count += 1
+
+
 def version(command: list[str]) -> str:
     try:
         result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=30)
@@ -127,6 +164,9 @@ def main() -> int:
     try:
         for read in reads:
             validate_fastq(read)
+        paired_record_count = None
+        if not args.single_end:
+            paired_record_count = validate_paired_fastq(args.r1, args.r2)
         tool_versions = {
             "fastqc": version(["fastqc", "--version"]),
             "multiqc": version(["multiqc", "--version"]),
@@ -141,6 +181,7 @@ def main() -> int:
             "database": args.db,
             "database_version": "not independently resolved by this wrapper; pin the installed TBProfiler database in the worker image before release",
             "threads": args.threads,
+            "paired_record_count": paired_record_count,
             "intended_use": "research_and_technical_review_only",
             "status": "running",
             "input_files": [{"name": p.name, "size_bytes": p.stat().st_size, "sha256": sha256(p)} for p in reads],
