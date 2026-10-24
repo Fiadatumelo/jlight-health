@@ -34,14 +34,14 @@ class FastqValidationTests(unittest.TestCase):
     def test_rejects_invalid_fastq_record(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "bad.fastq"
-            path.write_text("not-a-header\\nACGT\\n+\\n!!!!\\n", encoding="ascii")
+            path.write_text("not-a-header\nACGT\n+\n!!!!\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "record structure"):
                 pipeline.validate_fastq(path)
 
     def test_rejects_truncated_fastq_record(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "truncated.fastq"
-            path.write_text("@r1\\nACGT\\n+\\n", encoding="ascii")
+            path.write_text("@r1\nACGT\n+\n", encoding="ascii")
             with self.assertRaisesRegex(ValueError, "sequence/quality length|Truncated FASTQ"):
                 pipeline.validate_fastq(path)
 
