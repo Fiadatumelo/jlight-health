@@ -1903,6 +1903,37 @@ function generateSelectedPatientJourneyReport() {
   toast('Patient Journey Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
 }
 
+function generateSelectedPatientBioinformaticsReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
+  if(STATE.role!=='Bioinformatics'){toast('Permission required','Generate this report from an authorised Bioinformatics workspace.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>p&&!p.archivedAt&&String(p.id)===pid&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation first.','warn');return;}
+  const entries=(STATE.entries||[]).filter(e=>e&&e.role==='Bioinformatics'&&String(e.orgId||'')===String(STATE.orgId||'')&&String(e.patientId||'')===pid).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
+  if(!entries.length){toast('No linked analysis','Record a Bioinformatics run and link it to this exact patient reference first.','warn');return;}
+  const generatedAt=new Date().toISOString();
+  const analyses=entries.map(e=>{
+    const cards=(STATE.cards||[]).filter(card=>card&&card.role==='Bioinformatics'&&Math.abs((Number(card.ts)||0)-(Number(e.ts)||0))<120000);
+    const metrics=[
+      ['Coverage',e.coverage,'x',Number(e.coverage)>=30?'Pass':'Review'],
+      ['Mapping rate',e.mappingRate,'%',Number(e.mappingRate)>=85?'Pass':'Review'],
+      ['Q-score',e.qscore,'',Number(e.qscore)>=30?'Pass':'Review'],
+      ['Duplication',e.dupRate,'%',Number(e.dupRate)<=20?'Pass':'Review'],
+      ['GC content',e.gcContent,'%',Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+      ['Contamination',e.contamination,'%',Number(e.contamination)<=5?'Pass':'Review'],
+      ['Variant count',e.variantCount,'','Review']
+    ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1]))).map(row=>({metric:row[0],value:Number(row[1]),unit:row[2],reviewStatus:row[3]}));
+    return {runId:String(e.sampleId||'Not supplied'),analysisType:e.analysisType||'Not supplied',platform:e.platform||'Not supplied',pipeline:e.pipeline||'Not supplied',reference:e.reference||'Not supplied',runDate:e.ts?new Date(e.ts).toISOString():null,qcMetrics:metrics,qcIssues:cards.map(card=>({severity:card.severity,title:card.title,description:card.description}))};
+  });
+  const report={reportType:'JLIGHT Bioinformatics Analysis Report',reportId:uid(),generatedAt,generatedBy:getDisplayName(),organisationReference:STATE.orgName||'Current organisation',patientReference:String(patient.mrn||patient.id),analysisCount:analyses.length,analyses,limitations:['This report summarises Bioinformatics records explicitly linked by exact patient ID within the current organisation.','Missing metrics are not inferred; missing source records do not indicate a negative result.','QC thresholds are screening indicators and must be checked against the validated workflow and assay.','This report is not a clinical diagnosis; expert review is required.']};
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Organisation:</b> '+esc(report.organisationReference)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Linked analysis runs:</b> '+analyses.length+'</p>'+analyses.map((analysis,index)=>'<h2>Analysis '+(index+1)+': '+esc(analysis.runId)+'</h2><p><b>Type:</b> '+esc(analysis.analysisType)+' · <b>Platform:</b> '+esc(analysis.platform)+' · <b>Pipeline:</b> '+esc(analysis.pipeline)+' · <b>Reference:</b> '+esc(analysis.reference)+'<br><b>Run date:</b> '+esc(analysis.runDate?new Date(analysis.runDate).toLocaleString():'Not supplied')+'</p>'+(analysis.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+analysis.qcMetrics.map(metric=>'<tr><td>'+esc(metric.metric)+'</td><td>'+esc(metric.value)+'</td><td>'+esc(metric.unit)+'</td><td>'+esc(metric.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+(analysis.qcIssues.length?'<ul>'+analysis.qcIssues.map(issue=>'<li>'+esc(issue.severity)+' · '+esc(issue.title)+' · '+esc(issue.description)+'</li>').join('')+'</ul>':'<p>No linked QC issue cards were found for this run; this is not proof that no issues exist.</p>')).join('')+'<h2>Limitations and review</h2><ul>'+report.limitations.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  try{audit('Patient-linked Bioinformatics Analysis report generated',report.reportId+' · patient reference '+report.patientReference+' · '+analyses.length+' runs')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Bioinformatics Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -5165,7 +5196,7 @@ function submitBioEntry() {
   if (!sampleId)     { toast('Required', 'Sample/Run ID required', 'crit'); return }
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
   const e = {
-    id: uid(), ts: Date.now(), role: STATE.role, user: getDisplayName(),
+    id: uid(), ts: Date.now(), role: STATE.role, orgId: STATE.orgId, user: getDisplayName(),
     analysisType, sampleId, patientId: get('bf-patient') || null, pipelineStage: 'queued',
     platform: get('bf-platform'), reference: get('bf-ref'),
     coverage: parseFloat(get('bf-cov')), mappingRate: parseFloat(get('bf-map')),
