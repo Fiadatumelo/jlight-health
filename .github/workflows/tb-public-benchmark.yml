@@ -2,9 +2,9 @@ name: JLIGHT TB public-data benchmark
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
-      - feature/bioinformatics-analysis-foundation
+      - main
     paths:
       - "bioinformatics/**"
       - ".github/workflows/tb-public-benchmark.yml"
