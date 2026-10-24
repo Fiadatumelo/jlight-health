@@ -76,7 +76,7 @@ def main() -> int:
         tool_versions = {
             "fastqc": version(["fastqc", "--version"]),
             "multiqc": version(["multiqc", "--version"]),
-            "tb-profiler": version(["tb-profiler", "--version"]),
+            "tb-profiler": version(["tb-profiler", "--help"]),
         }
         manifest = {
             "schema_version": "1.0",
@@ -103,9 +103,9 @@ def main() -> int:
         manifest["stages"].append(run_stage(
             "multiqc", ["multiqc", str(qc), "--outdir", str(qc)],
             args.outdir, logs / "multiqc.log"))
-        cmd = ["tb-profiler", "profile", "--read1", str(args.r1), "--prefix", str(results / args.sample_id)]
+        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "--prefix", str(results / args.sample_id)]
         if not args.single_end:
-            cmd.extend(["--read2", str(args.r2)])
+            cmd.extend(["-2", str(args.r2)])
         manifest["stages"].append(run_stage("tb-profiler", cmd, args.outdir, logs / "tb-profiler.log"))
         manifest["status"] = "completed_pending_expert_review"
         manifest["completed_at"] = datetime.now(timezone.utc).isoformat()
