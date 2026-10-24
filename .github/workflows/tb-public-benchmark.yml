@@ -46,6 +46,7 @@ jobs:
         shell: bash -el {0}
         run: |
           set -euo pipefail
+          export JLIGHT_PRIVATE_DATA_ROOT="$RUNNER_TEMP"
           tb-profiler --version
           DB_COMMIT="$(git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' | awk 'NR==1 {print $1}')"
           test -n "$DB_COMMIT"
