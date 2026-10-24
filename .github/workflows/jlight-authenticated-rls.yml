@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 10
     env:
       JLIGHT_STAGING_DATABASE_URL: ${{ secrets.JLIGHT_STAGING_DATABASE_URL }}
-      JLIGHT_STAGING_PROJECT_REF: ${{ secrets.JLIGHT_STAGING_PROJECT_REF }}
+      JLIGHT_STAGING_PROJECT_REF: ampkysrzliwjtvbigsvu
       JLIGHT_PRODUCTION_PROJECT_REF: ${{ secrets.JLIGHT_PRODUCTION_PROJECT_REF }}
     steps:
       - name: Check out release branch
@@ -34,11 +34,15 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" || -z "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
-            echo "::error::Configure JLIGHT_STAGING_DATABASE_URL, JLIGHT_STAGING_PROJECT_REF and JLIGHT_PRODUCTION_PROJECT_REF secrets before release validation."
+            echo "::error::Configure JLIGHT_STAGING_DATABASE_URL and JLIGHT_PRODUCTION_PROJECT_REF secrets before release validation."
             exit 1
           fi
           if [[ "$JLIGHT_STAGING_PROJECT_REF" == "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
             echo "::error::Refusing to run synthetic RLS fixtures against production."
+            exit 1
+          fi
+          if [[ "$JLIGHT_STAGING_DATABASE_URL" != *"$JLIGHT_STAGING_PROJECT_REF"* ]]; then
+            echo "::error::Staging database URL does not match the verified JLIGHT staging project ref."
             exit 1
           fi
           if [[ "$JLIGHT_STAGING_DATABASE_URL" == *"$JLIGHT_PRODUCTION_PROJECT_REF"* ]]; then
