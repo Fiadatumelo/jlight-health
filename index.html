@@ -478,6 +478,34 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 @media(max-width:700px){.auth-card{padding:22px 16px}.path-picker-grid{grid-template-columns:1fr}}
 .journey-banner{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:22px;margin-bottom:16px;border-radius:16px;color:#fff;background:linear-gradient(115deg,#087f8c,#285bc5 58%,#7044b8);box-shadow:0 12px 28px rgba(40,91,197,.15)}.journey-banner h3{margin:5px 0;font-size:20px}.journey-banner p{font-size:12px;opacity:.9}.journey-eyebrow{font-size:10px;font-weight:800;letter-spacing:.13em;opacity:.8}.journey-badge{padding:7px 10px;border-radius:999px;font-size:11px;font-weight:700;background:rgba(255,255,255,.18);white-space:nowrap}
 .journey-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.journey-metric{display:flex;flex-direction:column;gap:8px;padding:17px;background:#fff;border:1px solid #e2e9f4;border-radius:14px;border-top:3px solid #285bc5}.journey-metric span{color:#526078;font-size:11px;font-weight:700}.journey-metric strong{color:#182338;font-size:29px}.journey-metric small{color:#6d7890;font-size:10px;line-height:1.45}.journey-metric.tone-purple{border-top-color:#7044b8}.journey-metric.tone-amber{border-top-color:#b86b00}.journey-metric.tone-green{border-top-color:#16794b}
+
+.journey-layout{display:grid;grid-template-columns:minmax(245px,310px) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:16px}
+.journey-patient-list,.journey-main .journey-panel{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px;min-width:0}
+.journey-patient-list>.form-input{width:100%;margin:12px 0}
+.journey-patient-choice{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:11px 10px;border:1px solid var(--border);border-radius:10px;margin-top:8px;background:#fff}
+.journey-patient-choice[aria-pressed="true"]{border-color:#4B8EFF;background:#EEF5FF}
+.journey-patient-choice strong,.journey-patient-choice small{display:block}
+.journey-patient-choice strong{font-size:12px;color:var(--text)}
+.journey-patient-choice small{font-size:10.5px;color:var(--text-3);margin-top:3px}
+.journey-choice-arrow{font-size:10px;color:var(--blue);white-space:nowrap}
+.journey-timeline{display:grid;gap:0;margin-top:12px}
+.journey-event{display:grid;grid-template-columns:18px minmax(0,1fr);gap:10px;min-width:0}
+.journey-event-rail{display:flex;flex-direction:column;align-items:center}
+.journey-event-dot{width:10px;height:10px;border-radius:50%;background:#4B8EFF;border:2px solid #DCE9FF;flex-shrink:0;margin-top:4px}
+.journey-event-dot.is-open{background:#D9485F;border-color:#FBE1E5}
+.journey-event-line{width:2px;flex:1;min-height:22px;background:#E3EAF2;margin:4px 0}
+.journey-event-body{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;min-width:0}
+.journey-event-top,.journey-event-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.journey-event-top time,.journey-event-foot{font-size:10.5px;color:var(--text-3)}
+.journey-event-body h4{font-size:12.5px;margin:8px 0 4px;color:var(--text)}
+.journey-event-body p,.journey-summary-item p{font-size:12px;line-height:1.55;color:var(--text-2);overflow-wrap:anywhere}
+.journey-source,.journey-status{display:inline-flex;padding:3px 7px;border-radius:6px;background:#EEF4FF;color:#285BC5;font-size:10px;font-weight:700}
+.source-laboratory{background:#E1F5F0;color:#147D69}.source-bioinformatics{background:#F0E9FF;color:#7650B7}.source-clinical-trials{background:#FFF0D9;color:#965A0A}.source-jlight-intelligence{background:#FBE8EC;color:#B42343}
+.journey-status{background:#E7F5EC;color:#237349}.journey-status.status-open{background:#FFF0D9;color:#965A0A}
+.journey-empty{border:1px dashed var(--border-2);border-radius:12px;padding:28px;text-align:center}.journey-empty strong{display:block;margin-bottom:8px}.journey-empty p{font-size:12px;color:var(--text-2);max-width:520px;margin:auto}
+.journey-summary-list{display:grid;gap:8px;margin-top:10px}.journey-summary-item{border:1px solid var(--border);border-radius:9px;padding:11px}.journey-summary-item strong{font-size:12px}.journey-summary-item span{display:inline-block;font-size:10px;color:var(--text-3);margin-top:5px}
+@media(max-width:850px){.journey-layout{grid-template-columns:1fr}}
+
 .journey-panel{padding:18px;border:1px solid #e2e9f4;border-radius:14px;margin-bottom:14px;background:#fff}.journey-table-wrap{overflow-x:auto}.journey-table{width:100%;border-collapse:collapse;font-size:12px}.journey-table th,.journey-table td{text-align:left;padding:11px 12px;border-bottom:1px solid #e8edf5;white-space:nowrap}.journey-table th{color:#64718a;background:#f7f9fd;font-size:10px;text-transform:uppercase;letter-spacing:.05em}.journey-table td{color:#26354e}.journey-notes{margin:12px 0 10px 18px;color:#526078;font-size:12px;line-height:1.8}.journey-footnote{margin-top:10px;color:#64718a;font-size:11px;line-height:1.6}.journey-json{margin-top:12px;padding:12px;max-height:320px;overflow:auto;background:#f5f8fd;border:1px solid #e1e8f3;border-radius:10px;color:#26354e;font:11px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:700px){.journey-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.journey-banner{align-items:flex-start;flex-direction:column}}
 .source-import-card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dfe7f4;border-radius:16px;box-shadow:0 6px 22px rgba(28,43,72,.04)}
 .source-import-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}.source-import-tag{padding:6px 9px;border-radius:999px;background:#e8f1ff;color:#285bc5;font-size:10px;font-weight:800;white-space:nowrap}.source-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.source-import-full{grid-column:1/-1}.source-import-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.source-import-help{color:#64718a;font-size:12px;line-height:1.6}.source-import-preview{margin-top:16px}.source-import-result{padding:14px;border-radius:12px;border:1px solid #dfe7f4;background:#f8fbff}.source-import-result strong{font-size:13px;color:#182338}.source-import-result p{margin-top:6px;font-size:12px;line-height:1.6;color:#526078}.source-import-result.success{background:#eefaf4;border-color:#ccebd9}.source-import-result.error{background:#fff1f3;border-color:#f2cbd3}.source-import-table-wrap{overflow:auto;margin-top:12px}.source-import-table-wrap table{min-width:480px}@media(max-width:700px){.source-import-card{padding:14px}.source-import-grid{grid-template-columns:1fr}.source-import-full{grid-column:1}}
@@ -1807,17 +1835,80 @@ function buildJourneyReport() {
   const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {...d,total:d.rows.length,linked,missing,unmatched}})
   return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,trialRecords:(STATE.participants||[]).length+(STATE.visits||[]).length+(STATE.adverseEvents||[]).length,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.","Clinical Trials remain a separate workflow and are excluded from the shared non-trial patient journey.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
 }
+function buildPatientJourneyEvents(patient) {
+  const pid=String(patient.id), events=[];
+  const add=(source,label,rows,summaryFn)=>{
+    (rows||[]).forEach(row=>{
+      if(!row||row.patientId==null||String(row.patientId)!==pid)return;
+      const dateValue=row.eventAt||row.createdAt||row.updatedAt||row.timestamp||row.resultedAt||row.collectedAt||row.orderedAt||row.requestedAt||row.admissionDate||row.startedAt||row.completedAt||row.date||row.visitDate||row.ts;
+      const parsed=dateValue!=null?new Date(dateValue):null;
+      events.push({source,label,when:parsed&&!Number.isNaN(parsed.getTime())?parsed:null,rawWhen:dateValue,summary:summaryFn(row),status:String(row.status||row.state||row.resolutionStatus||'Recorded')});
+    });
+  };
+  add('Hospital','Hospital event',STATE.admissions||[],r=>'Admission / encounter'+(r.ward?' · '+r.ward:'')+(r.reason?' · '+r.reason:''));
+  add('Hospital','Hospital order',STATE.clinicalOrders||[],r=>'Order'+(r.orderType?' · '+r.orderType:'')+(r.description?' · '+r.description:'')+(r.status?' · status: '+r.status:''));
+  add('Laboratory','Laboratory order',STATE.labOrders||[],r=>'Laboratory request'+(r.testName?' · '+r.testName:'')+(r.status?' · status: '+r.status:''));
+  add('Laboratory','Laboratory result',STATE.results||[],r=>'Source result'+(r.testName?' · '+r.testName:'')+(r.resultValue!=null?' · '+r.resultValue:'')+(r.resultText?' · '+r.resultText:'')+(r.resultUnit?' '+r.resultUnit:'')+(r.interpretation?' · interpretation: '+r.interpretation:''));
+  add('Laboratory','Sample / accession event',STATE.samples||[],r=>'Accession / sample record'+(r.accessionNumber?' · '+r.accessionNumber:'')+(r.status?' · status: '+r.status:''));
+  add('Bioinformatics','Bioinformatics output',STATE.bioRuns||[],r=>'Imported analysis output'+(r.analysisType?' · '+r.analysisType:'')+(r.pipeline?' · '+r.pipeline:'')+(r.status||r.qcStatus?' · source status: '+(r.status||r.qcStatus):''));
+  add('Bioinformatics','Quality-control event',STATE.bioQc||[],r=>'Quality metric / flag'+(r.metric?' · '+r.metric:'')+(r.status?' · status: '+r.status:'')+(r.notes?' · '+r.notes:''));
+  add('Bioinformatics','Resistance finding',STATE.bioAmr||[],r=>'Source-reported resistance finding'+(r.organism?' · '+r.organism:'')+(r.drug?' · '+r.drug:'')+(r.resistancePattern?' · '+r.resistancePattern:'')+(r.status?' · status: '+r.status:''));
+  add('JLIGHT Intelligence','Decision / issue',STATE.cards||[],r=>(r.title||r.headline||r.type||'Detected issue')+(r.severity?' · severity: '+r.severity:'')+(r.acknowledged?' · acknowledged':' · open')+(r.recommendation?' · recommended action: '+r.recommendation:'')+(r.resolution?' · recorded resolution: '+r.resolution:''));
+  // Trial details are included only inside the dedicated Clinical Trials workspace.
+  if(STATE.role==='Trial'){
+    add('Clinical Trials','Trial enrolment',STATE.participants||[],r=>'Authorised study enrolment'+(r.studyName?' · '+r.studyName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
+    add('Clinical Trials','Trial visit',STATE.visits||[],r=>'Study visit'+(r.visitName?' · '+r.visitName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
+    add('Clinical Trials','Trial safety / issue event',STATE.adverseEvents||[],r=>'Recorded trial safety event'+(r.eventType?' · '+r.eventType:'')+(r.status?' · status: '+r.status:''));
+  }
+  events.sort((a,b)=>(b.when?b.when.getTime():0)-(a.when?a.when.getTime():0));
+  return events;
+}
+function selectJourneyPatient(id) {
+  STATE.currentPatientId=String(id);
+  renderJourney();
+}
+function filterJourneyPatients(value) {
+  const q=String(value||'').trim().toLowerCase();
+  document.querySelectorAll('[data-journey-patient]').forEach(el=>{
+    const hay=String(el.getAttribute('data-search')||'').toLowerCase();
+    el.hidden=!!q&&!hay.includes(q);
+  });
+}
 function renderJourney() {
-  const page=document.getElementById("page-journey");if(!page)return
-  const report=buildJourneyReport()
-  const metric=(label,value,tone,note)=>'<div class="journey-metric '+tone+'"><span>'+esc(label)+'</span><strong>'+value+'</strong><small>'+esc(note)+'</small></div>'
-  const rows=report.counts.map(c=>'<tr><td>'+esc(c.label)+'</td><td>'+c.total+'</td><td>'+c.linked+'</td><td>'+c.unmatched+'</td><td>'+c.missing+'</td><td>'+(c.total?Math.round(c.linked/c.total*100):0)+'%</td></tr>').join("")
-  page.innerHTML='<div class="page-head"><div><div class="page-title">Cross-Domain Patient Journey</div><div class="page-sub">One traceable view across Hospital / Health Informatics, Laboratory and Bioinformatics. Clinical Trials remain separate.</div></div><button class="btn btn-primary" onclick="generateJourneyReport()">Generate traceability report</button></div>'+
-    '<div class="journey-banner"><div><span class="journey-eyebrow">WORKSPACE SNAPSHOT</span><h3>'+esc(report.workspace)+'</h3><p>Mode: '+esc(report.mode.toUpperCase())+' · Generated '+esc(new Date(report.generatedAt).toLocaleString())+'</p></div><span class="journey-badge">'+(report.mode==="online"?"Online session":"Device-only data")+'</span></div>'+
-    '<div class="journey-metrics">'+metric("Active patients",report.patients,"tone-blue","Shared patient registry")+metric("Patients in 2+ domains",report.crossDomainPatients,"tone-purple","Matched by patient ID")+metric("Unmatched references",report.unmatchedReferences,report.unmatchedReferences?"tone-amber":"tone-green","Review source mapping")+metric("Missing patient IDs",report.missingPatientReference,report.missingPatientReference?"tone-amber":"tone-green","Cannot be linked automatically")+'</div>'+
-    '<div class="journey-panel"><div class="section-title">Traceability by compartment</div><p class="journey-footnote">Counts use records currently loaded in this workspace. Empty compartments are not evidence of a failed integration.</p><div class="journey-table-wrap"><table class="journey-table"><thead><tr><th>Compartment</th><th>Records</th><th>Matched</th><th>Unmatched</th><th>Missing ID</th><th>Match rate</th></tr></thead><tbody>'+rows+'</tbody></table></div></div>'+
-    '<div class="journey-panel"><div class="section-title">Interpretation and boundaries</div><ul class="journey-notes">'+report.notes.map(n=>'<li>'+esc(n)+'</li>').join("")+'</ul><p class="journey-footnote">This is an operational traceability report, not a diagnostic result or proof that external connectors are live.</p></div>'+
-    '<div id="journey-report-output" class="journey-panel" aria-live="polite"><div class="section-title">Generated report</div><p class="journey-footnote">Generate a fresh snapshot to record an audit event and download aggregate JSON results.</p></div>'
+  const page=document.getElementById('page-journey');if(!page)return;
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
+  let selected=patients.find(p=>String(p.id)===String(STATE.currentPatientId));
+  if(!selected&&patients.length)selected=patients[0];
+  if(selected)STATE.currentPatientId=selected.id;
+  const events=selected?buildPatientJourneyEvents(selected):[];
+  const counts=[
+    {name:'Hospital',n:events.filter(e=>e.source==='Hospital').length},
+    {name:'Laboratory',n:events.filter(e=>e.source==='Laboratory').length},
+    {name:'Bioinformatics',n:events.filter(e=>e.source==='Bioinformatics').length},
+    ...(STATE.role==='Trial'?[{name:'Clinical Trials',n:events.filter(e=>e.source==='Clinical Trials').length}]:[]),
+    {name:'JLIGHT Intelligence',n:events.filter(e=>e.source==='JLIGHT Intelligence').length}
+  ];
+  const countCards=counts.map(x=>'<div class="journey-metric tone-blue"><span>'+esc(x.name)+'</span><strong>'+x.n+'</strong><small>linked events</small></div>').join('');
+  const patientCards=patients.map(p=>{
+    const active=selected&&String(selected.id)===String(p.id);
+    const search=[p.fullName,p.mrn,p.id].filter(Boolean).join(' ');
+    const count=buildPatientJourneyEvents(p).length;
+    return '<button type="button" data-journey-patient data-search="'+esc(search)+'" onclick="selectJourneyPatient(\''+esc(p.id)+'\')" class="journey-patient-choice" aria-pressed="'+active+'"><span><strong>'+esc(p.fullName||'Unnamed patient')+'</strong><small>MRN '+esc(p.mrn||'—')+' · '+count+' linked events</small></span><span class="journey-choice-arrow">'+(active?'Selected':'View journey')+'</span></button>';
+  }).join('');
+  const eventHTML=events.length?'<div class="journey-timeline">'+events.map((e,i)=>{
+    const date=e.when?e.when.toLocaleString():(e.rawWhen?'Date recorded: '+String(e.rawWhen):'Date not supplied');
+    const status=String(e.status||'Recorded');
+    const open=/open|pending|fail|error|flag|unresolved|review/i.test(status);
+    return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
+  }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
+  page.innerHTML=
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div>'+
+    '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
+    '<div class="journey-metrics">'+countCards+'</div>'+
+    '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
+    '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
+    '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
+    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>';
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
@@ -1912,24 +2003,7 @@ function renderDashboard() {
       </div>
     </div>
     <div class="kpis">${kpiHTML}</div>
-    <section class="jlight-launchpad" aria-label="Quick navigation">
-      <div class="jlight-launchpad-head">
-        <div><div class="section-title">Quick access</div><div class="section-sub">Start a task or move to another JLIGHT module</div></div>
-        <label class="jlight-search-label" for="jlight-nav-search">Find a tool</label>
-        <input id="jlight-nav-search" class="form-input jlight-nav-search" type="search" placeholder="Search tools…" oninput="filterJlightQuickLinks(this.value)" autocomplete="off"/>
-      </div>
-      <div class="jlight-quick-grid" id="jlight-quick-grid">
-        <button class="jlight-quick-card quick-blue" data-search="register sample new sample result laboratory" onclick="goPage(STATE.role === 'Laboratory' ? 'connectors' : 'register')"><span class="jlight-quick-icon">＋</span><span><strong>${newLabel}</strong><small>Start a new workflow</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-purple" data-search="decision cards alerts errors review" onclick="goPage('cards')"><span class="jlight-quick-icon">◎</span><span><strong>Review decisions</strong><small>See alerts and recommended actions</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-green" data-search="analytics reports trends" onclick="goPage('analytics')"><span class="jlight-quick-icon">▥</span><span><strong>View analytics</strong><small>Explore trends and summaries</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-amber" data-search="settings profile organisation account" onclick="goPage('settings')"><span class="jlight-quick-icon">⚙</span><span><strong>Settings</strong><small>Manage your workspace preferences</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-teal" data-search="laboratory samples" onclick="doSwitchWorkspace('Laboratory')"><span class="jlight-quick-icon">LAB</span><span><strong>Laboratory</strong><small>Laboratory intelligence tools</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-blue" data-search="hospital operations patients wards orders" onclick="doSwitchWorkspace('Hospital')"><span class="jlight-quick-icon">HOS</span><span><strong>Hospital Operations</strong><small>Patient and operational workflows</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-purple" data-search="bioinformatics pipeline genomic data" onclick="doSwitchWorkspace('Bioinformatics')"><span class="jlight-quick-icon">BIO</span><span><strong>Bioinformatics</strong><small>Data pipelines and analysis</small></span><span class="jlight-quick-arrow">↗</span></button>
-        <button class="jlight-quick-card quick-amber" data-search="clinical trial study participant visits" onclick="doSwitchWorkspace('Trial')"><span class="jlight-quick-icon">CTL</span><span><strong>Clinical Trials</strong><small>Study workflows with restricted access</small></span><span class="jlight-quick-arrow">↗</span></button>
-      </div>
-      <div class="jlight-no-results" id="jlight-no-quick-results" hidden>No matching tools. Try another search.</div>
-    </section>
+
     <div class="section">
       <div class="section-head">
         <div>
