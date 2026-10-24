@@ -1889,9 +1889,11 @@ function openPrintableReport(title,bodyHtml) {
 
 function generateSelectedPatientJourneyReport() {
   if(STATE.role==='Trial'){toast('Separate workflow','Clinical Trials remain outside the shared patient journey.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
   const pid=String(STATE.currentPatientId||'');
-  const patient=(STATE.patients||[]).find(p=>String(p.id)===pid&&!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
-  if(!patient){toast('Select a patient','Choose a patient before generating the report.','warn');return;}
+  const patient=(STATE.patients||[]).find(p=>String(p.id)===pid&&!p.archivedAt&&String(p.orgId||'')===orgId);
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation before generating the report.','warn');return;}
   const events=buildPatientJourneyEvents(patient).map(e=>({source:e.source,event:e.label,date:e.when?e.when.toISOString():(e.rawWhen||null),status:e.status||'Recorded',summary:e.summary||'Source summary not supplied'}));
   const generatedAt=new Date().toISOString();
   const report={reportType:'JLIGHT Patient Journey Report',reportId:uid(),generatedAt,workspace:STATE.orgName||'Current workspace',generatedBy:getDisplayName(),patientReference:patient.mrn||patient.id,dataCutoff:generatedAt,eventCount:events.length,events,limitations:['Traceability and decision-support summary only; not an autonomous diagnosis.','Events are linked by exact existing patient ID only. Missing records do not indicate negative findings.','Raw sequence reads, sequence files and unrestricted variant files are excluded.','Clinical Trials remain a separate workflow.']};
