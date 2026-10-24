@@ -21,7 +21,7 @@ class FastqValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "broken.fastq.gz"
             path.write_bytes(b"not gzip")
-            with self.assertRaisesRegex(ValueError, "Invalid gzip"):
+            with self.assertRaisesRegex(ValueError, "Invalid or truncated FASTQ"):
                 pipeline.validate_fastq(path)
 
     def test_accepts_nonempty_gzip_container(self):
@@ -30,6 +30,20 @@ class FastqValidationTests(unittest.TestCase):
             with gzip.open(path, "wb") as handle:
                 handle.write(b"@r1\nACGT\n+\n!!!!\n")
             pipeline.validate_fastq(path)
+
+    def test_rejects_invalid_fastq_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.fastq"
+            path.write_text("not-a-header\\nACGT\\n+\\n!!!!\\n", encoding="ascii")
+            with self.assertRaisesRegex(ValueError, "record structure"):
+                pipeline.validate_fastq(path)
+
+    def test_rejects_truncated_fastq_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "truncated.fastq"
+            path.write_text("@r1\\nACGT\\n+\\n", encoding="ascii")
+            with self.assertRaisesRegex(ValueError, "sequence/quality length|Truncated FASTQ"):
+                pipeline.validate_fastq(path)
 
     def test_rejects_wrong_extension(self):
         with tempfile.TemporaryDirectory() as tmp:
