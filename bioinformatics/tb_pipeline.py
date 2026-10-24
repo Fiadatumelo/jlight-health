@@ -10,8 +10,6 @@ import argparse
 import gzip
 import hashlib
 import json
-import os
-import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -77,11 +75,17 @@ def main() -> int:
     parser.add_argument("--r2", type=Path)
     parser.add_argument("--outdir", required=True, type=Path)
     parser.add_argument("--single-end", action="store_true")
+    parser.add_argument("--threads", type=int, default=4)
+    parser.add_argument("--db", default="who_v2+", help="Installed TBProfiler database identifier")
     args = parser.parse_args()
     if not args.sample_id.strip() or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-" for c in args.sample_id):
         parser.error("sample-id may contain only letters, digits, dot, underscore and hyphen")
     if args.single_end == bool(args.r2):
         parser.error("Provide --r2 for paired-end data, or --single-end for single-end data")
+    if args.threads < 1 or args.threads > 64:
+        parser.error("--threads must be between 1 and 64")
+    if not args.db.strip() or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._+-" for c in args.db):
+        parser.error("--db must be an installed database identifier using letters, digits, dot, underscore, plus or hyphen")
     args.r1 = args.r1.resolve()
     if args.r2:
         args.r2 = args.r2.resolve()
@@ -106,6 +110,9 @@ def main() -> int:
             "sample_id": args.sample_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "workflow": "jlight-mtb-research",
+            "platform": "illumina",
+            "database": args.db,
+            "threads": args.threads,
             "intended_use": "research_and_technical_review_only",
             "status": "running",
             "input_files": [{"name": p.name, "size_bytes": p.stat().st_size, "sha256": sha256(p)} for p in reads],
@@ -126,7 +133,7 @@ def main() -> int:
         manifest["stages"].append(run_stage(
             "multiqc", ["multiqc", str(qc), "--outdir", str(qc)],
             args.outdir, logs / "multiqc.log"))
-        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "--prefix", str((results / args.sample_id).resolve())]
+        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "-t", str(args.threads), "--db", args.db, "--prefix", str((results / args.sample_id).resolve())]
         if not args.single_end:
             cmd.extend(["-2", str(args.r2)])
         manifest["stages"].append(run_stage("tb-profiler", cmd, args.outdir, logs / "tb-profiler.log"))
