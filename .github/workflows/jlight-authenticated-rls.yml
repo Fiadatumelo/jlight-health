@@ -52,3 +52,5 @@ jobs:
 
       - name: Run authenticated tenant, patient-match, report-permission and trial-isolation tests
         run: python -m unittest discover -s jlight-backend/tests -p "test_authenticated_supabase_rls.py" -v
+
+# Staging-only RLS gate; triggered by release-branch push for credential validation.
