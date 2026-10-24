@@ -1179,6 +1179,7 @@ async function doSignIn() {
       MODE.isOnline = true
       const user = data.session.user
       const meta = user.user_metadata || {}
+      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
       STATE.user = user.email || email
       STATE.role = selectedPath
       await ensureJlightOrganisation(user, {
@@ -1189,6 +1190,9 @@ async function doSignIn() {
       await loadOrCreateProfile(user)
       const codeButton = document.getElementById('si-send-org-code')
       if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
+      // If email confirmation delayed workspace setup, finish delivery after the
+      // first authenticated sign-in rather than leaving the owner without a code.
+      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
       enterApp()
     }
   } catch(e) {
