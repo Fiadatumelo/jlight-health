@@ -1162,7 +1162,11 @@ async function doSignIn() {
           })
           const mailResult = await mailResponse.json().catch(() => ({}))
           if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
-          deliveryNote = ' The organisation code was emailed to your verified account address.'
+          if (mailResult.email_sent === false) {
+            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
+          } else {
+            deliveryNote = ' The organisation code was emailed to your verified account address.'
+          }
         } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
       }
       if (status) {
