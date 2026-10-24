@@ -27,6 +27,25 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, PIPELINE)
 
+    def test_bioinformatics_analysis_report_exists_and_blocks_trial_workspace(self):
+        start = HTML.index("function exportBioReport(entryId)")
+        end = HTML.index("\\nfunction ", start + 1)
+        report = HTML[start:end]
+        self.assertIn("JLIGHT Bioinformatics Analysis Report", report)
+        self.assertIn("qcMetrics", report)
+        self.assertIn("qcIssues", report)
+        self.assertIn("if(STATE.role==='Trial')", report)
+
+    def test_trial_journey_is_isolated_and_matches_exact_patient_id(self):
+        start = HTML.index("function buildPatientJourneyEvents(patient)")
+        end = HTML.index("\\nfunction ", start + 1)
+        journey = HTML[start:end]
+        self.assertIn("if(STATE.role==='Trial')", journey)
+        self.assertIn("String(row.patientId)!==pid", journey)
+        trial_branch = journey.split("const add=(source,label,rows,summaryFn)=>", 1)[0]
+        self.assertIn("return events", trial_branch)
+        self.assertNotIn("STATE.entries", trial_branch)
+
     def test_failed_run_is_not_a_negative_result(self):
         self.assertIn("QC failure or pipeline failure must not be interpreted as a negative result.", PIPELINE)
         self.assertIn('manifest["status"] = "failed"', PIPELINE)
