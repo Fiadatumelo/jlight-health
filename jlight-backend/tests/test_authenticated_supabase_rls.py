@@ -82,13 +82,21 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                 c.execute(
                     """INSERT INTO public.jlight_membership_domain_permissions
                        (organization_id, auth_subject, domain, can_read, can_write, can_report, granted_by)
-                       VALUES (%s, %s, %s, true, true, true, %s)""",
+                       VALUES (%s, %s, %s, true, true, true, %s)
+                       ON CONFLICT (organization_id, auth_subject, domain)
+                       DO UPDATE SET can_read = EXCLUDED.can_read,
+                                     can_write = EXCLUDED.can_write,
+                                     can_report = EXCLUDED.can_report""",
                     (org_id, uid, domain, uid),
                 )
         c.execute(
             """INSERT INTO public.jlight_membership_domain_permissions
                (organization_id, auth_subject, domain, can_read, can_write, can_report, granted_by)
-               VALUES (%s, %s, 'clinical_trials', true, true, true, %s)""",
+               VALUES (%s, %s, 'clinical_trials', true, true, true, %s)
+               ON CONFLICT (organization_id, auth_subject, domain)
+               DO UPDATE SET can_read = EXCLUDED.can_read,
+                             can_write = EXCLUDED.can_write,
+                             can_report = EXCLUDED.can_report""",
             (cls.trial_org, cls.a, cls.a),
         )
         c.execute(
