@@ -1906,10 +1906,12 @@ function generateSelectedPatientJourneyReport() {
 function generateSelectedPatientBioinformaticsReport() {
   if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
   if(STATE.role!=='Bioinformatics'){toast('Permission required','Generate this report from an authorised Bioinformatics workspace.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
   const pid=String(STATE.currentPatientId||'');
-  const patient=(STATE.patients||[]).find(p=>p&&!p.archivedAt&&String(p.id)===pid&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
+  const patient=(STATE.patients||[]).find(p=>p&&!p.archivedAt&&String(p.id)===pid&&String(p.orgId||'')===orgId);
   if(!patient){toast('Select a patient','Choose a patient in the current organisation first.','warn');return;}
-  const entries=(STATE.entries||[]).filter(e=>e&&e.role==='Bioinformatics'&&String(e.orgId||'')===String(STATE.orgId||'')&&String(e.patientId||'')===pid).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
+  const entries=(STATE.entries||[]).filter(e=>e&&e.role==='Bioinformatics'&&String(e.orgId||'')===orgId&&String(e.patientId||'')===pid).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
   if(!entries.length){toast('No linked analysis','Record a Bioinformatics run and link it to this exact patient reference first.','warn');return;}
   const generatedAt=new Date().toISOString();
   const analyses=entries.map(e=>{
@@ -4233,7 +4235,9 @@ function bioRecs(e, qcStatus, cards) {
 function exportBioReport(entryId) {
   // Clinical Trials is a separate data domain and must never export Bioinformatics reports.
   if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
-  const e = STATE.entries.find(x=>x.id===entryId); if(!e) return;
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before exporting reports.','warn');return;}
+  const e = STATE.entries.find(x=>x.id===entryId&&x.role==='Bioinformatics'&&String(x.orgId||'')===orgId); if(!e) {toast('Report unavailable','The analysis record is not available in the current organisation.','warn');return;}
   const cards = STATE.cards.filter(c=>c.role==='Bioinformatics');
   const generatedAt = new Date();
   const metricRows = [
@@ -5155,7 +5159,7 @@ function renderRegisterBio() {
     '<option>TB Drug Resistance (MTB-Seq)</option></select></div>' +
     '<div class="form-row"><label class="form-label">Sample / Run ID</label><input class="form-input" id="bf-sid" type="text" placeholder="e.g. RUN-2026-04-001"/></div>' +
     '<div class="form-row"><label class="form-label">Link to patient journey</label><select class="form-input" id="bf-patient"><option value="">— Not linked —</option>' +
-    (STATE.patients || []).filter(p=>p&&!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId))).map(p=>'<option value="'+esc(String(p.id))+'">'+esc(String(p.mrn||p.id))+'</option>').join('') +
+    (STATE.patients || []).filter(p=>p&&!p.archivedAt&&!!STATE.orgId&&String(p.orgId)===String(STATE.orgId)).map(p=>'<option value="'+esc(String(p.id))+'">'+esc(String(p.mrn||p.id))+'</option>').join('') +
     '</select><div class="form-hint">Select an existing patient reference to include this run in that patient’s Bioinformatics Analysis Report. Matching uses the exact patient ID.</div></div>' +
     '<div class="form-row"><label class="form-label">Sequencing Platform</label>' +
     '<select class="form-input" id="bf-platform"><option value="">— Select —</option>' +
