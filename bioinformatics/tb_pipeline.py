@@ -28,13 +28,32 @@ def validate_fastq(path: Path) -> None:
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError(f"FASTQ is missing or empty: {path.name}")
     if path.suffix == ".gz":
-        try:
-            with gzip.open(path, "rb") as handle:
-                handle.read(1)
-        except (OSError, EOFError) as exc:
-            raise ValueError(f"Invalid gzip FASTQ: {path.name}") from exc
-    elif path.suffix not in {".fastq", ".fq"}:
+        opener = gzip.open
+    elif path.suffix in {".fastq", ".fq"}:
+        opener = open
+    else:
         raise ValueError(f"Unsupported FASTQ extension: {path.name}")
+    # Consume the entire stream to detect truncated gzip files, and validate
+    # FASTQ record structure without loading the complete file into memory.
+    try:
+        with opener(path, "rt", encoding="ascii", errors="strict") as handle:
+            line_no, record = 0, []
+            for line in handle:
+                line_no += 1
+                record.append(line.rstrip("\\r\\n"))
+                if len(record) == 4:
+                    header, sequence, plus, quality = record
+                    if not header.startswith("@") or not plus.startswith("+"):
+                        raise ValueError(f"Invalid FASTQ record structure at line {line_no - 3}: {path.name}")
+                    if not sequence or len(sequence) != len(quality):
+                        raise ValueError(f"Invalid FASTQ sequence/quality length at line {line_no - 2}: {path.name}")
+                    record = []
+            if record:
+                raise ValueError(f"Truncated FASTQ record at end of file: {path.name}")
+            if line_no == 0:
+                raise ValueError(f"FASTQ is empty: {path.name}")
+    except (OSError, EOFError, UnicodeError) as exc:
+        raise ValueError(f"Invalid or truncated FASTQ file: {path.name}") from exc
 
 def version(command: list[str]) -> str:
     try:
@@ -63,6 +82,10 @@ def main() -> int:
         parser.error("sample-id may contain only letters, digits, dot, underscore and hyphen")
     if args.single_end == bool(args.r2):
         parser.error("Provide --r2 for paired-end data, or --single-end for single-end data")
+    args.r1 = args.r1.resolve()
+    if args.r2:
+        args.r2 = args.r2.resolve()
+    args.outdir = args.outdir.resolve()
     args.outdir.mkdir(parents=True, exist_ok=True)
     logs = args.outdir / "logs"
     qc = args.outdir / "qc"
@@ -76,7 +99,7 @@ def main() -> int:
         tool_versions = {
             "fastqc": version(["fastqc", "--version"]),
             "multiqc": version(["multiqc", "--version"]),
-            "tb-profiler": version(["tb-profiler", "--help"]),
+            "tb-profiler": version(["tb-profiler", "--version"]),
         }
         manifest = {
             "schema_version": "1.0",
@@ -103,7 +126,7 @@ def main() -> int:
         manifest["stages"].append(run_stage(
             "multiqc", ["multiqc", str(qc), "--outdir", str(qc)],
             args.outdir, logs / "multiqc.log"))
-        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "--prefix", str(results / args.sample_id)]
+        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "--prefix", str((results / args.sample_id).resolve())]
         if not args.single_end:
             cmd.extend(["-2", str(args.r2)])
         manifest["stages"].append(run_stage("tb-profiler", cmd, args.outdir, logs / "tb-profiler.log"))
@@ -119,6 +142,12 @@ def main() -> int:
             "intended_use": "research_and_technical_review_only", "input_files": [],
             "tools": {}, "stages": [], "limitations": []
         }
+        manifest.setdefault("created_at", datetime.now(timezone.utc).isoformat())
+        manifest.setdefault("sample_id", args.sample_id)
+        manifest.setdefault("input_files", [])
+        manifest.setdefault("tools", {})
+        manifest.setdefault("stages", [])
+        manifest.setdefault("limitations", ["Not clinically validated by this wrapper.", "Pipeline failure must not be interpreted as a negative result."])
         manifest["status"] = "failed"
         manifest["error"] = str(exc)
         manifest["completed_at"] = datetime.now(timezone.utc).isoformat()
