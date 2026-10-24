@@ -599,8 +599,8 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <button type="button" class="auth-link" id="forgot-password-link" onclick="doForgotPassword()" aria-label="Request password reset">Forgot password?</button>
-      <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
+      <button type="button" class="auth-link" id="forgot-password-link" onclick="window.jlightRequestPasswordReset(event)" aria-label="Request password reset">Forgot password?</button>
+      <a onclick="doOfflineMode()" title="Optional local-only mode; data stays on this device and is not cloud-synchronised" style="color:var(--text-3);cursor:pointer">Work offline (local-only) →</a>
     </div>
   </div>
 </div>
@@ -1385,6 +1385,20 @@ async function sendOrganisationCodeEmail() {
     setStatus('Organisation code emailed to your verified account address.', 'success')
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
 }
+
+window.jlightRequestPasswordReset = function(event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  const button = document.getElementById('forgot-password-link');
+  if (button && button.dataset.busy === 'true') return;
+  if (button) { button.dataset.busy = 'true'; button.disabled = true; }
+  Promise.resolve(doForgotPassword()).catch(error => {
+    console.error('[JLIGHT] password-reset click handler failed:', error);
+    const status = document.getElementById('si-status');
+    if (status) { status.textContent = 'Password reset could not be started. Please retry.'; status.className = 'auth-status error'; }
+  }).finally(() => {
+    if (button) { button.dataset.busy = 'false'; button.disabled = false; }
+  });
+};
 
 async function doForgotPassword() {
   const emailInput = document.getElementById('si-email')
