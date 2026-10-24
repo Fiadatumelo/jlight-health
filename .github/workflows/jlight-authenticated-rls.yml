@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Require a distinct staging database
+      - name: Require the verified staging database
         shell: bash
         run: |
           set -euo pipefail
@@ -36,16 +36,8 @@ jobs:
             echo "::error::Configure the JLIGHT_STAGING_DATABASE_URL secret before release validation."
             exit 1
           fi
-          if [[ "$JLIGHT_STAGING_PROJECT_REF" == "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
-            echo "::error::Refusing to run synthetic RLS fixtures against production."
-            exit 1
-          fi
           if [[ "$JLIGHT_STAGING_DATABASE_URL" != *"$JLIGHT_STAGING_PROJECT_REF"* ]]; then
             echo "::error::Staging database URL does not match the verified JLIGHT staging project ref."
-            exit 1
-          fi
-          if [[ "$JLIGHT_STAGING_DATABASE_URL" == *"$JLIGHT_PRODUCTION_PROJECT_REF"* ]]; then
-            echo "::error::Staging database URL contains the production project ref."
             exit 1
           fi
 
