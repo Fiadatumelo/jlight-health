@@ -1,0 +1,54 @@
+name: JLIGHT authenticated Supabase RLS release gates
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "jlight-backend/tests/test_authenticated_supabase_rls.py"
+      - ".github/workflows/jlight-authenticated-rls.yml"
+      - "supabase/**"
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-rls:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      JLIGHT_STAGING_DATABASE_URL: ${{ secrets.JLIGHT_STAGING_DATABASE_URL }}
+      JLIGHT_STAGING_PROJECT_REF: ${{ secrets.JLIGHT_STAGING_PROJECT_REF }}
+      JLIGHT_PRODUCTION_PROJECT_REF: ${{ secrets.JLIGHT_PRODUCTION_PROJECT_REF }}
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Require a distinct staging database
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$JLIGH_STAGING_DATABASE_URL" || true
+          if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" || -z "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
+            echo "::error::Configure JLIGHT_STAGING_DATABASE_URL, JLIGHT_STAGING_PROJECT_REF and JLIGHT_PRODUCTION_PROJECT_REF secrets before release validation."
+            exit 1
+          fi
+          if [[ "$JLIGHT_STAGING_PROJECT_REF" == "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
+            echo "::error::Refusing to run synthetic RLS fixtures against production."
+            exit 1
+          fi
+          if [[ "$JLIGHT_STAGING_DATABASE_URL" == *"$JLIGHT_PRODUCTION_PROJECT_REF"* ]]; then
+            echo "::error::Staging database URL contains the production project ref."
+            exit 1
+          fi
+
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check psycopg2-binary
+
+      - name: Run authenticated tenant, patient-match, report-permission and trial-isolation tests
+        run: python -m unittest discover -s jlight-backend/tests -p "test_authenticated_supabase_rls.py" -v
