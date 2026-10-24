@@ -68,9 +68,9 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    VALUES (%s, %s, %s, %s, %s, 'multi')""",
                 (org_id, name, role, email, uid),
             )
-        # Seed the membership rows explicitly: domain permissions have a composite
-        # foreign key to this table, and org creation does not guarantee this
-        # separate membership model is populated by a trigger.
+        # Seed both membership models used by the existing RLS helpers.
+        # Domain permissions reference jlight_organization_memberships, while
+        # jl_has_org_role/jl_is_org_member read jl_org_memberships.
         for org_id, uid, role in (
             (cls.org_a, cls.a, "hospital"),
             (cls.org_b, cls.b, "hospital"),
@@ -81,6 +81,21 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    (auth_subject, organization_id, role, active, created_by)
                    VALUES (%s, %s, %s, true, %s)""",
                 (uid, org_id, role, uid),
+            )
+            c.execute(
+                """INSERT INTO public.jl_org_memberships
+                   (organisation_id, user_id, access_role, status, created_by)
+                   VALUES (%s, %s, %s, 'active', %s)""",
+                (org_id, uid, role, uid),
+            )
+        # The patients_org policy additionally requires a current organisation
+        # in jl_user_profiles; use one active profile per synthetic user.
+        for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b)):
+            c.execute(
+                """INSERT INTO public.jl_user_profiles
+                   (user_id, org_id, full_name, workspace_role, active)
+                   VALUES (%s, %s, %s, 'operator', true)""",
+                (uid, org_id, "Synthetic RLS user"),
             )
         for org_id, uid in ((cls.org_a, cls.a), (cls.org_b, cls.b)):
             for domain in ("hospital", "laboratory", "bioinformatics"):
