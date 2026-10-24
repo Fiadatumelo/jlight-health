@@ -1917,7 +1917,7 @@ function generateSelectedPatientBioinformaticsReport() {
   if(!entries.length){toast('No linked analysis','Record a Bioinformatics run and link it to this exact patient reference first.','warn');return;}
   const generatedAt=new Date().toISOString();
   const analyses=entries.map(e=>{
-    const cards=(STATE.cards||[]).filter(card=>card&&card.role==='Bioinformatics'&&Math.abs((Number(card.ts)||0)-(Number(e.ts)||0))<120000);
+    const cards=(STATE.cards||[]).filter(card=>card&&card.role==='Bioinformatics'&&String(card.orgId||'')===orgId&&String(card.patientId||'')===pid&&String(card.analysisEntryId||'')===String(e.id||''));
     const metrics=[
       ['Coverage',e.coverage,'x',Number(e.coverage)>=30?'Pass':'Review'],
       ['Mapping rate',e.mappingRate,'%',Number(e.mappingRate)>=85?'Pass':'Review'],
@@ -2380,7 +2380,14 @@ function submitTrialEntry() {
 
   const cards = analyseTrialEvent(e)
   if (cards.length > 0) {
-    cards.forEach(c => STATE.cards.push(c))
+    // Bind every generated QC issue to the exact analysis, patient and organisation.
+    // Reports must never infer linkage from timestamp proximity alone.
+    cards.forEach(card => STATE.cards.push({
+      ...card,
+      orgId: e.orgId,
+      patientId: e.patientId,
+      analysisEntryId: e.id,
+    }))
     STORAGE.saveCards(STATE.role, STATE.cards)
     toast(`${cards.length} decision${cards.length > 1 ? 's' : ''} generated`, cards[0].title, cards[0].severity)
   } else {
@@ -5228,7 +5235,12 @@ function submitBioEntry() {
 // ── BIOINFORMATICS FULL REPORT GENERATOR ──
 function generateBioReport(e) {
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
-  const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
+  const cards = STATE.cards.filter(c =>
+    c.role === 'Bioinformatics' &&
+    String(c.orgId || '') === String(e.orgId || '') &&
+    String(c.patientId || '') === String(e.patientId || '') &&
+    String(c.analysisEntryId || '') === String(e.id)
+  )
   const hasCrit = cards.some(c => c.severity === 'crit')
   const hasWarn = cards.some(c => c.severity === 'warn')
   const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
