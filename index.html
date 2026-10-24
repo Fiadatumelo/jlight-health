@@ -1186,7 +1186,7 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); const codeButton=document.getElementById("si-send-org-code"); if(codeButton&&MODE.organisationId) codeButton.style.display="inline-flex"; await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
 async function doSignIn() {
@@ -1254,6 +1254,8 @@ async function doSignIn() {
       STATE.role = role
       await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
       await loadOrCreateProfile(data.user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
       let deliveryNote = ''
       // Send the newly generated code to the verified owner email only.
       // Joining an existing organisation must never disclose its code.
@@ -1298,6 +1300,8 @@ async function doSignIn() {
         orgCode: meta.org_code || ''
       })
       await loadOrCreateProfile(user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
       enterApp()
     }
   } catch(e) {
@@ -1504,14 +1508,28 @@ async function doResetPassword() {
   if (!sb) { if (st) { st.textContent = 'Backend unavailable'; st.className = 'auth-status error' } return }
   if (st) { st.textContent = 'Setting password...'; st.className = 'auth-status' }
   try {
-    // Exchange URL token for session if needed
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const at = params.get('access_token')
-      const rt = params.get('refresh_token') || ''
-      if (at) { try { await sb.auth.setSession({ access_token: at, refresh_token: rt }) } catch {} }
+    // Support Supabase PKCE links, implicit recovery tokens and token_hash links.
+    const query = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const recoveryType = query.get('type') || hash.get('type')
+    const code = query.get('code')
+    const tokenHash = query.get('token_hash') || hash.get('token_hash')
+    if (code) {
+      const { error } = await sb.auth.exchangeCodeForSession(code)
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
+    } else if (tokenHash && recoveryType === 'recovery') {
+      const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
+    } else if (hash.get('access_token')) {
+      const accessToken = hash.get('access_token')
+      const refreshToken = hash.get('refresh_token') || ''
+      if (recoveryType !== 'recovery') throw new Error('This is not a password-recovery link. Request a new reset email.')
+      const { error } = await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
     }
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!sessionData?.session?.user) throw new Error('The recovery link could not establish a valid session. Request a new reset email and open the newest link.')
     const { error } = await sb.auth.updateUser({ password: np })
     if (error) throw error
     if (st) { st.textContent = 'Password updated. Redirecting to sign in...'; st.className = 'auth-status success' }
