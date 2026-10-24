@@ -68,26 +68,6 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    VALUES (%s, %s, %s, %s, %s, 'multi')""",
                 (org_id, name, role, email, uid),
             )
-        # Seed both membership models used by the existing RLS helpers.
-        # Domain permissions reference jlight_organization_memberships, while
-        # jl_has_org_role/jl_is_org_member read jl_org_memberships.
-        for org_id, uid, role in (
-            (cls.org_a, cls.a, "hospital"),
-            (cls.org_b, cls.b, "hospital"),
-            (cls.trial_org, cls.a, "clinical_trial"),
-        ):
-            c.execute(
-                """INSERT INTO public.jlight_organization_memberships
-                   (auth_subject, organization_id, role, active, created_by)
-                   VALUES (%s, %s, %s, true, %s)""",
-                (uid, org_id, role, uid),
-            )
-            c.execute(
-                """INSERT INTO public.jl_org_memberships
-                   (organisation_id, user_id, access_role, status, created_by)
-                   VALUES (%s, %s, %s, 'active', %s)""",
-                (org_id, uid, role, uid),
-            )
         # The patients_org policy additionally requires a current organisation
         # in jl_user_profiles; use one active profile per synthetic user.
         for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b)):
