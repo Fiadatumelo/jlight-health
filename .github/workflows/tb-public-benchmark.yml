@@ -63,9 +63,10 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import json
+          import json, os
           from pathlib import Path
-          manifest = json.loads(Path("$RUNNER_TEMP/tb-public-output/PATION-001/run-manifest.json").read_text())
+          manifest_path = Path(os.environ["RUNNER_TEMP"]) / "tb-public-output" / "PATION-001" / "run-manifest.json"
+          manifest = json.loads(manifest_path.read_text())
           assert manifest["status"] == "completed_pending_expert_review", manifest.get("status")
           assert manifest["sample_id"] == "PATION-001"
           assert manifest["stages"] and all(stage["status"] == "completed" for stage in manifest["stages"])
