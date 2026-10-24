@@ -88,7 +88,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
                 with gzip.open(path, "wb") as handle:
                     handle.write(b"@r1\nACGT\n+\n!!!!\n")
             outdir = root / "run"
-            with patch.dict(os.environ, {"PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", "")}):
+            with patch.dict(os.environ, {"PATH": str(bin_dir) + os.pathsep + os.environ.get("PATH", ""), "JLIGHT_PRIVATE_DATA_ROOT": str(root)}):
                 with patch("sys.argv", ["tb_pipeline.py", "--sample-id", "SYNTHETIC-TB-01", "--r1", str(r1), "--r2", str(r2), "--outdir", str(outdir), "--threads", "2"]):
                     self.assertEqual(pipeline.main(), 0)
             manifest = __import__("json").loads((outdir / "run-manifest.json").read_text(encoding="utf-8"))
@@ -131,6 +131,21 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
             self.assertEqual(raised.exception.stage["status"], "failed")
             self.assertEqual(raised.exception.stage["exit_code"], 7)
             self.assertTrue(log.exists())
+
+
+    def test_private_path_rejects_paths_outside_private_root(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as outside:
+            root = Path(tmp)
+            candidate = Path(outside) / "reads.fastq.gz"
+            with self.assertRaisesRegex(ValueError, "inside JLIGHT_PRIVATE_DATA_ROOT"):
+                pipeline.validate_private_path(candidate, root, Path(__file__).resolve().parents[1])
+
+    def test_private_path_rejects_repository_as_storage_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = Path(__file__).resolve().parents[1]
+            with self.assertRaisesRegex(ValueError, "outside the repository"):
+                pipeline.validate_private_path(root / "reads.fastq.gz", repo, repo)
 
     def test_rejects_wrong_extension(self):
         with tempfile.TemporaryDirectory() as tmp:
