@@ -68,6 +68,20 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    VALUES (%s, %s, %s, %s, %s, 'multi')""",
                 (org_id, name, role, email, uid),
             )
+        # Seed the membership rows explicitly: domain permissions have a composite
+        # foreign key to this table, and org creation does not guarantee this
+        # separate membership model is populated by a trigger.
+        for org_id, uid, role in (
+            (cls.org_a, cls.a, "hospital"),
+            (cls.org_b, cls.b, "hospital"),
+            (cls.trial_org, cls.a, "clinical_trial"),
+        ):
+            c.execute(
+                """INSERT INTO public.jlight_organization_memberships
+                   (auth_subject, organization_id, role, active, created_by)
+                   VALUES (%s, %s, %s, true, %s)""",
+                (uid, org_id, role, uid),
+            )
         for org_id, uid in ((cls.org_a, cls.a), (cls.org_b, cls.b)):
             for domain in ("hospital", "laboratory", "bioinformatics"):
                 c.execute(
