@@ -47,16 +47,17 @@ jobs:
         run: |
           set -euo pipefail
           tb-profiler --version
-          # Record the exact checked-out database branch commit where available.
-          git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' \
-            | tee "$RUNNER_TEMP/tb-db-commit.txt"
-          test -s "$RUNNER_TEMP/tb-db-commit.txt"
+          DB_COMMIT="$(git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' | awk 'NR==1 {print $1}')"
+          test -n "$DB_COMMIT"
+          # Explicitly install the database at the same immutable commit recorded in the manifest.
+          tb-profiler update_tbdb --branch 'who_v2+' --commit "$DB_COMMIT" --force
           python bioinformatics/tb_pipeline.py \
             --sample-id PATION-001 \
             --r1 "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz" \
             --r2 "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz" \
             --outdir "$RUNNER_TEMP/tb-public-output/PATION-001" \
-            --threads 2
+            --threads 2 \
+            --db-version "$DB_COMMIT"
 
       - name: Assert completed run and print safe summary
         shell: bash -el {0}
@@ -84,4 +85,4 @@ jobs:
         if: always()
         shell: bash
         run: |
-          rm -rf "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output" "$RUNNER_TEMP/tb-db-commit.txt"
+          rm -rf "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
