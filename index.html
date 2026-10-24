@@ -4200,6 +4200,8 @@ function bioRecs(e, qcStatus, cards) {
 }
 
 function exportBioReport(entryId) {
+  // Clinical Trials is a separate data domain and must never export Bioinformatics reports.
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
   const e = STATE.entries.find(x=>x.id===entryId); if(!e) return;
   const cards = STATE.cards.filter(c=>c.role==='Bioinformatics');
   const generatedAt = new Date();
