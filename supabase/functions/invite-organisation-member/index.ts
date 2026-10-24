@@ -11,7 +11,7 @@ const json = (body: unknown, status: number, headers: Record<string, string>) =>
   new Response(JSON.stringify(body), { status, headers: { ...headers, "Content-Type": "application/json", "Cache-Control": "no-store" } });
 
 Deno.serve(async (req) => {
-  const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "")
+  const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "https://jlight-health.co.za;https://www.jlight-health.co.za;https://deploy-preview-33--jlight-health.netlify.app")
     .split(";").map((x) => x.trim()).filter(Boolean));
   const origin = req.headers.get("origin") ?? "";
   const headers = corsHeaders(origin, allowedOrigins);
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const role = typeof body.access_role === "string" ? body.access_role : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const allowedRoles = new Set(["hospital", "laboratory", "bioinformatics", "clinical_trial", "reviewer", "read_only", "org_admin"]);
+  const allowedRoles = new Set(["hospital", "laboratory", "bioinformatics", "reviewer", "read_only", "org_admin"]);
   if (!uuidPattern.test(organisationId) || email.length > 254 ||
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       !allowedRoles.has(role)) {
