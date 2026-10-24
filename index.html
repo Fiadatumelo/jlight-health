@@ -1392,7 +1392,7 @@ async function doForgotPassword() {
   const status = document.getElementById('si-status')
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
   if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
   const sb = getSupabase()
   if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
   setStatus('Requesting a secure password-reset email…')
