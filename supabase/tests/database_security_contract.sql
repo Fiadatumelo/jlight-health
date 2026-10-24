@@ -1,6 +1,6 @@
 -- Run with Supabase CLI: supabase test db
 BEGIN;
-SELECT plan(23);
+SELECT plan(29);
 
 SELECT ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid='public.jl_patients'::regclass),
@@ -98,6 +98,49 @@ SELECT ok(
 SELECT ok(
   position('jlight_finding_domain_access' in pg_get_functiondef('public.jl_review_intelligence_finding(uuid,text,text)'::regprocedure)) > 0,
   'SECURITY DEFINER finding review RPC independently enforces source-domain permissions'
+);
+
+
+-- Behavioural domain-grant checks use synthetic IDs and roll back with this test.
+INSERT INTO public.jl_organisations(id,name,role,owner_email,org_code,active)
+VALUES ('c1111111-1111-4111-8111-111111111111','Synthetic Domain Test','Laboratory','synthetic@example.invalid','SYNTHDOM1',true);
+INSERT INTO public.jlight_organization_memberships(organization_id,auth_subject,role,active,created_by)
+VALUES ('c1111111-1111-4111-8111-111111111111','c2222222-2222-4222-8222-222222222222','owner',true,'c2222222-2222-4222-8222-222222222222');
+INSERT INTO public.jlight_membership_domain_permissions(organization_id,auth_subject,domain,can_read,can_write,can_report,granted_by)
+VALUES ('c1111111-1111-4111-8111-111111111111','c2222222-2222-4222-8222-222222222222','laboratory',true,true,true,'c2222222-2222-4222-8222-222222222222');
+INSERT INTO public.jl_intelligence_findings(id,organisation_id,finding_type,severity,status,title,explanation,rule_version,source_observation_ids)
+VALUES ('c4444444-4444-4444-8444-444444444444','c1111111-1111-4111-8111-111111111111','synthetic_test','low','open','Synthetic finding','Synthetic only; no patient data','test-v1','{}'::uuid[]);
+SELECT set_config('request.jwt.claim.sub','c2222222-2222-4222-8222-222222222222',true);
+
+SELECT is(
+  public.jlight_has_domain_permission('c1111111-1111-4111-8111-111111111111','laboratory','read'),
+  true,
+  'explicit laboratory read grant is honoured'
+);
+SELECT is(
+  public.jlight_has_domain_permission('c1111111-1111-4111-8111-111111111111','hospital','read'),
+  false,
+  'missing hospital grant is denied'
+);
+SELECT is(
+  public.jlight_has_domain_permission('c1111111-1111-4111-8111-111111111111','laboratory','write'),
+  true,
+  'explicit laboratory write grant is honoured'
+);
+SELECT is(
+  public.jlight_has_domain_permission('c1111111-1111-4111-8111-111111111111','clinical_trials','read'),
+  false,
+  'clinical trials remains outside the standard domain grants'
+);
+SELECT is(
+  public.jlight_finding_domain_access('c1111111-1111-4111-8111-111111111111','c4444444-4444-4444-8444-444444444444','read'),
+  true,
+  'finding access requires and honours an explicit domain grant'
+);
+SELECT is(
+  public.jlight_finding_domain_access('c1111111-1111-4111-8111-111111111111','ffffffff-ffff-4fff-8fff-ffffffffffff','read'),
+  false,
+  'finding access denies a finding outside the requested organisation or missing finding'
 );
 
 SELECT * FROM finish();
