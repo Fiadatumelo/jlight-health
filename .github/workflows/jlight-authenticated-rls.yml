@@ -2,6 +2,12 @@ name: JLIGHT authenticated Supabase RLS release gates
 
 on:
   workflow_dispatch:
+  push:
+    branches: [feature/bioinformatics-analysis-foundation]
+    paths:
+      - "jlight-backend/tests/test_authenticated_supabase_rls.py"
+      - ".github/workflows/jlight-authenticated-rls.yml"
+      - "supabase/**"
   pull_request:
     branches: [main]
     paths:
