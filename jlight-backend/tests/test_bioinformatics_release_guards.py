@@ -45,6 +45,16 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         self.assertIn("String(p.orgId||'')===orgId", HTML)
         self.assertIn("String(e.patientId||'')===pid", HTML)
 
+    def test_bioinformatics_qc_issues_are_bound_to_exact_patient_org_and_run(self):
+        start = HTML.index("function generateSelectedPatientBioinformaticsReport()")
+        end = HTML.index("\\nfunction renderDashboard()", start)
+        report = HTML[start:end]
+        self.assertIn("String(card.orgId||'')===orgId", report)
+        self.assertIn("String(card.patientId||'')===pid", report)
+        self.assertIn("String(card.analysisEntryId||'')===String(e.id||'')", report)
+        self.assertIn("analysisEntryId: e.id", HTML)
+        self.assertIn("String(c.analysisEntryId || '') === String(e.id)", HTML)
+
     def test_trial_journey_is_isolated_and_matches_exact_patient_id(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
         end = HTML.index("\nfunction ", start + 1)
