@@ -112,6 +112,7 @@ def main() -> int:
             "workflow": "jlight-mtb-research",
             "platform": "illumina",
             "database": args.db,
+            "database_version": "not independently resolved by this wrapper; pin the installed TBProfiler database in the worker image before release",
             "threads": args.threads,
             "intended_use": "research_and_technical_review_only",
             "status": "running",
@@ -133,7 +134,7 @@ def main() -> int:
         manifest["stages"].append(run_stage(
             "multiqc", ["multiqc", str(qc), "--outdir", str(qc)],
             args.outdir, logs / "multiqc.log"))
-        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "-t", str(args.threads), "--db", args.db, "--prefix", str((results / args.sample_id).resolve())]
+        cmd = ["tb-profiler", "profile", "-1", str(args.r1), "-t", str(args.threads), "--db", args.db, "--prefix", args.sample_id]
         if not args.single_end:
             cmd.extend(["-2", str(args.r2)])
         manifest["stages"].append(run_stage("tb-profiler", cmd, args.outdir, logs / "tb-profiler.log"))
