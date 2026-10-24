@@ -83,9 +83,20 @@ Deno.serve(async (req: Request) => {
     email,
     options: { redirectTo: origin + "/?type=recovery" },
   });
-  if (error || !data?.properties?.action_link) {
-    console.warn("[send-password-reset] Recovery link unavailable; returning generic response.");
-    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+  if (error) {
+    // Keep unknown-account responses generic to prevent account enumeration,
+    // but surface genuine Auth/configuration failures instead of pretending
+    // the recovery request was processed.
+    const errorCode = (error as { code?: string }).code ?? "";
+    if (errorCode === "user_not_found") {
+      return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+    }
+    console.error("[send-password-reset] Recovery link generation failed", errorCode || "unclassified");
+    return json({ error: "Password recovery is temporarily unavailable. Please try again later." }, 503, origin);
+  }
+  if (!data?.properties?.action_link) {
+    console.error("[send-password-reset] Recovery link generation returned no action link.");
+    return json({ error: "Password recovery is temporarily unavailable. Please try again later." }, 503, origin);
   }
 
   const actionLink = data.properties.action_link;
