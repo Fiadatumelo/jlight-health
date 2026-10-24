@@ -1,0 +1,10 @@
+name: jlight-tb-research
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.11
+  - fastqc=0.12.1
+  - multiqc=1.33
+  - tb-profiler=6.7.0
