@@ -12,8 +12,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --ink: #05080F; --ink-2: #0A0F1C;
-  --surface: #0C1120; --surface-2: #111827; --surface-3: #161F30; --surface-4: #1A2438;
+  --ink: #F4F7FB; --ink-2: #EAF0F7;
+  --surface: #FFFFFF; --surface-2: #FFFFFF; --surface-3: #F4F7FB; --surface-4: #E9F0F8;
   --teal: #00C9A7; --teal-2: #00A387;
   --teal-glow: rgba(0,201,167,0.15); --teal-bg: rgba(0,201,167,0.06);
   --amber: #F5A623; --amber-glow: rgba(245,166,35,0.15); --amber-bg: rgba(245,166,35,0.06);
@@ -21,12 +21,12 @@
   --green: #2EE89A; --green-glow: rgba(46,232,154,0.12); --green-bg: rgba(46,232,154,0.06);
   --blue: #4B8EFF; --blue-glow: rgba(75,142,255,0.12); --blue-bg: rgba(75,142,255,0.06);
   --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08);
-  --border: rgba(255,255,255,0.07); --border-2: rgba(255,255,255,0.12); --border-strong: rgba(255,255,255,0.2);
-  --text: rgba(255,255,255,0.92); --text-2: rgba(255,255,255,0.6); --text-3: rgba(255,255,255,0.35); --text-4: rgba(255,255,255,0.22);
+  --border: #E3EAF2; --border-2: #D4DFEA; --border-strong: #B8C9DA;
+  --text: #182638; --text-2: #52657A; --text-3: #718398; --text-4: #8B9BAD;
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'Inter', 'Manrope', sans-serif; background: var(--ink); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', 'Manrope', sans-serif; background: linear-gradient(135deg, #F7FAFD 0%, #EEF4FA 55%, #F5F8FC 100%); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -37,7 +37,7 @@ a { color: var(--teal); text-decoration: none; }
 .auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(0,201,167,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,167,0.04) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
 .auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(0,201,167,0.08) 0%, transparent 65%); top: -200px; right: -200px; }
 .auth-glow-2 { position: absolute; width: 500px; height: 500px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(75,142,255,0.06) 0%, transparent 65%); bottom: -100px; left: -100px; }
-.auth-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: 20px; padding: 40px; width: 100%; max-width: 460px; position: relative; z-index: 1; box-shadow: 0 40px 100px rgba(0,0,0,0.4); }
+.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 24px 64px rgba(28,54,84,0.12); }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
 .auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
@@ -537,6 +537,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
         </select>
       </div>
     </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
@@ -896,10 +897,18 @@ function showScreen(name) {
   else console.warn('[JLIGHT] screen not found:', id)
 }
 // ─── Supabase client (lazy init) ───
-const BACKEND = {
-  url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
-  key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
-}
+// Never point deploy previews or local development at production auth/data.
+const PRODUCTION_HOSTS = new Set(['jlight-health.co.za', 'www.jlight-health.co.za'])
+const IS_PRODUCTION_HOST = PRODUCTION_HOSTS.has(window.location.hostname.toLowerCase())
+const BACKEND = IS_PRODUCTION_HOST
+  ? {
+      url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
+      key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
+    }
+  : {
+      url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
+      key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
+    }
 const MODE = { isOnline: true, organisationName: null, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
@@ -1138,9 +1147,31 @@ async function doSignIn() {
       STATE.role = role
       await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
       await loadOrCreateProfile(data.user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
+      let deliveryNote = ''
+      if (joinType === 'new' && MODE.organisationId && MODE.organisationCode) {
+        try {
+          const { data: activeSession, error: sessionError } = await sb.auth.getSession()
+          if (sessionError) throw sessionError
+          const accessToken = activeSession?.session?.access_token
+          if (!accessToken) throw new Error('No active session available for secure code delivery.')
+          const mailResponse = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + accessToken },
+            body: JSON.stringify({ organisation_id: MODE.organisationId })
+          })
+          const mailResult = await mailResponse.json().catch(() => ({}))
+          if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
+          if (mailResult.email_sent === false) {
+            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
+          } else {
+            deliveryNote = ' The organisation code was emailed to your verified account address.'
+          }
+        } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
+      }
       if (status) {
-        const codeMsg = MODE.organisationCode ? ' · Org code: ' + MODE.organisationCode : ''
-        status.textContent = 'Workspace created successfully' + codeMsg + (MODE.organisationCode ? ' — you can find and copy this code later in Settings → Organisation.' : '')
+        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
+        status.textContent = (joinType === 'new' ? 'Workspace created successfully' : 'Workspace joined successfully') + codeMsg + deliveryNote + (MODE.organisationCode ? ' You can also copy this code later in Settings → Organisation.' : '')
         status.className = 'auth-status success'
       }
       // Give the owner time to read the generated code before entering the app.
@@ -1152,6 +1183,7 @@ async function doSignIn() {
       MODE.isOnline = true
       const user = data.session.user
       const meta = user.user_metadata || {}
+      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
       STATE.user = user.email || email
       STATE.role = selectedPath
       await ensureJlightOrganisation(user, {
@@ -1160,6 +1192,11 @@ async function doSignIn() {
         orgCode: meta.org_code || ''
       })
       await loadOrCreateProfile(user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
+      // If email confirmation delayed workspace setup, finish delivery after the
+      // first authenticated sign-in rather than leaving the owner without a code.
+      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
       enterApp()
     }
   } catch(e) {
@@ -1284,22 +1321,55 @@ async function ensureJlightOrganisation(user, options = {}) {
   if (metadataError) throw new Error('Workspace created, but account metadata could not be updated: ' + metadataError.message)
   await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
 }
-async function doForgotPassword() {
-  const email = (document.getElementById('si-email')||{}).value?.trim() || ''
-  const addr = prompt('Enter your account email:', email)
-  if (!addr) return
-  const sb = getSupabase()
-  if (!sb) { alert('Backend unavailable'); return }
+async function sendOrganisationCodeEmail() {
+  const sb = getSupabase(), status = document.getElementById('si-status')
+  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
+  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
   try {
-    const { error } = await sb.auth.resetPasswordForEmail(addr.trim(), {
-      redirectTo: window.location.origin + window.location.pathname
-    })
+    const { data, error } = await sb.auth.getSession()
     if (error) throw error
-    const status = document.getElementById('si-status')
-    if (status) { status.textContent = 'Reset email sent to ' + addr.trim(); status.className = 'auth-status success' }
-    toast('Reset email sent', 'Check your inbox', 'good')
-  } catch(e) {
-    toast('Reset failed', e.message, 'crit')
+    const session = data?.session
+    const orgId = MODE.organisationId || session?.user?.user_metadata?.org_id
+    if (!session?.access_token || !orgId) { setStatus('Sign in to the workspace owner account first, then request the code from Settings → Organisation.', 'error'); return }
+    setStatus('Requesting secure organisation-code email…')
+    const response = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ organisation_id: orgId })
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || 'Organisation-code email could not be sent.')
+    if (result.email_sent === false && result.organisation_code) {
+      setStatus('Email delivery is not configured. Your organisation code is: ' + result.organisation_code + '. Copy it now and share it only with authorised colleagues.', 'error')
+      return
+    }
+    setStatus('Organisation code emailed to your verified account address.', 'success')
+  } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
+}
+
+async function doForgotPassword() {
+  const emailInput = document.getElementById('si-email')
+  const addr = (emailInput?.value || '').trim()
+  const status = document.getElementById('si-status')
+  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
+  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  const sb = getSupabase()
+  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
+  setStatus('Requesting a secure password-reset email…')
+  try {
+    const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
+      body: JSON.stringify({ email: addr })
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || 'Password-reset service is temporarily unavailable.')
+    setStatus('If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success')
+    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
+  } catch (e) {
+    console.error('[JLIGHT] password reset request failed:', e)
+    setStatus(e.message || 'Could not request a reset email. Please try again.', 'error')
+    toast('Password reset unavailable', e.message || 'Please try again', 'crit')
   }
 }
 
@@ -1313,14 +1383,26 @@ async function doResetPassword() {
   if (!sb) { if (st) { st.textContent = 'Backend unavailable'; st.className = 'auth-status error' } return }
   if (st) { st.textContent = 'Setting password...'; st.className = 'auth-status' }
   try {
-    // Exchange URL token for session if needed
-    const hash = window.location.hash
-    if (hash && hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const at = params.get('access_token')
-      const rt = params.get('refresh_token') || ''
-      if (at) { try { await sb.auth.setSession({ access_token: at, refresh_token: rt }) } catch {} }
+    // Support Supabase PKCE codes, recovery token hashes and implicit recovery tokens.
+    const query = new URLSearchParams(window.location.search)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const recoveryType = query.get('type') || hash.get('type')
+    const code = query.get('code')
+    const tokenHash = query.get('token_hash') || hash.get('token_hash')
+    if (code) {
+      const { error } = await sb.auth.exchangeCodeForSession(code)
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
+    } else if (tokenHash && recoveryType === 'recovery') {
+      const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
+    } else if (hash.get('access_token')) {
+      if (recoveryType !== 'recovery') throw new Error('This is not a password-recovery link. Request a new reset email.')
+      const { error } = await sb.auth.setSession({ access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token') || '' })
+      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
     }
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession()
+    if (sessionError) throw sessionError
+    if (!sessionData?.session?.user) throw new Error('The recovery link could not establish a valid session. Request a new reset email and open the newest link.')
     const { error } = await sb.auth.updateUser({ password: np })
     if (error) throw error
     if (st) { st.textContent = 'Password updated. Redirecting to sign in...'; st.className = 'auth-status success' }
