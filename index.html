@@ -1862,7 +1862,7 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
   }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" '+(selected?'':'disabled')+' onclick="generateSelectedPatientJourneyReport()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" '+(selected?'':'disabled')+' onclick="generateSelectedPatientJourneyReport()">Generate Patient Journey Report</button><button class="btn btn-primary" '+(selected?'':'disabled')+' onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
@@ -5123,6 +5123,9 @@ function renderRegisterBio() {
     '<option>AMR Profiling</option><option>Viral Sequencing (SARS-CoV-2 / HIV / HBV)</option>' +
     '<option>TB Drug Resistance (MTB-Seq)</option></select></div>' +
     '<div class="form-row"><label class="form-label">Sample / Run ID</label><input class="form-input" id="bf-sid" type="text" placeholder="e.g. RUN-2026-04-001"/></div>' +
+    '<div class="form-row"><label class="form-label">Link to patient journey</label><select class="form-input" id="bf-patient"><option value="">— Not linked —</option>' +
+    (STATE.patients || []).filter(p=>p&&!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId))).map(p=>'<option value="'+esc(String(p.id))+'">'+esc(String(p.mrn||p.id))+'</option>').join('') +
+    '</select><div class="form-hint">Select an existing patient reference to include this run in that patient’s Bioinformatics Analysis Report. Matching uses the exact patient ID.</div></div>' +
     '<div class="form-row"><label class="form-label">Sequencing Platform</label>' +
     '<select class="form-input" id="bf-platform"><option value="">— Select —</option>' +
     '<option>Illumina MiSeq</option><option>Illumina NextSeq</option><option>Illumina NovaSeq</option>' +
@@ -5163,7 +5166,7 @@ function submitBioEntry() {
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
   const e = {
     id: uid(), ts: Date.now(), role: STATE.role, user: getDisplayName(),
-    analysisType, sampleId, pipelineStage: 'queued',
+    analysisType, sampleId, patientId: get('bf-patient') || null, pipelineStage: 'queued',
     platform: get('bf-platform'), reference: get('bf-ref'),
     coverage: parseFloat(get('bf-cov')), mappingRate: parseFloat(get('bf-map')),
     qscore: parseFloat(get('bf-q')), dupRate: parseFloat(get('bf-dup')),
