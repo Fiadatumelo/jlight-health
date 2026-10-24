@@ -23,6 +23,19 @@ def sha256(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
+
+def validate_private_path(path: Path, private_root: Path, repo_root: Path) -> None:
+    """Fail closed unless all sequence inputs and outputs stay outside the web/repository tree."""
+    resolved = path.resolve()
+    root = private_root.resolve()
+    repository = repo_root.resolve()
+    if root == repository or root.is_relative_to(repository) or repository.is_relative_to(root):
+        raise ValueError("JLIGHT_PRIVATE_DATA_ROOT must be an isolated private directory outside the repository and web root")
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("Sequence inputs and outputs must be located inside JLIGHT_PRIVATE_DATA_ROOT") from exc
+
 def validate_fastq(path: Path) -> None:
     if not path.is_file() or path.stat().st_size == 0:
         raise ValueError(f"FASTQ is missing or empty: {path.name}")
@@ -156,12 +169,27 @@ def main() -> int:
     if args.r2:
         args.r2 = args.r2.resolve()
     args.outdir = args.outdir.resolve()
-    args.outdir.mkdir(parents=True, exist_ok=True)
+    private_root_raw = os.environ.get("JLIGHT_PRIVATE_DATA_ROOT")
+    if not private_root_raw:
+        parser.error("JLIGHT_PRIVATE_DATA_ROOT must point to an isolated private storage directory")
+    private_root = Path(private_root_raw).resolve()
+    if not private_root.is_dir():
+        parser.error("JLIGHT_PRIVATE_DATA_ROOT must exist and be a directory")
+    repository_root = Path(__file__).resolve().parents[1]
+    try:
+        for protected_path in [args.r1, args.outdir] + ([args.r2] if args.r2 else []):
+            validate_private_path(protected_path, private_root, repository_root)
+    except ValueError as exc:
+        parser.error(str(exc))
+    os.umask(0o077)
+    args.outdir.mkdir(mode=0o700, parents=True, exist_ok=True)
+    args.outdir.chmod(0o700)
     logs = args.outdir / "logs"
     qc = args.outdir / "qc"
     results = args.outdir / "results"
     for directory in (logs, qc, results):
-        directory.mkdir(exist_ok=True)
+        directory.mkdir(mode=0o700, exist_ok=True)
+        directory.chmod(0o700)
     reads = [args.r1] + ([] if args.single_end else [args.r2])
     try:
         for read in reads:
