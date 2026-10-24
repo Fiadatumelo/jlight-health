@@ -1,0 +1,86 @@
+name: JLIGHT TB public-data benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/bioinformatics-analysis-foundation
+    paths:
+      - "bioinformatics/**"
+      - ".github/workflows/tb-public-benchmark.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-tb-benchmark:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up micromamba environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: bioinformatics/environment.yml
+          cache-environment: true
+          init-shell: bash
+
+      - name: Download public TBProfiler example reads using anonymised filenames
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
+          cd "$RUNNER_TEMP/tb-public-input"
+          curl --fail --location --retry 3 --retry-delay 2 \
+            https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR166/009/ERR1664619/ERR1664619_1.fastq.gz \
+            -o PATION-001_R1.fastq.gz
+          curl --fail --location --retry 3 --retry-delay 2 \
+            https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR166/009/ERR1664619/ERR1664619_2.fastq.gz \
+            -o PATION-001_R2.fastq.gz
+          test -s PATION-001_R1.fastq.gz
+          test -s PATION-001_R2.fastq.gz
+
+      - name: Record database provenance and run TB pipeline
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          tb-profiler --version
+          # Record the exact checked-out database branch commit where available.
+          git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' \
+            | tee "$RUNNER_TEMP/tb-db-commit.txt"
+          test -s "$RUNNER_TEMP/tb-db-commit.txt"
+          python bioinformatics/tb_pipeline.py \
+            --sample-id PATION-001 \
+            --r1 "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz" \
+            --r2 "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz" \
+            --outdir "$RUNNER_TEMP/tb-public-output/PATION-001" \
+            --threads 2
+
+      - name: Assert completed run and print safe summary
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("$RUNNER_TEMP/tb-public-output/PATION-001/run-manifest.json").read_text())
+          assert manifest["status"] == "completed_pending_expert_review", manifest.get("status")
+          assert manifest["sample_id"] == "PATION-001"
+          assert manifest["stages"] and all(stage["status"] == "completed" for stage in manifest["stages"])
+          print(json.dumps({
+              "status": manifest["status"],
+              "sample_id": manifest["sample_id"],
+              "tool_versions": manifest["tools"],
+              "input_count": len(manifest["input_files"]),
+              "stage_count": len(manifest["stages"]),
+              "limitations": manifest["limitations"],
+          }, indent=2))
+          PY
+
+      - name: Remove sequence data and analysis outputs
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output" "$RUNNER_TEMP/tb-db-commit.txt"
