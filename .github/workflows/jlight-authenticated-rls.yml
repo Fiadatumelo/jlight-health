@@ -19,7 +19,6 @@ jobs:
     env:
       JLIGHT_STAGING_DATABASE_URL: ${{ secrets.JLIGHT_STAGING_DATABASE_URL }}
       JLIGHT_STAGING_PROJECT_REF: ampkysrzliwjtvbigsvu
-      JLIGHT_PRODUCTION_PROJECT_REF: ${{ secrets.JLIGHT_PRODUCTION_PROJECT_REF }}
     steps:
       - name: Check out release branch
         uses: actions/checkout@v4
@@ -33,8 +32,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" || -z "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
-            echo "::error::Configure JLIGHT_STAGING_DATABASE_URL and JLIGHT_PRODUCTION_PROJECT_REF secrets before release validation."
+          if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" ]]; then
+            echo "::error::Configure the JLIGHT_STAGING_DATABASE_URL secret before release validation."
             exit 1
           fi
           if [[ "$JLIGHT_STAGING_PROJECT_REF" == "$JLIGHT_PRODUCTION_PROJECT_REF" ]]; then
