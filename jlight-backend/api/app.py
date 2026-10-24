@@ -29,6 +29,9 @@ from functools import wraps
 from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 
+import jwt
+from api.security import verify_access_token
+
 from engine.csv_engine import analyse_csv
 from engine.bio_engine import (
     screen_tb_resistance,
@@ -42,15 +45,51 @@ from engine.bio_engine import (
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-CORS(app, origins=[
-    "https://jlight-health.co.za",
-    "https://www.jlight-health.co.za",
-    "http://localhost:3000",
-    "http://localhost:5000",
-    "http://127.0.0.1:5500",  # VS Code Live Server
-])
+allowed_origins = [
+    origin.strip()
+    for origin in os.environ.get(
+        "ALLOWED_ORIGINS",
+        "https://jlight-health.co.za,https://www.jlight-health.co.za"
+    ).split(",")
+    if origin.strip()
+]
+CORS(app, origins=allowed_origins, supports_credentials=False)
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max upload
+
+@app.before_request
+def require_verified_supabase_session():
+    """Fail closed for API routes; health remains public for deployment probes."""
+    if request.method == "OPTIONS" or request.path == "/api/health":
+        return None
+    header = request.headers.get("Authorization", "")
+    if not header.startswith("Bearer "):
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    token = header[7:].strip()
+    if not token:
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    try:
+        claims = verify_access_token(token)
+        if not claims.get("sub"):
+            return jsonify({"success": False, "error": "Invalid session"}), 401
+        g.auth_claims = claims
+        g.auth_user_id = claims["sub"]
+        # These legacy tables have no demonstrated organisation-scoped access
+        # model yet. Fail closed rather than expose global audit/card records.
+        if request.path in {"/api/audit", "/api/cards", "/api/cards/acknowledge"}:
+            return jsonify({
+                "success": False,
+                "error": "This endpoint is temporarily unavailable until organisation-scoped permissions are configured."
+            }), 503
+    except RuntimeError:
+        app.logger.exception("Supabase JWT verification is not configured")
+        return jsonify({"success": False, "error": "Authentication service unavailable"}), 503
+    except jwt.PyJWTError:
+        return jsonify({"success": False, "error": "Invalid or expired session"}), 401
+    except Exception:
+        app.logger.exception("Unexpected token verification failure")
+        return jsonify({"success": False, "error": "Authentication service unavailable"}), 503
+    return None
 
 
 # ─── Database (optional) ─────────────────────────────────────────────────────
