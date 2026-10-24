@@ -74,7 +74,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             """INSERT INTO public.jlight_organization_memberships
                (organization_id, auth_subject, role, active, created_by)
                VALUES (%s, %s, 'owner', true, %s),
-                      (%s, %s, 'hospital', true, %s)
+                      (%s, %s, 'owner', true, %s)
                ON CONFLICT (organization_id, auth_subject)
                DO UPDATE SET role = EXCLUDED.role, active = true""",
             (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b),
