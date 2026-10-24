@@ -47,13 +47,6 @@ Deno.serve(async (req: Request) => {
   if (!supabaseUrl || !anonKey || !serviceRoleKey) {
     return json({ error: "Organisation-code service is not configured" }, 503, origin);
   }
-  if (!resendApiKey || !fromEmail) {
-    return json({
-      error: "Organisation-code email is not configured. Configure RESEND_API_KEY and JLIGHT_FROM_EMAIL in Supabase Edge Function secrets.",
-      code_available_in_app: true,
-    }, 503, origin);
-  }
-
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return json({ error: "Sign in is required" }, 401, origin);
 
@@ -94,6 +87,18 @@ Deno.serve(async (req: Request) => {
   const code = String(org.org_code);
   const safeName = escapeHtml(name);
   const safeCode = escapeHtml(code);
+
+  // Only after verifying the signed-in user owns this organisation may we
+  // return the code in the authenticated response if email delivery is not configured.
+  if (!resendApiKey || !fromEmail) {
+    return json({
+      success: true,
+      email_sent: false,
+      sent_to: user.email,
+      organisation_code: code,
+      message: "Email delivery is not configured yet. Copy this code and share it only with authorised colleagues.",
+    }, 200, origin);
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
