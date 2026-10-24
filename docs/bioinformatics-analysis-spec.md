@@ -85,3 +85,69 @@ Before calling a pipeline production-ready: pin workflow/container/tool/database
 - Academy of Science of South Africa, POPIA Compliance Framework for Research: https://www.assaf.org.za/popia/
 
 This document defines the implementation target. It does not assert that the workflow, secure compute worker or source connectors are already deployed.
+
+## First three disease programmes by burden and usable sequence-data ecosystem
+
+The first three programmes are:
+
+1. **Tuberculosis (TB), including drug-resistant TB** — highest implementation priority because of South Africa's substantial disease burden and the direct value of lineage/resistance-associated variant analysis. Start with a pinned TBProfiler workflow for compatible *M. tuberculosis* complex reads.
+2. **HIV-1, specifically drug-resistance sequencing** — high national burden and a mature genotyping/research ecosystem. Start only with a maintained, subtype-aware, versioned interpretation workflow and its approved use criteria.
+3. **SARS-CoV-2 (COVID-19), genomic surveillance** — strong public sequence-data availability through established South African surveillance projects and NCBI SRA/GISAID. Use for research/surveillance and variant tracking, not routine patient diagnosis. Choose this over influenza for the initial third slot because public South African sequencing datasets and established analysis workflows are readily discoverable. Influenza can follow.
+
+This is a product prioritisation based on South African public-health relevance and accessible sequence-data/workflow ecosystems, not a claim that the number of public raw reads is directly comparable across diseases. Access, reuse, licences and metadata restrictions must be checked dataset by dataset. Public datasets must never be assumed to grant permission to use them for clinical validation or commercial training.
+
+Evidence for disease burden includes WHO's South Africa health statistics and tuberculosis guidance. A South African SARS-CoV-2 genomic-surveillance BioProject is discoverable through NCBI:
+- WHO South Africa health statistics: https://www.who.int/data/gho/data/countries/country-details/GHO/south-africa
+- WHO TB fact sheet: https://www.who.int/en/news-room/fact-sheets/detail/tuberculosis
+- NCBI BioProject PRJNA805055, Genomic Surveillance of SARS-CoV-2 in South Africa: https://www.ncbi.nlm.nih.gov/bioproject/PRJNA805055
+
+## Required reports in Bioinformatics Analysis
+
+There must be two distinct report types, with explicit report actions and separate templates. Both must be available from the selected patient's Patient Journey view when the user has permission to view the relevant data. Do not confuse the two or merge them into one document.
+
+### A. Bioinformatics Analysis Report
+
+**Where:** Bioinformatics Analysis → completed analysis run → Generate / Download Analysis Report.
+
+**Purpose:** document the actual computational analysis of a sequence dataset.
+
+Required contents:
+- Report ID, run ID, creation time, author/reviewer, organisation, analysis purpose, and research/clinical-use designation.
+- Pseudonymous sample identifier; avoid direct identifiers in the report unless specifically authorised and necessary.
+- Organism/pathogen, sequencing platform/library type when supplied, input format, sample pairing and input-file checksums. Never embed raw sequence data.
+- Workflow name, immutable workflow/container version or digest, tool versions, reference genome and database versions, parameters, execution timestamps, and provenance.
+- Input validation, FastQC/MultiQC findings, read counts, quality metrics, coverage/depth where supported, contamination indicators only when the selected workflow actually supports them, and explicit QC pass/fail/warning status.
+- Workflow-specific results: for TB, supported lineage and drug-resistance-associated variant predictions; for HIV, supported resistance interpretation; for SARS-CoV-2, consensus/variant/lineage results and relevant quality limitations.
+- Interpretation boundaries, no-call/failed regions, limitations, QC failures, failed stages and whether results are preliminary or reviewed.
+- Reviewer decision, review timestamp and comments, if review has occurred.
+- Machine-readable results attachment or stable controlled download reference, audit history and report version.
+
+Never convert a failed/low-quality run into a negative finding. Do not claim phenotype, clinical diagnosis or susceptibility testing unless separately established by an appropriate validated method.
+
+### B. Patient Journey Report (Bioinformatics contribution)
+
+**Where:** Patient Journey → selected patient → Generate Patient Journey Report. Also provide this action from Bioinformatics Analysis when a selected sample/run is linked to the journey.
+
+**Purpose:** summarise the authorised longitudinal journey across Hospital, Laboratory and Bioinformatics records, not just sequence findings.
+
+Required contents:
+- Report ID, generation timestamp, requesting user/organisation, report scope and data cut-off time.
+- Patient identifier according to the user's role and the organisation's approved reporting policy; use pseudonymous identifiers by default in exports.
+- Chronological, source-labelled timeline of authorised hospital events, laboratory orders/results/statuses, and bioinformatics analyses/results/reviews that are linked by the exact approved patient key.
+- For each bioinformatics event: analysis/run ID, pathogen/workflow, run date/status, QC state, report reference, reviewer state, and only the approved derived findings needed for the journey.
+- Missing, delayed, unmatched or conflicting records, with source and timestamp; clearly distinguish a missing record from a negative result.
+- Decision Cards or flags relevant to the journey, with evidence/source links, status, recommended next step, and any recorded resolution kept separate from recommendations.
+- Outstanding follow-ups, data limitations, and a clear statement that the report is a traceability/decision-support summary, not an autonomous diagnosis.
+- Report provenance, included data sources, audit event and export version.
+
+Patient Journey must never include raw FASTQ/FASTA reads, raw sequence files, unrestricted VCFs, private worker logs or full genomic data. Link to the Analysis Report only if the current user is independently authorised to access it. Trial participants remain in the separate Clinical Trials workflow and must not leak into the shared non-trial Patient Journey.
+
+### Shared report generation requirements
+
+- Generate reports from saved, authorised source records—not from a language model inventing missing results.
+- Use a deterministic structured template, with optional plain-language explanation explicitly labelled as generated assistance and checked against source facts.
+- Include source timestamps, data cut-off, report version and audit record; identify stale or incomplete source data.
+- Support on-screen preview and PDF export; if PDF generation fails, show a visible error and preserve the saved report state.
+- Enforce role and tenant access at generation, preview, download and link resolution. Never rely only on hiding a button in the frontend.
+- Do not expose raw sequence information through report URLs, PDF metadata, browser logs, or cross-domain endpoints.
+- Add automated tests for both report types, exact patient-ID matching, trial isolation, permissions, missing data, QC failure wording, and the rule that patient-journey reports cannot include raw sequence payloads.
