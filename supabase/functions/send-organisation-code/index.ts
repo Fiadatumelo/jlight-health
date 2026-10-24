@@ -4,8 +4,9 @@ const siteUrl = (Deno.env.get("JLIGHT_SITE_URL") ?? "https://jlight-health.co.za
 const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? (siteUrl + ";https://www.jlight-health.co.za;https://deploy-preview-33--jlight-health.netlify.app"))
   .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
 
+const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\\d+--jlight-health\\.netlify\\.app$/.test(origin);
 const corsHeaders = (origin: string) => ({
-  "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "null",
+  "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "null",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Max-Age": "86400",
@@ -31,10 +32,10 @@ const escapeHtml = (value: string) =>
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin") ?? "";
   if (req.method === "OPTIONS") {
-    if (!allowedOrigins.has(origin)) return new Response("Forbidden origin", { status: 403 });
+    if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
     return new Response("ok", { headers: corsHeaders(origin) });
   }
-  if (!allowedOrigins.has(origin)) return json({ error: "Origin not allowed" }, 403, origin);
+  if (!isAllowedOrigin(origin)) return json({ error: "Origin not allowed" }, 403, origin);
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
