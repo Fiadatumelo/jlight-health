@@ -1859,6 +1859,23 @@ function buildJourneyReport() {
 }
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
+  // Trial workspace is an explicit privacy boundary: do not expose hospital, laboratory,
+  // bioinformatics, or general intelligence records in this workspace's journey.
+  if(STATE.role==='Trial') {
+    const addTrial=(label,rows,summaryFn)=>{
+      (rows||[]).forEach(row=>{
+        if(!row||row.patientId==null||String(row.patientId)!==pid)return;
+        const dateValue=row.eventAt||row.createdAt||row.updatedAt||row.timestamp||row.date||row.visitDate||row.ts;
+        const parsed=dateValue!=null?new Date(dateValue):null;
+        events.push({source:'Clinical Trials',label,when:parsed&&!Number.isNaN(parsed.getTime())?parsed:null,rawWhen:dateValue,summary:summaryFn(row),status:String(row.status||row.state||row.resolutionStatus||'Recorded')});
+      });
+    };
+    addTrial('Trial enrolment',STATE.participants||[],r=>'Authorised study enrolment'+(r.studyName?' · '+r.studyName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
+    addTrial('Trial visit',STATE.visits||[],r=>'Study visit'+(r.visitName?' · '+r.visitName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
+    addTrial('Trial safety / issue event',STATE.adverseEvents||[],r=>'Recorded trial safety event'+(r.eventType?' · '+r.eventType:'')+(r.status?' · status: '+r.status:''));
+    events.sort((a,b)=>(b.when?b.when.getTime():0)-(a.when?a.when.getTime():0));
+    return events;
+  }
   const add=(source,label,rows,summaryFn)=>{
     (rows||[]).forEach(row=>{
       if(!row||row.patientId==null||String(row.patientId)!==pid)return;
