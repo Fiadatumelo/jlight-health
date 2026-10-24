@@ -97,9 +97,27 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
             self.assertEqual(manifest["threads"], 2)
             self.assertEqual(manifest["tools"]["tb-profiler"], "tb-profiler version 0.test")
             self.assertEqual(len(manifest["input_files"]), 2)
+            self.assertEqual(manifest["paired_record_count"], 1)
             self.assertEqual(len(manifest["stages"]), 4)
             self.assertTrue((outdir / "qc" / "multiqc_report.html").exists())
 
+
+
+    def test_paired_fastq_requires_matching_names_and_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            r1, r2 = root / "r1.fastq", root / "r2.fastq"
+            r1.write_text("@read1/1\nACGT\n+\n!!!!\n@read2/1\nTGCA\n+\n!!!!\n", encoding="ascii")
+            r2.write_text("@read1/2\nACGT\n+\n!!!!\n@read2/2\nTGCA\n+\n!!!!\n", encoding="ascii")
+            pipeline.validate_fastq(r1)
+            pipeline.validate_fastq(r2)
+            self.assertEqual(pipeline.validate_paired_fastq(r1, r2), 2)
+            r2.write_text("@other/2\nACGT\n+\n!!!!\n@read2/2\nTGCA\n+\n!!!!\n", encoding="ascii")
+            with self.assertRaisesRegex(ValueError, "out of sync"):
+                pipeline.validate_paired_fastq(r1, r2)
+            r2.write_text("@read1/2\nACGT\n+\n!!!!\n", encoding="ascii")
+            with self.assertRaisesRegex(ValueError, "different record counts"):
+                pipeline.validate_paired_fastq(r1, r2)
 
     def test_failed_stage_preserves_stage_details(self):
         with tempfile.TemporaryDirectory() as tmp:
