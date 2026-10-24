@@ -15,15 +15,15 @@ except ImportError:  # Keep the ordinary unit-test suite usable without integrat
 
 STAGING_DSN = os.getenv("JLIGHT_STAGING_DATABASE_URL", "")
 STAGING_REF = os.getenv("JLIGHT_STAGING_PROJECT_REF", "")
-PRODUCTION_REF = os.getenv("JLIGHT_PRODUCTION_PROJECT_REF", "")
+EXPECTED_STAGING_REF = "ampkysrzliwjtvbigsvu"
 
 
 @unittest.skipUnless(STAGING_DSN and psycopg2, "staging database credentials are not configured")
 class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not STAGING_REF or not PRODUCTION_REF or STAGING_REF == PRODUCTION_REF:
-            raise RuntimeError("Refusing RLS integration tests without distinct staging and production project refs")
+        if STAGING_REF != EXPECTED_STAGING_REF or EXPECTED_STAGING_REF not in STAGING_DSN:
+            raise RuntimeError("Refusing RLS integration tests unless the database URL matches the verified staging project")
         cls.conn = psycopg2.connect(STAGING_DSN)
         cls.conn.autocommit = False
         cls.a = str(uuid.uuid4())
@@ -46,9 +46,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     @classmethod
     def _seed_transactional_fixtures(cls):
         c = cls.conn.cursor()
-        # Refuse to run against a database with the production project ref in its DSN.
-        if PRODUCTION_REF in STAGING_DSN:
-            raise RuntimeError("Staging DSN appears to reference the production project")
+        # Database URL is pinned to the verified staging project before connecting.
         for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example")):
             c.execute(
                 """INSERT INTO auth.users
