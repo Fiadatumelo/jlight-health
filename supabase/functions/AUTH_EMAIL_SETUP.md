@@ -9,7 +9,8 @@ Set these in the staging project's Edge Function secrets (never in frontend Java
 - `JLIGHT_FROM_EMAIL` — sender address on a domain verified in Resend, e.g. `JLIGHT <auth@your-verified-domain>`.
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` — Supabase server-provided values; the service-role key must remain secret.
 - Optional `JLIGHT_SITE_URL` — defaults to `https://jlight-health.co.za`.
-- Optional `ALLOWED_ORIGINS` — semicolon-separated exact origins; defaults to the JLIGHT production origin.
+- `INVITE_REDIRECT_URL` — the approved invite completion URL on the JLIGHT site.
+- Optional `ALLOWED_ORIGINS` — semicolon-separated exact origins; defaults to the canonical JLIGHT domain, `www`, and the current PR preview. Update this for each new preview if needed.
 
 ## Supabase Auth URL configuration
 
@@ -27,7 +28,7 @@ The endpoint uses a generic success message to avoid disclosing whether an email
 
 ## Organisation code delivery
 
-The owner can view/copy the code in Settings. The email function requires a valid signed-in session and verifies that the caller owns the requested organisation before sending the code to the account email address. An organisation code is an identifier, not an authentication credential; membership still requires authorised onboarding.
+The owner can view/copy the code in Settings. Member invitations use `invite-organisation-member` and require `INVITE_REDIRECT_URL`, the Supabase server keys, and a verified Resend sender. The generic invitation endpoint deliberately excludes Clinical Trials; those memberships require the separately approved provisioning workflow. The email function requires a valid signed-in session and verifies that the caller owns the requested organisation before sending the code to the account email address. An organisation code is an identifier, not an authentication credential; membership still requires authorised onboarding.
 
 ## Staging smoke tests
 
