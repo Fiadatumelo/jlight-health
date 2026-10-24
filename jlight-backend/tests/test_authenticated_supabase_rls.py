@@ -188,9 +188,24 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         if getattr(cls, "conn", None):
-            # Remove fixtures in a single rollback rather than leave synthetic records behind.
-            cls.conn.rollback()
-            cls.conn.close()
+            # Remove all synthetic fixtures explicitly; never leave test patients in staging.
+            try:
+                cls.conn.rollback()
+                c = cls.conn.cursor()
+                c.execute(
+                    "DELETE FROM public.jl_organisations WHERE id IN (%s, %s, %s)",
+                    (cls.org_a, cls.org_b, cls.trial_org),
+                )
+                c.execute(
+                    "DELETE FROM auth.users WHERE id IN (%s, %s)",
+                    (cls.a, cls.b),
+                )
+                cls.conn.commit()
+            except Exception:
+                cls.conn.rollback()
+                raise
+            finally:
+                cls.conn.close()
 
 
 if __name__ == "__main__":
