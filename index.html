@@ -1878,6 +1878,14 @@ async function generateJourneyReport() {
   link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
   toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
 }
+
+function openPrintableReport(title,bodyHtml) {
+  const win=window.open('','_blank','width=1000,height=800');
+  if(!win){toast('Pop-up blocked','Allow pop-ups for JLIGHT to preview and print the report.','warn');return false;}
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial,sans-serif;color:#182638;max-width:1000px;margin:36px auto;padding:0 24px;line-height:1.5}h1{color:#243f68;font-size:24px}h2{margin-top:28px;color:#345a8b;font-size:17px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;vertical-align:top;padding:9px;border-bottom:1px solid #dce4ee;overflow-wrap:anywhere}th{background:#f0f5fb}@media print{body{margin:12mm auto;padding:0}}</style></head><body>'+bodyHtml+'<p><button onclick="window.print()">Print / Save as PDF</button></p></body></html>');
+  win.document.close();return true;
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
