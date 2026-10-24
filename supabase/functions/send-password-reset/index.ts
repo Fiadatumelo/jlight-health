@@ -60,6 +60,11 @@ Deno.serve(async (req: Request) => {
   if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "Enter a valid email address" }, 400, origin);
   }
+  const clientIp = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
+  if (rateLimited(clientIp)) {
+    return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
+  }
+
   // Prefer the dedicated sender, but fall back to Supabase Auth SMTP if
   // Resend secrets are not configured. This avoids making recovery depend on
   // a second email provider when Auth SMTP is already correctly configured.
@@ -75,11 +80,6 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Password-reset email could not be requested. Check Supabase Auth SMTP settings or configure the dedicated email sender." }, 503, origin);
     }
     return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
-  }
-
-  const clientIp = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? "unknown";
-  if (rateLimited(clientIp)) {
-    return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
