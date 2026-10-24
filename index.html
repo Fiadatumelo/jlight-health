@@ -696,7 +696,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
           <span class="dot"></span>
           <span>Local · Encrypted</span>
         </div>
-        <button class="tb-btn primary" onclick="goPage('connectors')">+ Connect Data Source</button>
+        <button class="tb-btn primary" type="button" id="connect-data-source-btn" onclick="openDataSourcesWorkflow()">+ Connect Data Source</button>
       </header>
       <div class="content">
         <div id="page-dashboard" class="page active"></div>
@@ -3030,6 +3030,20 @@ function resetSourceImportPreview() {
   const file = document.getElementById('source-import-file')
   if (file) file.value = ''
   SOURCE_IMPORT_FILE_NAME = ''
+}
+function openDataSourcesWorkflow() {
+  try {
+    if (typeof goPage !== 'function') throw new Error('Navigation is unavailable. Reload JLIGHT and sign in again.')
+    goPage('connectors')
+    const page = document.getElementById('page-connectors')
+    if (!page || !page.classList.contains('active')) throw new Error('Data Sources could not be opened. Please retry.')
+    const heading = page.querySelector('.page-title')
+    if (heading) heading.setAttribute('tabindex', '-1'), heading.focus({ preventScroll: true })
+    page.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  } catch (error) {
+    console.error('[JLIGHT] Connect Data Source navigation failed:', error)
+    if (typeof toast === 'function') toast('Data Sources unavailable', error.message || 'Please reload and try again.', 'crit')
+  }
 }
 function renderConnectors() {
   const page = document.getElementById('page-connectors')
