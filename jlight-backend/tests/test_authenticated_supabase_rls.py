@@ -73,7 +73,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute(
             """INSERT INTO public.jlight_organization_memberships
                (organization_id, auth_subject, role, active, created_by)
-               VALUES (%s, %s, 'hospital', true, %s),
+               VALUES (%s, %s, 'owner', true, %s),
                       (%s, %s, 'hospital', true, %s)
                ON CONFLICT (organization_id, auth_subject)
                DO UPDATE SET role = EXCLUDED.role, active = true""",
