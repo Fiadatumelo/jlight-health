@@ -47,7 +47,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
 
     def test_bioinformatics_qc_issues_are_bound_to_exact_patient_org_and_run(self):
         start = HTML.index("function generateSelectedPatientBioinformaticsReport()")
-        end = HTML.index("\\nfunction renderDashboard()", start)
+        end = HTML.index("function renderDashboard()", start)
         report = HTML[start:end]
         self.assertIn("String(card.orgId||'')===orgId", report)
         self.assertIn("String(card.patientId||'')===pid", report)
