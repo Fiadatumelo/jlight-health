@@ -61,12 +61,39 @@ def version(command: list[str]) -> str:
         raise RuntimeError(f"Required tool unavailable: {' '.join(command)} ({exc})") from exc
 
 def run_stage(name: str, command: list[str], out: Path, log: Path) -> dict:
-    with log.open("w", encoding="utf-8") as stream:
-        result = subprocess.run(command, cwd=out, stdout=stream, stderr=subprocess.STDOUT, text=True)
-    stage = {"name": name, "command": command, "exit_code": result.returncode, "log": str(log)}
+    """Run one tool and return provenance even when it exits unsuccessfully."""
+    try:
+        with log.open("w", encoding="utf-8") as stream:
+            result = subprocess.run(
+                command, cwd=out, stdout=stream, stderr=subprocess.STDOUT,
+                text=True, timeout=None, check=False,
+            )
+        stage = {
+            "name": name,
+            "command": command,
+            "exit_code": result.returncode,
+            "log": str(log),
+            "status": "completed" if result.returncode == 0 else "failed",
+        }
+    except Exception as exc:
+        stage = {
+            "name": name, "command": command, "exit_code": None,
+            "log": str(log), "status": "failed", "error": str(exc)[:1000],
+        }
+        raise StageFailure(f"Stage {name} could not complete: {exc}", stage) from exc
     if result.returncode:
-        raise RuntimeError(f"Stage {name} failed with exit code {result.returncode}; inspect {log}")
+        raise StageFailure(
+            f"Stage {name} failed with exit code {result.returncode}; inspect {log}",
+            stage,
+        )
     return stage
+
+
+class StageFailure(RuntimeError):
+    """A failed stage that carries its provenance for the run manifest."""
+    def __init__(self, message: str, stage: dict):
+        super().__init__(message)
+        self.stage = stage
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -144,6 +171,8 @@ def main() -> int:
         print(json.dumps({"status": manifest["status"], "manifest": str(args.outdir / "run-manifest.json"), "results": str(results)}))
         return 0
     except Exception as exc:
+        if isinstance(exc, StageFailure):
+            manifest.setdefault("stages", []).append(exc.stage)
         manifest_path = args.outdir / "run-manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {
             "schema_version": "1.0", "sample_id": args.sample_id, "workflow": "jlight-mtb-research",
