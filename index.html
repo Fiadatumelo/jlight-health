@@ -37,7 +37,7 @@ a { color: var(--teal); text-decoration: none; }
 .auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(8,127,140,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(8,127,140,0.045) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
 .auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(8,127,140,0.10) 0%, transparent 65%); top: -200px; right: -200px; }
 .auth-glow-2 { position: absolute; width: 500px; height: 500px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(75,142,255,0.06) 0%, transparent 65%); bottom: -100px; left: -100px; }
-.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 36px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 28px 80px rgba(28,54,84,0.14), 0 2px 8px rgba(8,127,140,0.05); }
+.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 36px; width: 100%; max-width: 520px; position: relative; z-index: 10001; isolation: isolate; box-shadow: 0 28px 80px rgba(28,54,84,0.14), 0 2px 8px rgba(8,127,140,0.05); }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
 .auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue) 68%, var(--amber)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
@@ -600,7 +600,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <button type="button" class="auth-link-button" onclick="window.doForgotPassword()" aria-label="Request a password reset email">Forgot password?</button>
+      <button type="button" class="auth-link-button" id="si-forgot-password" aria-label="Request a password reset email">Forgot password?</button>
       <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
     </div>
   </div>
@@ -1414,6 +1414,16 @@ async function doForgotPassword() {
     if (button) { button.disabled = false; button.textContent = 'Forgot password?' }
   }
 }
+
+// Explicitly expose and bind password recovery; do not depend on inline-handler lookup.
+window.doForgotPassword = doForgotPassword;
+document.addEventListener('click', function (event) {
+  const target = event.target && event.target.closest ? event.target.closest('#si-forgot-password') : null;
+  if (!target) return;
+  event.preventDefault();
+  event.stopPropagation();
+  doForgotPassword();
+}, true);
 
 async function doResetPassword() {
   const np = (document.getElementById('rp-new')||{}).value || ''
