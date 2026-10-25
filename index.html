@@ -74,6 +74,9 @@ a { color: var(--teal); text-decoration: none; }
 .auth-back { margin-top: 22px; text-align: center; font-size: 12px; color: var(--text-3); }
 .auth-back a { color: var(--text-2); cursor: pointer; }
 .auth-back a:hover { color: var(--teal); }
+.auth-link-button { color: var(--blue); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font: inherit; font-size: 12px; font-weight: 600; padding: 4px 0; background: transparent; border: 0; }
+.auth-link-button:hover, .auth-link-button:focus-visible { color: var(--teal-2); outline: 2px solid var(--blue-glow); outline-offset: 3px; border-radius: 3px; }
+.auth-link-button:disabled { opacity: .65; cursor: wait; }
 
 .app-screen { display: none; min-height: 100vh; }
 .app-screen.active { display: block; }
@@ -597,7 +600,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
+      <button type="button" class="auth-link-button" onclick="doForgotPassword()" aria-label="Request a password reset email">Forgot password?</button>
       <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
     </div>
   </div>
@@ -1390,7 +1393,7 @@ async function doForgotPassword() {
   const status = document.getElementById('si-status')
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
   if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
   const sb = getSupabase()
   if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
   setStatus('Requesting a secure password-reset email…')
