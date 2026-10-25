@@ -4279,8 +4279,10 @@ let _realtimeChannel = null
 function getSupabase() {
   if (_sb) return _sb
   if (!window.supabase) return null
-  _sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jl-auth-v9' }
+  // Use the host-selected project for authentication as well as Edge Function calls.
+  // Netlify previews must never authenticate against production.
+  _sb = window.supabase.createClient(BACKEND.url, BACKEND.key, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: IS_PRODUCTION_HOST ? 'jl-auth-v10-prod' : 'jl-auth-v10-staging' }
   })
   return _sb
 }
