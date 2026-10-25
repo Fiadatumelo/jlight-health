@@ -1388,32 +1388,35 @@ async function sendOrganisationCodeEmail() {
 }
 
 async function doForgotPassword() {
-  const emailInput = document.getElementById('si-email')
-  const addr = (emailInput?.value || '').trim()
-  const status = document.getElementById('si-status')
-  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
-  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
-  const sb = getSupabase()
-  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
-  const button = document.querySelector('.auth-link-button')
-  if (button) { button.disabled = true; button.textContent = 'Sending reset email…' }
-  setStatus('Requesting a password-reset email from Supabase…')
+  const emailInput = document.getElementById('si-email');
+  const addr = (emailInput?.value || '').trim();
+  const status = document.getElementById('si-status');
+  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : ''); } };
+  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return; }
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return; }
+  if (!BACKEND || !BACKEND.url || !BACKEND.key) { setStatus('Password recovery is not configured for this environment.', 'error'); return; }
+  const button = document.getElementById('si-forgot-password');
+  if (button) { button.disabled = true; button.textContent = 'Sending reset email…'; }
+  setStatus('Requesting a secure password-reset email…');
   try {
-    // Use Supabase Auth's configured email provider directly; no custom mail Edge Function.
-    const redirectTo = window.location.origin + '/?type=recovery'
-    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo })
-    if (error) throw error
-    setStatus('If an account exists for this address, Supabase has been asked to send a reset email. Check your inbox and spam folder.', 'success')
-    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
+    const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
+      body: JSON.stringify({ email: addr })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'The reset email service could not process the request.');
+    setStatus(result.message || 'If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success');
+    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good');
   } catch (e) {
-    console.error('[JLIGHT] Supabase password reset request failed:', e)
-    setStatus(e.message || 'Supabase could not request a reset email. Please try again.', 'error')
-    toast('Password reset unavailable', e.message || 'Please try again', 'crit')
+    console.error('[JLIGHT] password reset request failed:', e);
+    setStatus(e.message || 'Password recovery is temporarily unavailable. Please try again.', 'error');
+    toast('Password reset unavailable', e.message || 'Please try again', 'crit');
   } finally {
-    if (button) { button.disabled = false; button.textContent = 'Forgot password?' }
+    if (button) { button.disabled = false; button.textContent = 'Forgot password?'; }
   }
 }
+window.doForgotPassword = doForgotPassword;
 
 // Explicitly expose and bind password recovery; do not depend on inline-handler lookup.
 window.doForgotPassword = doForgotPassword;
