@@ -544,6 +544,97 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}.auth-name{font-size:23px}}
 
 </style>
+
+<style id="jlight-visual-refresh">
+/* JLIGHT visual refresh — high-contrast clinical intelligence workspace */
+:root {
+  color-scheme: dark;
+  --ink: #F7F8FC; --ink-2: #E9EDF5;
+  --surface: #15171C; --surface-2: #1C1F26; --surface-3: #222630; --surface-4: #2A303B;
+  --teal: #22C7B8; --teal-2: #55DED0;
+  --teal-glow: rgba(34,199,184,.18); --teal-bg: rgba(34,199,184,.09);
+  --amber: #E7B84B; --amber-glow: rgba(231,184,75,.18); --amber-bg: rgba(231,184,75,.10);
+  --red: #FF6B79; --red-glow: rgba(255,107,121,.16); --red-bg: rgba(255,107,121,.09);
+  --green: #22C7B8; --green-glow: rgba(34,199,184,.16); --green-bg: rgba(34,199,184,.09);
+  --blue: #73A7FF; --blue-glow: rgba(115,167,255,.17); --blue-bg: rgba(115,167,255,.09);
+  --purple: #C2A0FF; --purple-bg: rgba(194,160,255,.1);
+  --border: #303540; --border-2: #414754; --border-strong: #5A6372;
+  --text: #F2F4F8; --text-2: #C0C7D3; --text-3: #9AA5B5; --text-4: #7C8798;
+}
+html { background: #101216; }
+body { background: radial-gradient(ellipse at 8% 0%, rgba(34,199,184,.08), transparent 34%), radial-gradient(ellipse at 95% 10%, rgba(115,167,255,.07), transparent 30%), #101216; color: var(--text); }
+body::before { opacity: .12; }
+a { color: var(--teal-2); }
+::selection { background: rgba(34,199,184,.35); color: #fff; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.auth-bg-grid { background-image: linear-gradient(rgba(34,199,184,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(34,199,184,.07) 1px, transparent 1px); }
+.auth-glow { background: radial-gradient(circle, rgba(34,199,184,.13) 0%, transparent 65%); }
+.auth-glow-2 { background: radial-gradient(circle, rgba(115,167,255,.1) 0%, transparent 65%); }
+.auth-card, .modal, .modal-content, .panel, .card, .stat-card, .metric-card, .content-card, .workspace-card, .dashboard-card {
+  background-color: var(--surface-2); color: var(--text); border-color: var(--border);
+}
+input, select, textarea { color: var(--text); }
+input::placeholder, textarea::placeholder { color: var(--text-4); opacity: 1; }
+button, .btn, [role="button"] { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+.btn-primary, .button-primary, .auth-submit, .btn-primary:hover {
+  background: linear-gradient(135deg, #22C7B8, #0E9F95); color: #fff; border-color: transparent;
+  box-shadow: 0 6px 20px rgba(34,199,184,.18);
+}
+.btn-primary:hover, .button-primary:hover, .auth-submit:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-secondary, .button-secondary, .btn-outline { background: var(--surface-3); color: var(--text); border-color: var(--border-2); }
+.role-btn { background: var(--surface-2); border-color: var(--border-2); }
+.role-btn:hover { background: var(--teal-bg); border-color: var(--teal); }
+.pin-key { background: var(--surface-3); border-color: var(--border); color: var(--text); }
+.auth-mark { background: linear-gradient(135deg, #22C7B8, #73A7FF); }
+.auth-link-button { color: var(--blue); }
+.auth-link-button:hover, .auth-link-button:focus-visible { color: var(--teal-2); }
+.auth-status.success, .status-success, .text-success, .success { color: var(--green); }
+.auth-status.error, .status-error, .text-danger, .error { color: var(--red); }
+.badge-success, .status-badge.success, .pill-success { background: var(--green-bg); color: var(--green); border-color: rgba(34,199,184,.3); }
+.badge-warning, .status-badge.warning, .pill-warning { background: var(--amber-bg); color: var(--amber); border-color: rgba(231,184,75,.3); }
+.badge-danger, .status-badge.danger, .pill-danger { background: var(--red-bg); color: var(--red); border-color: rgba(255,107,121,.3); }
+.badge-info, .status-badge.info, .pill-info { background: var(--blue-bg); color: var(--blue); border-color: rgba(115,167,255,.3); }
+table th { color: var(--text-2); background: var(--surface-3); }
+table td { color: var(--text); border-color: var(--border); }
+
+/* Navigation declutter: grouped, collapsible sections */
+.sb-nav { gap: 6px; padding: 12px 10px 16px; }
+.sb-nav-group { border: 1px solid transparent; border-radius: 10px; }
+.sb-nav-group[open] { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.035); }
+.sb-nav-group > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 10px 11px; border-radius: 8px; color: var(--text-3); font-size: 10px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; user-select: none; }
+.sb-nav-group > summary::-webkit-details-marker { display:none; }
+.sb-nav-group > summary::after { content: '+'; color: var(--text-4); font-size: 15px; font-weight: 500; }
+.sb-nav-group[open] > summary::after { content: '−'; }
+.sb-nav-group > summary:hover { background: var(--surface-3); color: var(--text); }
+.sb-nav-group .sb-link { margin: 2px 4px; padding: 9px 10px; }
+.sb-nav-group .sb-link.active::before { left: -5px; }
+.topbar { padding-inline: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 210px minmax(0,1fr); }
+  .content { padding: 20px; }
+  .topbar { padding: 0 18px; }
+}
+@media (max-width: 680px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sb-brand { padding: 12px 16px; }
+  .sb-role-banner { margin: 8px 12px 4px; }
+  .sb-nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 44vh; overflow-y: auto; }
+  .sb-nav-group { min-width: 0; }
+  .sb-nav-group .sb-link { font-size: 12px; }
+  .sb-foot { padding: 10px 12px; }
+  .topbar { position: sticky; top: 0; }
+  .tb-status { display: none; }
+  .content { padding: 16px 12px; }
+  .page-title { font-size: 22px; }
+}
+
+hr, .divider { border-color: var(--border); }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+
 </head>
 <body>
 
@@ -709,7 +800,6 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
           <span class="dot"></span>
           <span>Local · Encrypted</span>
         </div>
-        <button class="tb-btn primary" onclick="goPage('connectors')">+ Connect Data Source</button>
       </header>
       <div class="content">
         <div id="page-dashboard" class="page active"></div>
@@ -1660,16 +1750,30 @@ function buildNav() {
   const cfg = ROLES[STATE.role]
   const nav = $('sb-nav')
   const openCards = STATE.cards.filter(c => !c.acknowledged).length
-  nav.innerHTML = `
-    <div class="sb-section">${esc(cfg.label)}</div>
-    ${cfg.nav.map(item => {
-      const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
-      const badge = item.key === 'cards' && openCards > 0 ? `<span class="sb-link-badge">${openCards}</span>` : ''
-      return `<div class="sb-link ${isActive}" onclick="goPage('${item.key}')"><span class="sb-link-icon">${item.icon}</span><span>${esc(item.label)}</span>${badge}</div>`
-    }).join('')}
-  `
+  const groups = [
+    { label: 'Overview', keys: ['dashboard'] },
+    { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
+    { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
+    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
+    { label: 'Other', keys: ['instruments', 'samples', 'sample-detail', 'process', 'handover', 'bio-pipeline', 'bio-report', 'bio-run-detail', 'patient-profile'] },
+  ]
+  const used = new Set()
+  const renderLink = item => {
+    used.add(item.key)
+    const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
+    const badge = item.key === 'cards' && openCards > 0 ? '<span class="sb-link-badge">' + openCards + '</span>' : ''
+    return '<div class="sb-link ' + isActive + '" role="button" tabindex="0" onclick="goPage(\'' + item.key + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goPage(\'' + item.key + '\')}"><span class="sb-link-icon" aria-hidden="true">' + item.icon + '</span><span>' + esc(item.label) + '</span>' + badge + '</div>'
+  }
+  const markup = groups.map(group => {
+    const items = cfg.nav.filter(item => group.keys.includes(item.key))
+    if (!items.length) return ''
+    const isActive = items.some(item => STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards'))
+    return '<details class="sb-nav-group" ' + (isActive ? 'open' : '') + '><summary>' + group.label + '</summary>' + items.map(renderLink).join('') + '</details>'
+  }).join('')
+  const remaining = cfg.nav.filter(item => !used.has(item.key))
+  nav.innerHTML = markup + (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
-
 function goPage(page) {
   STATE.currentPage = page
   $$('.page').forEach(p => p.classList.remove('active'))
@@ -1815,17 +1919,17 @@ function filterJlightQuickLinks(query) {
 }
 
 function buildJourneyReport() {
-  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)))
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId))&&(STATE.role!=="Trial"||(STATE.participants||[]).some(x=>x&&x.patientId!=null&&String(x.patientId)===String(p.id))))
   const ids=new Set(patients.map(p=>String(p.id))), touched=new Map()
-  const domains=[
-    {key:"hospital",label:"Hospital admissions",rows:STATE.admissions||[]},
-    {key:"hospitalOrders",label:"Hospital orders",rows:STATE.clinicalOrders||[]},
-    {key:"laboratory",label:"Laboratory orders",rows:STATE.labOrders||[]},
-    {key:"labResults",label:"Imported laboratory results",rows:STATE.results||[]},
-    {key:"bioinformatics",label:"Bioinformatics outputs",rows:STATE.bioRuns||[]}
-  ]
-  const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {...d,total:d.rows.length,linked,missing,unmatched}})
-  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,trialRecords:(STATE.participants||[]).length+(STATE.visits||[]).length+(STATE.adverseEvents||[]).length,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.","Clinical Trials remain a separate workflow and are excluded from the shared non-trial patient journey.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
+  // Scope both sides of each match to the current organisation. Clinical Trials remains
+  // a separate reporting boundary and is never mixed into non-trial exports.
+  const orgRows=rows=>(rows||[]).filter(row=>row&&(!row.orgId||!STATE.orgId||String(row.orgId)===String(STATE.orgId)))
+  const domains=STATE.role==="Trial"
+    ? [{key:"trialParticipants",label:"Clinical-trial enrolments",rows:orgRows(STATE.participants)},{key:"trialVisits",label:"Clinical-trial visits",rows:orgRows(STATE.visits)},{key:"trialSafetyEvents",label:"Clinical-trial safety / issue events",rows:orgRows(STATE.adverseEvents)}]
+    : [{key:"hospital",label:"Hospital admissions",rows:orgRows(STATE.admissions)},{key:"hospitalOrders",label:"Hospital orders",rows:orgRows(STATE.clinicalOrders)},{key:"laboratory",label:"Laboratory orders",rows:orgRows(STATE.labOrders)},{key:"labResults",label:"Imported laboratory results",rows:orgRows(STATE.results)},{key:"bioinformatics",label:"Bioinformatics outputs",rows:orgRows(STATE.bioRuns)}]
+  const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {key:d.key,label:d.label,total:d.rows.length,linked,missing,unmatched}})
+  const matchedAcrossTypes=Array.from(touched.values()).filter(set=>set.size>=2).length
+  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",workspaceRole:STATE.role,mode:MODE.isOnline?"online":"offline",patients:patients.length,patientsWithMultipleRecordTypes:matchedAcrossTypes,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.",STATE.role==="Trial"?"This report contains Clinical Trials workspace records only; counts describe record types within that workspace.":"Clinical-trial records are excluded from this shared non-trial traceability report.","Clinical Trials remain a separate workflow and report boundary.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
 }
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
@@ -1862,7 +1966,7 @@ function buildPatientJourneyEvents(patient) {
   add('Bioinformatics','Bioinformatics output',STATE.bioRuns||[],r=>'Imported analysis output'+(r.analysisType?' · '+r.analysisType:'')+(r.pipeline?' · '+r.pipeline:'')+(r.status||r.qcStatus?' · source status: '+(r.status||r.qcStatus):''));
   add('Bioinformatics','Quality-control event',STATE.bioQc||[],r=>'Quality metric / flag'+(r.metric?' · '+r.metric:'')+(r.status?' · status: '+r.status:'')+(r.notes?' · '+r.notes:''));
   add('Bioinformatics','Resistance finding',STATE.bioAmr||[],r=>'Source-reported resistance finding'+(r.organism?' · '+r.organism:'')+(r.drug?' · '+r.drug:'')+(r.resistancePattern?' · '+r.resistancePattern:'')+(r.status?' · status: '+r.status:''));
-  add('JLIGHT Intelligence','Decision / issue',STATE.cards||[],r=>(r.title||r.headline||r.type||'Detected issue')+(r.severity?' · severity: '+r.severity:'')+(r.acknowledged?' · acknowledged':' · open')+(r.recommendation?' · recommended action: '+r.recommendation:'')+(r.resolution?' · recorded resolution: '+r.resolution:''));
+  add('JLIGHT Intelligence','Decision / issue',(STATE.cards||[]).filter(r=>r.role!=='Trial'),r=>(r.title||r.headline||r.type||'Detected issue')+(r.severity?' · severity: '+r.severity:'')+(r.acknowledged?' · acknowledged':' · open')+(r.recommendation?' · recommended action: '+r.recommendation:'')+(r.resolution?' · recorded resolution: '+r.resolution:''));
   // Trial details are included only inside the dedicated Clinical Trials workspace.
   if(STATE.role==='Trial'){
     add('Clinical Trials','Trial enrolment',STATE.participants||[],r=>'Authorised study enrolment'+(r.studyName?' · '+r.studyName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
@@ -1917,20 +2021,22 @@ function renderJourney() {
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
-    '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
+    '<div class="journey-panel journey-followup-note"><div class="section-title">How to interpret findings</div><p class="journey-footnote">JLIGHT findings are already shown in the timeline above. Open a Decision Card for its evidence, interpretation and recommended actions. A recommendation is not proof that a correction occurred; only a recorded status or action can establish follow-up.</p></div></section></div>'+
+    '<div class="journey-panel"><div class="section-head"><div><div class="section-title">Traceability report</div><p class="journey-footnote">Download aggregate linkage and missing-identifier counts for this workspace. Patient names are not included.</p></div><button class="btn btn-primary" onclick="generateJourneyReport()">Generate report</button></div><div id="journey-report-output" aria-live="polite"></div></div>' +
     '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>';
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
   if(output)output.innerHTML='<div class="section-title">Report generated</div><p class="journey-footnote">Generated '+esc(new Date(report.generatedAt).toLocaleString())+'. Download contains aggregate counts, not patient names.</p><pre class="journey-json">'+esc(JSON.stringify(report,null,2))+'</pre>'
-  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.crossDomainPatients+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
+  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.patientsWithMultipleRecordTypes+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
   const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a")
   link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
   toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
 }
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
-  const cards = STATE.cards
+  // Keep dashboard totals and previews scoped to the active workspace, matching Decision Cards.
+  const cards = STATE.cards.filter(c => c.role === STATE.role)
   const open = cards.filter(c => !c.acknowledged).length
   const critical = cards.filter(c => c.severity === 'crit' && !c.acknowledged).length
   let kpiHTML = ''
@@ -1997,7 +2103,7 @@ function renderDashboard() {
     `
   }
 
-  const recentCards = cards.sort((a, b) => b.ts - a.ts).slice(0, 5)
+  const recentCards = [...cards].sort((a, b) => b.ts - a.ts).slice(0, 5)
   const newLabel = STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : (STATE.role === 'Bioinformatics' ? 'Review Imported Data' : 'Review Hospital Data'))
 
   $('page-dashboard').innerHTML = `
@@ -2008,8 +2114,6 @@ function renderDashboard() {
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" onclick="goPage('register')">+ ${newLabel}</button>
-        <button class="btn" onclick="goPage('predictive')">◉ Predictive Engine</button>
-        <button class="btn" onclick="goPage('cards')">All cards</button>
       </div>
     </div>
     <div class="kpis">${kpiHTML}</div>
@@ -2059,7 +2163,7 @@ function renderCardListItem(c) {
 
 function renderCards() {
   STATE._cardFilter = STATE._cardFilter || 'all'
-  const allCards = STATE.cards.filter(c => c.role === STATE.role).sort((a, b) => b.ts - a.ts)
+  const allCards = STATE.cards.filter(c => c.role === STATE.role).slice().sort((a, b) => b.ts - a.ts)
   const counts = { all: allCards.length, crit: allCards.filter(c=>c.severity==='crit').length, warn: allCards.filter(c=>c.severity==='warn').length, good: allCards.filter(c=>c.severity==='good').length }
   $('page-cards').innerHTML = `
     <div class="page-head">
@@ -4063,9 +4167,12 @@ function renderBioReport() {
   const selId  = STATE._bioRep || entries[0].id
   const entry  = entries.find(e=>e.id===selId)||entries[0]
   const cards  = STATE.cards.filter(c=>c.role==='Bioinformatics'&&c.ts>=entry.ts-5000&&c.ts<=entry.ts+120000)
+  const metricValues = [entry.coverage,entry.mappingRate,entry.qscore,entry.dupRate,entry.gcContent,entry.contamination]
+  const missingMetrics = metricValues.some(v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v)))
   const hasCrit= cards.some(c=>c.severity==='crit')
   const hasWarn= cards.some(c=>c.severity==='warn')
-  const qcStatus = hasCrit?'FAIL':hasWarn?'REVIEW':'PASS'
+  // No flags is not proof of QC pass, especially when expected metrics are missing.
+  const qcStatus = hasCrit?'FAIL':(hasWarn||missingMetrics)?'REVIEW':'SCREENED'
   const qcCol  = hasCrit?'var(--red)':hasWarn?'var(--amber)':'var(--green)'
 
   const selector = entries.length>1
@@ -4092,11 +4199,11 @@ function bioReportBody(e, cards, qcStatus, qcCol) {
     contam:   bioInterpContam(e.contamination),
   }
 
-  const clinStmt = qcStatus==='PASS'
-    ? 'All QC metrics for '+esc(e.sampleId)+' are within acceptable limits. Results from the '+esc(e.pipeline||'specified')+' pipeline are suitable for clinical interpretation.'
+  const clinStmt = qcStatus==='SCREENED'
+    ? 'No configured JLIGHT QC flags were found and the displayed metrics are present. This is a screening summary only—not validation of the pipeline, sample, or clinical findings. Apply the laboratory’s validated SOP and authorised review.'
     : qcStatus==='FAIL'
-    ? 'CRITICAL QC FAILURE in run '+esc(e.sampleId)+'. Issues: '+cards.filter(c=>c.severity==='crit').map(c=>c.source||'').join(', ')+'. Do NOT report clinical variants from this run.'
-    : 'QC review required for '+esc(e.sampleId)+'. Results may be reported with appropriate caveats. See troubleshooting below.'
+    ? 'Critical JLIGHT QC flags are present for run '+esc(e.sampleId)+'. Review the listed evidence under the laboratory’s validated SOP before downstream use; JLIGHT does not independently validate or release clinical variants.'
+    : 'QC review required for '+esc(e.sampleId)+(missingMetrics?'. One or more expected QC metrics are missing or non-numeric. ':'; warning flags are present. ')+'This report is a screening aid, not clinical validation or authorisation to report.'
 
   const metricCards = [
     {label:'Mean Coverage',val:!isNaN(e.coverage)?e.coverage+'x':'—',i:interp.coverage,th:'Threshold: 30x (WGS) | 100x (targeted)'},
@@ -4128,7 +4235,7 @@ function bioReportBody(e, cards, qcStatus, qcCol) {
         (c.actions&&c.actions.length?'<div style="background:var(--green-bg);border:1px solid rgba(46,232,154,0.18);border-radius:10px;padding:12px 14px"><div style="font-size:10px;font-family:DM Mono,monospace;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">Actions</div><ul style="list-style:none;padding:0">'+c.actions.map(a=>'<li style="font-size:12.5px;padding-left:16px;position:relative;margin-bottom:5px;line-height:1.5"><span style="position:absolute;left:0;color:var(--green);font-weight:700">&#8594;</span>'+esc(a)+'</li>').join('')+'</ul></div>':'') +
         '</div>'
       ).join('') + '</div>'
-    : '<div class="dc-insight" style="margin-bottom:20px"><div style="font-size:10px;font-family:DM Mono,monospace;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">QC Assessment</div><p style="font-size:13px;line-height:1.65">No QC issues detected. All provided metrics within acceptable thresholds. Results can proceed to annotation and clinical interpretation.</p></div>'
+    : '<div class="dc-insight" style="margin-bottom:20px"><div style="font-size:10px;font-family:DM Mono,monospace;color:var(--teal);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">QC Assessment</div><p style="font-size:13px;line-height:1.65">No configured QC flags detected in the available records. Confirm metric completeness and apply the laboratory’s validated SOP; this screen does not authorise clinical interpretation or reporting.</p></div>'
 
   const recs = bioRecs(e, qcStatus, cards)
 
@@ -4203,13 +4310,13 @@ function bioInterpContam(v) {
 }
 
 function bioRecs(e, qcStatus, cards) {
-  if (qcStatus==='PASS') return [
-    'Proceed with variant annotation using ANNOVAR, VEP, or SnpEff',
-    'Apply population frequency filters (gnomAD, 1000 Genomes)',
-    'Prioritise variants by clinical significance (ClinVar, OMIM, ACMG classification)',
-    e.analysisType&&e.analysisType.includes('AMR') ? 'Cross-reference AMR genes with CARD and ResFinder for resistance interpretation' : null,
-    e.analysisType&&e.analysisType.includes('TB') ? 'Interpret drug resistance using WHO mutation catalogue (2021)' : null,
-    'Archive FASTQ, BAM, and VCF per institutional data retention policy',
+  if (qcStatus==='SCREENED') return [
+    'Review the displayed metrics against the laboratory’s validated SOP and assay-specific acceptance criteria',
+    'Have an authorised reviewer confirm completeness, pipeline version, reference and sample provenance',
+    'Do not treat this screening status as authorisation for clinical interpretation or reporting',
+    e.analysisType&&e.analysisType.includes('AMR') ? 'If appropriate under the validated workflow, cross-reference AMR findings with recognised resources' : null,
+    e.analysisType&&e.analysisType.includes('TB') ? 'For TB workflows, use the current applicable WHO mutation catalogue and local validated procedures' : null,
+    'Archive analysis artefacts and QC evidence according to institutional policy',
   ].filter(Boolean)
   if (qcStatus==='FAIL') {
     const recs = ['DO NOT report clinical variants until QC issues are resolved']
@@ -4226,7 +4333,10 @@ function bioRecs(e, qcStatus, cards) {
 
 function exportBioReport(entryId) {
   const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
-  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics')
+  // Match the export to the same run window used by the on-screen report.
+  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics'&&c.ts>=e.ts-5000&&c.ts<=e.ts+120000)
+  const metricValues = [e.coverage,e.mappingRate,e.qscore,e.dupRate,e.gcContent,e.contamination]
+  const missingMetrics = metricValues.some(v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v)))
   const lines = [
     '=====================================================',
     '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
@@ -4240,15 +4350,16 @@ function exportBioReport(entryId) {
     'REFERENCE     : '+(e.reference||''),
     'DATE          : '+new Date(e.ts).toLocaleDateString(),'',
     'QC METRICS','--------------------------------------------------',
-    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(PASS)':'(REVIEW)') : null,
-    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(PASS)':'(FAIL)') : null,
+    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Coverage      : MISSING',
+    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Mapping Rate  : MISSING',
+    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Q-Score       : MISSING',
+    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Duplication   : MISSING',
+    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(WITHIN GENERIC RANGE)':'(REVIEW)') : '  GC Content    : MISSING',
+    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Contamination : MISSING',
     !isNaN(e.variantCount) ? '  Variants      : '+Number(e.variantCount).toLocaleString() : null,'',
     'QC ISSUES','--------------------------------------------------',
-    ...(cards.length===0 ? ['  No QC issues detected.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
+    ...(cards.length===0 ? ['  No configured JLIGHT QC flags were linked to this run window. This is not evidence of clinical validation.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
+    '  NOTE: Screening aid only. Not clinical validation or authorisation to report. Verify run-to-issue linkage and apply validated SOP.',
     '','=====================================================',
     '  JLIGHT - Health Intelligence Platform',
     '=====================================================',
@@ -4257,8 +4368,8 @@ function exportBioReport(entryId) {
   const blob = new Blob([lines.join('\n')], {type:'text/plain'})
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href=url; a.download='JLIGHT-NGS-'+esc(e.sampleId)+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
-  a.click(); URL.revokeObjectURL(url)
+  a.href=url; a.download='JLIGHT-NGS-'+String(e.sampleId||'run').replace(/[^a-zA-Z0-9_-]+/g,'_')+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000)
   audit('Bio report exported', e.sampleId+' by '+getDisplayName())
   toast('Report exported', e.sampleId, 'good')
 }
@@ -5218,8 +5329,10 @@ function generateBioReport(e) {
   const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
   const hasCrit = cards.some(c => c.severity === 'crit')
   const hasWarn = cards.some(c => c.severity === 'warn')
-  const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
-  const qcColor = hasCrit ? 'var(--red)' : hasWarn ? 'var(--amber)' : 'var(--green)'
+  const metricValues = [e.coverage,e.mappingRate,e.qscore,e.dupRate,e.gcContent,e.contamination]
+  const missingMetrics = metricValues.some(v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v)))
+  const qcStatus = hasCrit ? 'FAIL' : (hasWarn || missingMetrics) ? 'REVIEW' : 'SCREENED'
+  const qcColor = hasCrit ? 'var(--red)' : (hasWarn || missingMetrics) ? 'var(--amber)' : 'var(--blue)'
 
   function metric(label, value, display, good, bad, threshold) {
     const col = !isNaN(value) ? (good(value) ? 'var(--green)' : 'var(--red)') : 'var(--text-3)'
@@ -5245,9 +5358,9 @@ function generateBioReport(e) {
     '<div class="' + (qcStatus === 'FAIL' ? 'dc-rootcause' : qcStatus === 'REVIEW' ? 'dc-actions' : 'dc-insight') + '" style="margin-bottom:18px">' +
     '<div style="font-size:10px;font-family:DM Mono,monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;color:' + qcColor + '">Clinical Significance</div>' +
     '<p style="font-size:13px;line-height:1.65">' + (
-      qcStatus === 'PASS' ? 'All QC metrics for ' + e.sampleId + ' are within acceptable limits. Results from the ' + (e.pipeline || 'specified') + ' pipeline are suitable for clinical interpretation.'
-      : qcStatus === 'FAIL' ? 'CRITICAL QC FAILURE in run ' + e.sampleId + '. Clinical variants must NOT be reported until QC issues are resolved. See troubleshooting below.'
-      : 'QC review required for ' + e.sampleId + '. Results may be reported with appropriate caveats. See troubleshooting below.'
+      qcStatus === 'SCREENED' ? 'No configured JLIGHT QC flags were found and the displayed metrics are present. This is a screening summary only—not validation of the pipeline, sample, or clinical findings. Apply the laboratory’s validated SOP and authorised review.'
+      : qcStatus === 'FAIL' ? 'Critical JLIGHT QC flags are present for run ' + e.sampleId + '. Review the listed evidence under the laboratory’s validated SOP before downstream use; JLIGHT does not independently validate or release clinical variants.'
+      : 'QC review required for ' + e.sampleId + (missingMetrics ? '. One or more expected QC metrics are missing or non-numeric. ' : '; warning flags are present. ') + 'This report is a screening aid, not clinical validation or authorisation to report.'
     ) + '</p></div>' +
 
     // Metrics grid
@@ -5277,7 +5390,7 @@ function generateBioReport(e) {
         '<div style="font-size:10px;font-family:DM Mono,monospace;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Recommended Actions</div>' +
         '<ul style="list-style:none;padding:0">' + c.actions.map(a => '<li style="font-size:12.5px;padding-left:18px;position:relative;margin-bottom:5px;line-height:1.55"><span style="position:absolute;left:0;color:var(--green);font-weight:700">→</span>' + esc(a) + '</li>').join('') + '</ul></div>' : '') +
     '</div>').join('') + '</div>'
-    : '<div class="dc-insight" style="margin-bottom:24px"><p style="font-size:13px;line-height:1.65">No QC issues detected. All provided metrics are within acceptable thresholds. Proceed to variant annotation and clinical interpretation.</p></div>') +
+    : '<div class="dc-insight" style="margin-bottom:24px"><p style="font-size:13px;line-height:1.65">No configured QC flags detected in the available records. Confirm metric completeness and apply the laboratory’s validated SOP; this screen does not authorise clinical interpretation or reporting.</p></div>') +
 
     // Report footer
     '<div style="padding:14px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
@@ -6310,14 +6423,17 @@ function renderPatientProfile() {
   const p = STATE.patients.find(x => x.id === STATE.currentPatientId)
   if (!p) { $('page-patient-profile').innerHTML = renderEmpty('Patient not found', '', 'patients', '← Registry'); return }
   const age = p.dateOfBirth ? Math.floor((Date.now() - new Date(p.dateOfBirth)) / 31557600000) : null
-  const labSamples   = STATE.samples.filter(s => s.patientId === p.id)
-  const labResults   = STATE.results.filter(r => r.patientId === p.id)
-  const labOrders    = STATE.labOrders.filter(o => o.patientId === p.id)
-  const trialParts   = STATE.participants.filter(x => x.patientId === p.id)
-  const admissions   = STATE.admissions.filter(a => a.patientId === p.id)
+  const inTrialWorkspace = STATE.role === 'Trial'
+  // Clinical Trials profiles must not surface hospital, laboratory, bioinformatics,
+  // or general Decision Card records.
+  const labSamples   = inTrialWorkspace ? [] : STATE.samples.filter(s => s.patientId === p.id)
+  const labResults   = inTrialWorkspace ? [] : STATE.results.filter(r => r.patientId === p.id)
+  const labOrders    = inTrialWorkspace ? [] : STATE.labOrders.filter(o => o.patientId === p.id)
+  const trialParts   = inTrialWorkspace ? STATE.participants.filter(x => x.patientId === p.id) : []
+  const admissions   = inTrialWorkspace ? [] : STATE.admissions.filter(a => a.patientId === p.id)
   const openAdmit    = admissions.find(a => a.status === 'active')
-  const bioRuns      = STATE.bioRuns.filter(r => r.patientId === p.id)
-  const openCards    = STATE.cards.filter(c => c.patientId === p.id && !c.acknowledged)
+  const bioRuns      = inTrialWorkspace ? [] : STATE.bioRuns.filter(r => r.patientId === p.id)
+  const openCards    = inTrialWorkspace ? [] : STATE.cards.filter(c => c.patientId === p.id && !c.acknowledged && c.role === STATE.role)
   const critCards    = openCards.filter(c => c.severity === 'crit')
 
   $('page-patient-profile').innerHTML =
