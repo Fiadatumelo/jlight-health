@@ -561,10 +561,11 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
         <label class="form-label">Email</label>
         <input class="form-input" id="si-email" type="email" placeholder="you@facility.org" autocomplete="email"/>
       </div>
-      <div class="form-row">
-        <label class="form-label">Password</label>
-        <input class="form-input" id="si-password" type="password" placeholder="At least 8 characters"
-          onkeydown="if(event.key==='Enter')doSignIn()"/>
+      <div class="form-row" id="si-login-code-row" style="display:none">
+        <label class="form-label">Email verification code</label>
+        <input class="form-input" id="si-login-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code from your email"
+          onkeydown="if(event.key==='Enter')verifyLoginCode()"/>
+        <div class="form-help">Use the one-time code sent to your email. It expires and cannot be reused.</div>
       </div>
       <div id="si-org-row" style="display:none" class="form-row">
         <label class="form-label">How are you joining?</label>
@@ -595,7 +596,9 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
-      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
+      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Email me a login code</button>
+      <button class="btn btn-primary" id="si-verify-btn" onclick="verifyLoginCode()" style="display:none;width:100%;justify-content:center;padding:11px">Verify code and continue</button>
+      <button class="btn" id="si-resend-btn" onclick="doSignIn(true)" style="display:none;width:100%;justify-content:center;padding:11px">Send a new code</button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
@@ -1118,122 +1121,116 @@ function selectJlightPath(role) {
 }
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
-  if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
-  catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
-}
-async function doSignIn() {
-  const email = (document.getElementById("si-email")||{}).value?.trim() || ""
-  const pass  = (document.getElementById("si-password")||{}).value || ""
-  const status = document.getElementById("si-status")
-  const selectedPath = sessionStorage.getItem("jl_selected_path")
-  if (!selectedPath || !ROLES[selectedPath]) { if(status){status.textContent="Choose a JLIGHT path before signing in";status.className="auth-status error"} return }
-  if (!email || !pass) { if(status){status.textContent='Email and password required';status.className='auth-status error'} return }
-  if (pass.length < 8) { if(status){status.textContent='Password must be at least 8 characters';status.className='auth-status error'} return }
-  const btn = document.getElementById('si-btn')
-  if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
-  if (status) { status.textContent = ''; status.className = 'auth-status' }
-  const sb = getSupabase()
-  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
+  if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} reasync function doSignIn(resend = false) {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const status = document.getElementById("si-status");
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const sb = getSupabase();
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showStatus("Enter a valid email address first."); return;
+  }
+  if (!MODE.signupMode && (!selectedPath || !ROLES[selectedPath])) {
+    showStatus("Choose a JLIGHT path before signing in."); return;
+  }
+  if (MODE.signupMode && !selectedPath) {
+    showStatus("Choose a workspace path before creating your workspace."); return;
+  }
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+
+  const btn = document.getElementById("si-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending code…"; }
+  showStatus("");
   try {
+    const options = { shouldCreateUser: !!MODE.signupMode };
     if (MODE.signupMode) {
-      const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
-      const org = (document.getElementById('si-org') || {}).value?.trim() || ''
-      const role = sessionStorage.getItem("jl_selected_path") || (document.getElementById('si-role') || {}).value || 'Laboratory'
-      const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
+      const joinType = (document.getElementById("si-join-type") || {}).value || "new";
+      const org = (document.getElementById("si-org") || {}).value?.trim() || "";
+      const role = selectedPath || (document.getElementById("si-role") || {}).value || "Laboratory";
+      const orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
+      if (joinType === "join" && !orgCode) throw new Error("Enter the organisation code supplied by your administrator.");
+      options.data = {
+        org_name: joinType === "join" ? "" : (org || "JLIGHT Health Intelligence Platform"),
+        role,
+        org_code: joinType === "join" ? orgCode : null,
+        jl_join_type: joinType
+      };
+    }
+    const { error } = await sb.auth.signInWithOtp({ email, options });
+    if (error) throw error;
+    MODE.loginCodeSent = true;
+    const codeRow = document.getElementById("si-login-code-row");
+    const verifyBtn = document.getElementById("si-verify-btn");
+    const resendBtn = document.getElementById("si-resend-btn");
+    if (codeRow) codeRow.style.display = "flex";
+    if (verifyBtn) verifyBtn.style.display = "flex";
+    if (resendBtn) resendBtn.style.display = "flex";
+    if (btn) btn.style.display = "none";
+    showStatus("If this email is eligible, a one-time login code has been sent. Check your inbox and spam folder.", "success");
+    const codeInput = document.getElementById("si-login-code");
+    if (codeInput) codeInput.focus();
+  } catch (e) {
+    console.error("[JLIGHT] login code request failed:", e);
+    showStatus(e.message || "Could not request a login code. Please try again.");
+  } finally {
+    if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = "Email me a login code"; }
+  }
+}
 
-      // Shared-workspace membership is verified by the server-side
-      // jl_link_user_to_organisation RPC after email confirmation/sign-in.
-      // The client never assigns org_id or elevated workspace permissions.
-      if (joinType === 'join' && !orgCode) {
-        throw new Error('Enter the organisation code supplied by your administrator.')
+async function verifyLoginCode() {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const token = (document.getElementById("si-login-code") || {}).value?.trim() || "";
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const status = document.getElementById("si-status");
+  const verifyBtn = document.getElementById("si-verify-btn");
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email) { showStatus("Enter the same email address used to request the code."); return; }
+  if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
+  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
+  const sb = getSupabase();
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = "Verifying…"; }
+  showStatus("");
+  try {
+    const { data, error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    if (error) throw error;
+    if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
+    const user = data.user;
+    const meta = user.user_metadata || {};
+    MODE.isOnline = true;
+    STATE.user = user.email || email;
+    STATE.role = meta.role && ROLES[meta.role] ? meta.role : selectedPath;
+    await ensureJlightOrganisation(user, {
+      org: meta.org_name || "",
+      role: meta.role || STATE.role,
+      orgCode: meta.org_code || ""
+    });
+    await loadOrCreateProfile(user);
+    const codeButton = document.getElementById("si-send-org-code");
+    if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
+    const joinType = meta.jl_join_type || "new";
+    if (joinType === "new" && MODE.organisationId && MODE.organisationCode) {
+      try {
+        await sendOrganisationCodeEmail();
+      } catch (mailError) {
+        console.error("[JLIGHT] organisation-code email failed:", mailError);
       }
-      const organisationName = joinType === 'join'
-        ? ''
-        : (org || 'JLIGHT Health Intelligence Platform')
+    }
+    showStatus("Email verified. Opening your secure workspace…", "success");
+    enterApp();
+  } catch (e) {
+    console.error("[JLIGHT] login code verification failed:", e);
+    showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+  } finally {
+    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
+  }
+}
 
-      const { data, error } = await sb.auth.signUp({
-        email, password: pass,
-        options: { data: { org_name: organisationName, role, org_code: joinType === 'join' ? orgCode : null } }
-      })
-      if (error) throw error
-      if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
-
-      // With email confirmation enabled, signUp returns no session. RLS-protected
-      // organisation creation must wait until the user confirms and signs in.
-      if (!data.session) {
-        if (status) {
-          status.textContent = 'Account created. Check your email to confirm it, then sign in to finish setting up your workspace.'
-          status.className = 'auth-status success'
-        }
-        MODE.signupMode = false
-        const title = document.getElementById('si-title')
-        const sub = document.getElementById('si-sub')
-        const orgRow = document.getElementById('si-org-row')
-        const roleRow = document.getElementById('si-role-row')
-        const toggle = document.getElementById('si-toggle')
-        const submit = document.getElementById('si-btn')
-        if (title) title.textContent = 'Sign in'
-        if (sub) sub.textContent = 'Confirm your email, then sign in to finish workspace setup'
-        if (orgRow) orgRow.style.display = 'none'
-        if (roleRow) roleRow.style.display = 'none'
-        if (toggle) toggle.textContent = 'Create new workspace'
-        if (submit) submit.textContent = 'Sign in'
-        return
-      }
-
-      MODE.isOnline = true
-      STATE.user = data.user.email || email
-      STATE.role = role
-      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
-      await loadOrCreateProfile(data.user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
-      let deliveryNote = ''
-      if (joinType === 'new' && MODE.organisationId && MODE.organisationCode) {
-        try {
-          const { data: activeSession, error: sessionError } = await sb.auth.getSession()
-          if (sessionError) throw sessionError
-          const accessToken = activeSession?.session?.access_token
-          if (!accessToken) throw new Error('No active session available for secure code delivery.')
-          const mailResponse = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + accessToken },
-            body: JSON.stringify({ organisation_id: MODE.organisationId })
-          })
-          const mailResult = await mailResponse.json().catch(() => ({}))
-          if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
-          if (mailResult.email_sent === false) {
-            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
-          } else {
-            deliveryNote = ' The organisation code was emailed to your verified account address.'
-          }
-        } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
-      }
-      if (status) {
-        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
-        status.textContent = (joinType === 'new' ? 'Workspace created successfully' : 'Workspace joined successfully') + codeMsg + deliveryNote + (MODE.organisationCode ? ' You can also copy this code later in Settings → Organisation.' : '')
-        status.className = 'auth-status success'
-      }
-      // Give the owner time to read the generated code before entering the app.
-      setTimeout(()=>enterApp(), 4500)
-    } else {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
-      if (error) throw error
-      if (!data.session) throw new Error('Sign-in failed: no active session was returned.')
-      MODE.isOnline = true
-      const user = data.session.user
-      const meta = user.user_metadata || {}
-      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
-      STATE.user = user.email || email
-      STATE.role = selectedPath
-      await ensureJlightOrganisation(user, {
-        org: meta.org_name || '',
-        role: meta.role || selectedPath,
-        orgCode: meta.org_code || ''
-      })
-      await loadOrCreateProfile(user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
+x'
       // If email confirmation delayed workspace setup, finish delivery after the
       // first authenticated sign-in rather than leaving the owner without a code.
       if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
