@@ -1230,19 +1230,6 @@ async function verifyLoginCode() {
   }
 }
 
-x'
-      // If email confirmation delayed workspace setup, finish delivery after the
-      // first authenticated sign-in rather than leaving the owner without a code.
-      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
-      enterApp()
-    }
-  } catch(e) {
-    console.error('[JLIGHT] sign-in/workspace creation failed:', e)
-    if (status) { status.textContent = e.message || 'Authentication failed'; status.className = 'auth-status error' }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' }
-  }
-}
 
 // Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
 async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
