@@ -1089,12 +1089,17 @@ function validateConsent(val) {
 // ─── Sign-in / sign-up ───
 function toggleSignupMode() {
   MODE.signupMode = !MODE.signupMode
+  MODE.loginCodeSent = false
   const t = document.getElementById('si-title')
   const s = document.getElementById('si-sub')
   const o = document.getElementById('si-org-row')
   const r = document.getElementById('si-role-row')
   const b = document.getElementById('si-btn')
   const g = document.getElementById('si-toggle')
+  const codeRow = document.getElementById('si-login-code-row')
+  const verifyBtn = document.getElementById('si-verify-btn')
+  const resendBtn = document.getElementById('si-resend-btn')
+  const status = document.getElementById('si-status')
   // A fresh registration defaults to creating a new organisation. Joining is
   // an explicit choice for users who already have a code from an administrator.
   if (MODE.signupMode) {
@@ -1105,7 +1110,11 @@ function toggleSignupMode() {
   if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
   if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
-  if (b) b.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
+  if (b) { b.textContent = MODE.signupMode ? 'Email me a code to create workspace' : 'Email me a login code'; b.style.display = 'flex'; b.disabled = false; }
+  if (codeRow) codeRow.style.display = 'none'
+  if (verifyBtn) { verifyBtn.style.display = 'none'; verifyBtn.disabled = false; verifyBtn.textContent = 'Verify code and continue'; }
+  if (resendBtn) { resendBtn.style.display = 'none'; resendBtn.disabled = false; resendBtn.textContent = 'Send a new code'; }
+  if (status) { status.textContent = ''; status.className = 'auth-status'; }
   if (g) g.textContent = MODE.signupMode ? 'I already have an account' : 'Create new workspace'
   toggleJoinType()
 }
