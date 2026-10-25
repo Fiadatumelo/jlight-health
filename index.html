@@ -5390,7 +5390,7 @@ function generateBioReport(e) {
         '<div style="font-size:10px;font-family:DM Mono,monospace;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Recommended Actions</div>' +
         '<ul style="list-style:none;padding:0">' + c.actions.map(a => '<li style="font-size:12.5px;padding-left:18px;position:relative;margin-bottom:5px;line-height:1.55"><span style="position:absolute;left:0;color:var(--green);font-weight:700">→</span>' + esc(a) + '</li>').join('') + '</ul></div>' : '') +
     '</div>').join('') + '</div>'
-    : '<div class="dc-insight" style="margin-bottom:24px"><p style="font-size:13px;line-height:1.65">No QC issues detected. All provided metrics are within acceptable thresholds. Proceed to variant annotation and clinical interpretation.</p></div>') +
+    : '<div class="dc-insight" style="margin-bottom:24px"><p style="font-size:13px;line-height:1.65">No configured QC flags detected in the available records. Confirm metric completeness and apply the laboratory’s validated SOP; this screen does not authorise clinical interpretation or reporting.</p></div>') +
 
     // Report footer
     '<div style="padding:14px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
