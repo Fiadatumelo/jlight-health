@@ -77,6 +77,13 @@ a { color: var(--teal); text-decoration: none; }
 .auth-link-button { color: var(--blue); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font: inherit; font-size: 12px; font-weight: 600; padding: 4px 0; background: transparent; border: 0; }
 .auth-link-button:hover, .auth-link-button:focus-visible { color: var(--teal-2); outline: 2px solid var(--blue-glow); outline-offset: 3px; border-radius: 3px; }
 .auth-link-button:disabled { opacity: .65; cursor: wait; }
+.auth-link-button { color: #245fc7; font-weight: 700; text-decoration-thickness: 1.5px; min-height: 32px; }
+.auth-link-button:hover, .auth-link-button:focus-visible { color: #5638b8; }
+.auth-divider { display:flex; align-items:center; gap:12px; color:#8290a4; font-size:10px; font-weight:700; letter-spacing:1.5px; margin:2px 0; }
+.auth-divider::before, .auth-divider::after { content:""; height:1px; flex:1; background:#e4eaf3; }
+.google-signin-btn { display:flex; align-items:center; justify-content:center; gap:11px; min-height:44px; padding:10px 14px; border:1px solid #d8e0ec; border-radius:10px; background:#fff; color:#24344b; font-weight:650; font-size:13px; box-shadow:0 2px 5px rgba(29,52,87,.035); transition:border-color .18s, box-shadow .18s, transform .18s; }
+.google-signin-btn:hover, .google-signin-btn:focus-visible { border-color:#9ab8ed; box-shadow:0 5px 16px rgba(49,91,160,.10); outline:3px solid rgba(75,142,255,.12); outline-offset:1px; }
+.google-signin-btn:disabled { opacity:.65; cursor:wait; }
 
 .app-screen { display: none; min-height: 100vh; }
 .app-screen.active { display: block; }
@@ -544,7 +551,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
   <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div class="auth-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10M15 4v11.5a4.5 4.5 0 0 1-9 0V14"/><path d="M11 10h7"/></svg></div>
       <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
@@ -596,6 +603,11 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
+      <div class="auth-divider" aria-hidden="true"><span>OR</span></div>
+      <button type="button" class="google-signin-btn" id="si-google-btn" onclick="doGoogleSignIn()" style="width:100%">
+        <svg aria-hidden="true" viewBox="0 0 48 48" width="19" height="19"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.2v5.1h6.6c3.9-3.6 6.1-8.8 6.1-15Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 2-6.9 2-5.3 0-9.8-3.6-11.4-8.4H5.8v5.3A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.6a12 12 0 0 1 0-7.2v-5.3H5.8a20 20 0 0 0 0 17.8l6.8-5.3Z"/><path fill="#EA4335" d="M24 12c3 0 5.7 1 7.8 3.1l5.8-5.8C34.1 6 29.5 4 24 4A20 20 0 0 0 5.8 15.1l6.8 5.3C14.2 15.6 18.7 12 24 12Z"/></svg>
+        <span>Continue with Google</span>
+      </button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
@@ -610,7 +622,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
   <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div class="auth-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10M15 4v11.5a4.5 4.5 0 0 1-9 0V14"/><path d="M11 10h7"/></svg></div>
       <div class="auth-name">JLIGHT</div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
@@ -641,7 +653,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
   <div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div class="auth-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10M15 4v11.5a4.5 4.5 0 0 1-9 0V14"/><path d="M11 10h7"/></svg></div>
       <div class="auth-name">JLIGHT</div>
     </div>
     <div class="auth-tagline" id="pin-workspace">Workspace</div>
@@ -671,7 +683,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
   <div class="layout">
     <aside class="sidebar" id="sidebar">
       <div class="sb-brand">
-        <div class="sb-brand-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+        <div class="sb-brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h10M15 4v11.5a4.5 4.5 0 0 1-9 0V14"/><path d="M11 10h7"/></svg></div>
         <div class="sb-brand-name">JLIGHT</div>
       </div>
       <div class="sb-role-banner" id="sb-role-banner">
@@ -1134,7 +1146,7 @@ async function doSignIn() {
   if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
   if (status) { status.textContent = ''; status.className = 'auth-status' }
   const sb = getSupabase()
-  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
+  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' } return }
   try {
     if (MODE.signupMode) {
       const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
@@ -1385,6 +1397,41 @@ async function sendOrganisationCodeEmail() {
     }
     setStatus('Organisation code emailed to your verified account address.', 'success')
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
+}
+
+async function doGoogleSignIn() {
+  const status = document.getElementById('si-status')
+  const btn = document.getElementById('si-google-btn')
+  const setStatus = (message, kind = '') => {
+    if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') }
+  }
+  const selectedPath = sessionStorage.getItem('jl_selected_path')
+  if (!selectedPath || !ROLES[selectedPath]) {
+    setStatus('Choose a JLIGHT workspace path first, then continue with Google.', 'error')
+    return
+  }
+  const sb = getSupabase()
+  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
+  if (MODE.signupMode) {
+    setStatus('Switch to Sign in before using Google authentication.', 'error')
+    return
+  }
+  if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Connecting to Google…' }
+  setStatus('Redirecting securely to Google…')
+  try {
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname,
+        queryParams: { prompt: 'select_account' }
+      }
+    })
+    if (error) throw error
+  } catch (e) {
+    console.error('[JLIGHT] Google sign-in failed:', e)
+    setStatus(e.message || 'Google sign-in could not be started. Check provider configuration and try again.', 'error')
+    if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Continue with Google' }
+  }
 }
 
 async function doForgotPassword() {
@@ -1685,7 +1732,7 @@ setTimeout(async () => {
 
   const url = new URL(window.location.href)
   const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
-  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || url.searchParams.has('code')
+  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery'
   const code = url.searchParams.get('code')
   const accessToken = hashParams.get('access_token')
   const refreshToken = hashParams.get('refresh_token')
