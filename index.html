@@ -14,11 +14,11 @@
 :root {
   --ink: #F4F7FB; --ink-2: #EAF0F7;
   --surface: #FFFFFF; --surface-2: #FFFFFF; --surface-3: #F4F7FB; --surface-4: #E9F0F8;
-  --teal: #00C9A7; --teal-2: #00A387;
-  --teal-glow: rgba(0,201,167,0.15); --teal-bg: rgba(0,201,167,0.06);
-  --amber: #F5A623; --amber-glow: rgba(245,166,35,0.15); --amber-bg: rgba(245,166,35,0.06);
+  --teal: #087F8C; --teal-2: #056773;
+  --teal-glow: rgba(8,127,140,0.16); --teal-bg: rgba(8,127,140,0.07);
+  --amber: #C89B35; --amber-glow: rgba(200,155,53,0.16); --amber-bg: rgba(200,155,53,0.08);
   --red: #FF4D6D; --red-glow: rgba(255,77,109,0.12); --red-bg: rgba(255,77,109,0.06);
-  --green: #2EE89A; --green-glow: rgba(46,232,154,0.12); --green-bg: rgba(46,232,154,0.06);
+  --green: #168A72; --green-glow: rgba(22,138,114,0.12); --green-bg: rgba(22,138,114,0.06);
   --blue: #4B8EFF; --blue-glow: rgba(75,142,255,0.12); --blue-bg: rgba(75,142,255,0.06);
   --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08);
   --border: #E3EAF2; --border-2: #D4DFEA; --border-strong: #B8C9DA;
@@ -26,7 +26,7 @@
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'Inter', 'Manrope', sans-serif; background: linear-gradient(135deg, #F7FAFD 0%, #EEF4FA 55%, #F5F8FC 100%); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', 'Manrope', sans-serif; background: radial-gradient(ellipse at 12% 4%, rgba(8,127,140,0.08), transparent 36%), radial-gradient(ellipse at 90% 85%, rgba(200,155,53,0.08), transparent 32%), #F7FAFD; color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -34,12 +34,12 @@ a { color: var(--teal); text-decoration: none; }
 
 .auth-screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; position: relative; overflow: hidden; }
 .auth-screen.active { display: flex; }
-.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(0,201,167,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,167,0.04) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
-.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(0,201,167,0.08) 0%, transparent 65%); top: -200px; right: -200px; }
+.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(8,127,140,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(8,127,140,0.045) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
+.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(8,127,140,0.10) 0%, transparent 65%); top: -200px; right: -200px; }
 .auth-glow-2 { position: absolute; width: 500px; height: 500px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(75,142,255,0.06) 0%, transparent 65%); bottom: -100px; left: -100px; }
-.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 24px 64px rgba(28,54,84,0.12); }
+.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 36px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 28px 80px rgba(28,54,84,0.14), 0 2px 8px rgba(8,127,140,0.05); }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
-.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue) 68%, var(--amber)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
 .auth-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
 .auth-tagline { text-align: center; font-size: 11px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; font-weight: 600; }
@@ -1393,23 +1393,25 @@ async function doForgotPassword() {
   const status = document.getElementById('si-status')
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
   if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
   const sb = getSupabase()
   if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
-  setStatus('Requesting a secure password-reset email…')
+  const button = document.querySelector('.auth-link-button')
+  if (button) { button.disabled = true; button.textContent = 'Sending reset email…' }
+  setStatus('Requesting a password-reset email from Supabase…')
   try {
-    const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
-      body: JSON.stringify({ email: addr })
-    })
-    const result = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(result.error || 'Password-reset service is temporarily unavailable.')
-    setStatus('If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success')
+    // Use Supabase Auth's configured email provider directly; no custom mail Edge Function.
+    const redirectTo = window.location.origin + '/?type=recovery'
+    const { error } = await sb.auth.resetPasswordForEmail(addr, { redirectTo })
+    if (error) throw error
+    setStatus('If an account exists for this address, Supabase has been asked to send a reset email. Check your inbox and spam folder.', 'success')
     toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
   } catch (e) {
-    console.error('[JLIGHT] password reset request failed:', e)
-    setStatus(e.message || 'Could not request a reset email. Please try again.', 'error')
+    console.error('[JLIGHT] Supabase password reset request failed:', e)
+    setStatus(e.message || 'Supabase could not request a reset email. Please try again.', 'error')
     toast('Password reset unavailable', e.message || 'Please try again', 'crit')
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Forgot password?' }
   }
 }
 
