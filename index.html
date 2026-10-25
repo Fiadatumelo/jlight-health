@@ -567,7 +567,7 @@ body::before { opacity: .12; }
 a { color: var(--teal-2); }
 ::selection { background: rgba(34,199,184,.35); color: #fff; }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
-.auth-bg-grid { background-image: linear-gradient(rgba(34,199,184,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,90,82,.07) 1px, transparent 1px); }
+.auth-bg-grid { background-image: linear-gradient(rgba(34,199,184,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(34,199,184,.07) 1px, transparent 1px); }
 .auth-glow { background: radial-gradient(circle, rgba(34,199,184,.13) 0%, transparent 65%); }
 .auth-glow-2 { background: radial-gradient(circle, rgba(115,167,255,.1) 0%, transparent 65%); }
 .auth-card, .modal, .modal-content, .panel, .card, .stat-card, .metric-card, .content-card, .workspace-card, .dashboard-card {
@@ -596,6 +596,39 @@ button, .btn, [role="button"] { transition: background-color .16s ease, border-c
 .badge-info, .status-badge.info, .pill-info { background: var(--blue-bg); color: var(--blue); border-color: rgba(115,167,255,.3); }
 table th { color: var(--text-2); background: var(--surface-3); }
 table td { color: var(--text); border-color: var(--border); }
+
+/* Navigation declutter: grouped, collapsible sections */
+.sb-nav { gap: 6px; padding: 12px 10px 16px; }
+.sb-nav-group { border: 1px solid transparent; border-radius: 10px; }
+.sb-nav-group[open] { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.035); }
+.sb-nav-group > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 10px 11px; border-radius: 8px; color: var(--text-3); font-size: 10px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; user-select: none; }
+.sb-nav-group > summary::-webkit-details-marker { display:none; }
+.sb-nav-group > summary::after { content: '+'; color: var(--text-4); font-size: 15px; font-weight: 500; }
+.sb-nav-group[open] > summary::after { content: '−'; }
+.sb-nav-group > summary:hover { background: var(--surface-3); color: var(--text); }
+.sb-nav-group .sb-link { margin: 2px 4px; padding: 9px 10px; }
+.sb-nav-group .sb-link.active::before { left: -5px; }
+.topbar { padding-inline: 24px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 210px minmax(0,1fr); }
+  .content { padding: 20px; }
+  .topbar { padding: 0 18px; }
+}
+@media (max-width: 680px) {
+  .layout { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sb-brand { padding: 12px 16px; }
+  .sb-role-banner { margin: 8px 12px 4px; }
+  .sb-nav { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); max-height: 44vh; overflow-y: auto; }
+  .sb-nav-group { min-width: 0; }
+  .sb-nav-group .sb-link { font-size: 12px; }
+  .sb-foot { padding: 10px 12px; }
+  .topbar { position: sticky; top: 0; }
+  .tb-status { display: none; }
+  .content { padding: 16px 12px; }
+  .page-title { font-size: 22px; }
+}
+
 hr, .divider { border-color: var(--border); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -1718,16 +1751,30 @@ function buildNav() {
   const cfg = ROLES[STATE.role]
   const nav = $('sb-nav')
   const openCards = STATE.cards.filter(c => !c.acknowledged).length
-  nav.innerHTML = `
-    <div class="sb-section">${esc(cfg.label)}</div>
-    ${cfg.nav.map(item => {
-      const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
-      const badge = item.key === 'cards' && openCards > 0 ? `<span class="sb-link-badge">${openCards}</span>` : ''
-      return `<div class="sb-link ${isActive}" onclick="goPage('${item.key}')"><span class="sb-link-icon">${item.icon}</span><span>${esc(item.label)}</span>${badge}</div>`
-    }).join('')}
-  `
+  const groups = [
+    { label: 'Overview', keys: ['dashboard'] },
+    { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
+    { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
+    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
+    { label: 'Other', keys: ['instruments', 'samples', 'sample-detail', 'process', 'handover', 'bio-pipeline', 'bio-report', 'bio-run-detail', 'patient-profile'] },
+  ]
+  const used = new Set()
+  const renderLink = item => {
+    used.add(item.key)
+    const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
+    const badge = item.key === 'cards' && openCards > 0 ? '<span class="sb-link-badge">' + openCards + '</span>' : ''
+    return '<div class="sb-link ' + isActive + '" role="button" tabindex="0" onclick="goPage(\'' + item.key + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goPage(\'' + item.key + '\')}"><span class="sb-link-icon" aria-hidden="true">' + item.icon + '</span><span>' + esc(item.label) + '</span>' + badge + '</div>'
+  }
+  const markup = groups.map(group => {
+    const items = cfg.nav.filter(item => group.keys.includes(item.key))
+    if (!items.length) return ''
+    const isActive = items.some(item => STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards'))
+    return '<details class="sb-nav-group" ' + (isActive ? 'open' : '') + '><summary>' + group.label + '</summary>' + items.map(renderLink).join('') + '</details>'
+  }).join('')
+  const remaining = cfg.nav.filter(item => !used.has(item.key))
+  nav.innerHTML = markup + (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
-
 function goPage(page) {
   STATE.currentPage = page
   $$('.page').forEach(p => p.classList.remove('active'))
