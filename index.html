@@ -5329,8 +5329,10 @@ function generateBioReport(e) {
   const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
   const hasCrit = cards.some(c => c.severity === 'crit')
   const hasWarn = cards.some(c => c.severity === 'warn')
-  const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
-  const qcColor = hasCrit ? 'var(--red)' : hasWarn ? 'var(--amber)' : 'var(--green)'
+  const metricValues = [e.coverage,e.mappingRate,e.qscore,e.dupRate,e.gcContent,e.contamination]
+  const missingMetrics = metricValues.some(v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v)))
+  const qcStatus = hasCrit ? 'FAIL' : (hasWarn || missingMetrics) ? 'REVIEW' : 'SCREENED'
+  const qcColor = hasCrit ? 'var(--red)' : (hasWarn || missingMetrics) ? 'var(--amber)' : 'var(--blue)'
 
   function metric(label, value, display, good, bad, threshold) {
     const col = !isNaN(value) ? (good(value) ? 'var(--green)' : 'var(--red)') : 'var(--text-3)'
@@ -5356,9 +5358,9 @@ function generateBioReport(e) {
     '<div class="' + (qcStatus === 'FAIL' ? 'dc-rootcause' : qcStatus === 'REVIEW' ? 'dc-actions' : 'dc-insight') + '" style="margin-bottom:18px">' +
     '<div style="font-size:10px;font-family:DM Mono,monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;color:' + qcColor + '">Clinical Significance</div>' +
     '<p style="font-size:13px;line-height:1.65">' + (
-      qcStatus === 'PASS' ? 'All QC metrics for ' + e.sampleId + ' are within acceptable limits. Results from the ' + (e.pipeline || 'specified') + ' pipeline are suitable for clinical interpretation.'
-      : qcStatus === 'FAIL' ? 'CRITICAL QC FAILURE in run ' + e.sampleId + '. Clinical variants must NOT be reported until QC issues are resolved. See troubleshooting below.'
-      : 'QC review required for ' + e.sampleId + '. Results may be reported with appropriate caveats. See troubleshooting below.'
+      qcStatus === 'SCREENED' ? 'No configured JLIGHT QC flags were found and the displayed metrics are present. This is a screening summary only—not validation of the pipeline, sample, or clinical findings. Apply the laboratory’s validated SOP and authorised review.'
+      : qcStatus === 'FAIL' ? 'Critical JLIGHT QC flags are present for run ' + e.sampleId + '. Review the listed evidence under the laboratory’s validated SOP before downstream use; JLIGHT does not independently validate or release clinical variants.'
+      : 'QC review required for ' + e.sampleId + (missingMetrics ? '. One or more expected QC metrics are missing or non-numeric. ' : '; warning flags are present. ') + 'This report is a screening aid, not clinical validation or authorisation to report.'
     ) + '</p></div>' +
 
     // Metrics grid
