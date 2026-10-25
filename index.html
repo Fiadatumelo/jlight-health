@@ -536,6 +536,67 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .auth-card input:focus,.auth-card select:focus{border-color:#6c8ff2;box-shadow:0 0 0 3px rgba(87,132,241,.12)}
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}.auth-name{font-size:23px}}
 
+
+/* JLIGHT visual refinement — clean clinical workspace, teal + gold, accessible contrast */
+:root {
+  --ink: #F7FAFC;
+  --teal: #087F8C;
+  --teal-2: #066773;
+  --teal-glow: rgba(8,127,140,.14);
+  --teal-bg: #EAF7F7;
+  --amber: #B88719;
+  --amber-glow: rgba(184,135,25,.15);
+  --amber-bg: #FBF5E7;
+  --gold: #B88719;
+  --gold-bg: #FBF5E7;
+  --border: #E1E9EF;
+  --border-2: #D1DEE7;
+  --text: #172B3A;
+  --text-2: #526A79;
+  --text-3: #718795;
+}
+body { background: linear-gradient(135deg,#F8FBFC 0%,#F3F8FA 55%,#FAF8F1 100%); }
+.layout { grid-template-columns: 248px minmax(0,1fr); }
+.sidebar { background: rgba(255,255,255,.96); border-right-color:#DCE7EC; box-shadow: 5px 0 24px rgba(19,54,70,.025); }
+.sb-brand { padding-top:22px; padding-bottom:20px; }
+.sb-brand-mark { background:linear-gradient(145deg,#087F8C 0%,#0C9AA1 70%,#C49A36 100%); box-shadow:0 5px 14px rgba(8,127,140,.18); }
+.sb-brand-name { letter-spacing:-.65px; }
+.sb-role-banner { margin:14px 14px 6px; border:1px solid #D9E9EA; background:linear-gradient(100deg,#EFF9F8,#FFFFFF); border-radius:11px; }
+.sb-link { border-radius:9px; padding:10px 12px; transition:background .16s ease,color .16s ease,transform .16s ease; }
+.sb-link:hover { background:#F0F8F8; color:#066773; }
+.sb-link.active,.sb-link.selected { background:linear-gradient(100deg,#E4F4F3,#F0F8F8); color:#075E67; box-shadow:inset 3px 0 0 #087F8C; font-weight:650; }
+.topbar { background:rgba(255,255,255,.94); backdrop-filter:blur(14px); border-bottom-color:#DDE8ED; padding-inline:clamp(16px,2.2vw,30px); }
+.tb-title { letter-spacing:-.45px; }
+.kpi { border-radius:15px; border-color:#DFE8ED; box-shadow:0 3px 12px rgba(21,55,72,.025); padding:19px 20px; transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
+.kpi:hover { transform:translateY(-2px); box-shadow:0 10px 26px rgba(21,55,72,.07); border-color:#C9DEE3; }
+.kpi::after { height:3px; background:linear-gradient(90deg,#087F8C,#5EB8B4); opacity:.72; }
+.kpi.warn::after { background:linear-gradient(90deg,#B88719,#E2C46B); opacity:.95; }
+.kpi.good::after { background:linear-gradient(90deg,#168A72,#7CC9B4); opacity:.85; }
+.kpi.crit::after { background:linear-gradient(90deg,#C63F55,#F08B92); opacity:.9; }
+.dc,.auth-card,.path-picker { box-shadow:0 5px 20px rgba(20,57,74,.035); }
+.dc { border-radius:15px; border-color:#DFE8ED; }
+.dc:hover { border-color:#B6D7D9; box-shadow:0 10px 24px rgba(8,127,140,.075); transform:translateY(-1px); }
+.btn-primary,.btn.btn-primary { background:linear-gradient(110deg,#087F8C,#066773); box-shadow:0 4px 12px rgba(8,127,140,.16); }
+.btn-primary:hover,.btn.btn-primary:hover { filter:brightness(1.04); box-shadow:0 7px 18px rgba(8,127,140,.22); }
+.auth-card { border-radius:22px; box-shadow:0 24px 70px rgba(25,54,70,.12),0 2px 8px rgba(8,127,140,.04); }
+.path-picker { border-color:#D8E7E9; background:linear-gradient(135deg,#F5FAFA,#FFFFFF 60%,#FCF9F1); }
+.path-choice { border-color:#DDE7EC; }
+.path-choice.selected { border-color:#087F8C; box-shadow:0 0 0 2px rgba(8,127,140,.12),0 8px 20px rgba(8,127,140,.07); }
+.path-lab { border-top-color:#168AA0; }
+.path-hospital { border-top-color:#087F8C; }
+.path-bio { border-top-color:#6B75C8; }
+.path-trial { border-top-color:#B88719; }
+.path-trial .path-choice-icon { background:linear-gradient(145deg,#FBF5E7,#F5E6BD); color:#8C6715; }
+.auth-card input:focus,.auth-card select:focus { border-color:#087F8C; box-shadow:0 0 0 3px rgba(8,127,140,.12); }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid rgba(184,135,25,.65); outline-offset:2px; }
+@media (max-width:900px) {
+  .layout { grid-template-columns: minmax(0,1fr); }
+  .sidebar { position:relative; top:auto; height:auto; max-height:none; }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+
 </style>
 </head>
 <body>
