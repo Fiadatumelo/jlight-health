@@ -2028,7 +2028,7 @@ function renderJourney() {
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
   if(output)output.innerHTML='<div class="section-title">Report generated</div><p class="journey-footnote">Generated '+esc(new Date(report.generatedAt).toLocaleString())+'. Download contains aggregate counts, not patient names.</p><pre class="journey-json">'+esc(JSON.stringify(report,null,2))+'</pre>'
-  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.crossDomainPatients+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
+  try{await audit("Cross-domain traceability report generated","Patients matched across domains: "+report.patientsWithMultipleRecordTypes+"; unmatched references: "+report.unmatchedReferences+"; missing patient IDs: "+report.missingPatientReference)}catch(e){console.warn("[JLIGHT] report audit event could not be saved:",e.message)}
   const blob=new Blob([JSON.stringify(report,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),link=document.createElement("a")
   link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
   toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
@@ -4310,13 +4310,13 @@ function bioInterpContam(v) {
 }
 
 function bioRecs(e, qcStatus, cards) {
-  if (qcStatus==='PASS') return [
-    'Proceed with variant annotation using ANNOVAR, VEP, or SnpEff',
-    'Apply population frequency filters (gnomAD, 1000 Genomes)',
-    'Prioritise variants by clinical significance (ClinVar, OMIM, ACMG classification)',
-    e.analysisType&&e.analysisType.includes('AMR') ? 'Cross-reference AMR genes with CARD and ResFinder for resistance interpretation' : null,
-    e.analysisType&&e.analysisType.includes('TB') ? 'Interpret drug resistance using WHO mutation catalogue (2021)' : null,
-    'Archive FASTQ, BAM, and VCF per institutional data retention policy',
+  if (qcStatus==='SCREENED') return [
+    'Review the displayed metrics against the laboratory’s validated SOP and assay-specific acceptance criteria',
+    'Have an authorised reviewer confirm completeness, pipeline version, reference and sample provenance',
+    'Do not treat this screening status as authorisation for clinical interpretation or reporting',
+    e.analysisType&&e.analysisType.includes('AMR') ? 'If appropriate under the validated workflow, cross-reference AMR findings with recognised resources' : null,
+    e.analysisType&&e.analysisType.includes('TB') ? 'For TB workflows, use the current applicable WHO mutation catalogue and local validated procedures' : null,
+    'Archive analysis artefacts and QC evidence according to institutional policy',
   ].filter(Boolean)
   if (qcStatus==='FAIL') {
     const recs = ['DO NOT report clinical variants until QC issues are resolved']
@@ -4335,6 +4335,8 @@ function exportBioReport(entryId) {
   const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
   // Match the export to the same run window used by the on-screen report.
   const cards = STATE.cards.filter(c=>c.role==='Bioinformatics'&&c.ts>=e.ts-5000&&c.ts<=e.ts+120000)
+  const metricValues = [e.coverage,e.mappingRate,e.qscore,e.dupRate,e.gcContent,e.contamination]
+  const missingMetrics = metricValues.some(v=>v===null||v===undefined||v===''||!Number.isFinite(Number(v)))
   const lines = [
     '=====================================================',
     '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
@@ -4348,15 +4350,16 @@ function exportBioReport(entryId) {
     'REFERENCE     : '+(e.reference||''),
     'DATE          : '+new Date(e.ts).toLocaleDateString(),'',
     'QC METRICS','--------------------------------------------------',
-    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(PASS)':'(REVIEW)') : null,
-    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(PASS)':'(FAIL)') : null,
+    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Coverage      : MISSING',
+    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Mapping Rate  : MISSING',
+    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Q-Score       : MISSING',
+    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Duplication   : MISSING',
+    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(WITHIN GENERIC RANGE)':'(REVIEW)') : '  GC Content    : MISSING',
+    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(MEETS CONFIGURED THRESHOLD)':'(REVIEW)') : '  Contamination : MISSING',
     !isNaN(e.variantCount) ? '  Variants      : '+Number(e.variantCount).toLocaleString() : null,'',
     'QC ISSUES','--------------------------------------------------',
-    ...(cards.length===0 ? ['  No QC issues detected.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
+    ...(cards.length===0 ? ['  No configured JLIGHT QC flags were linked to this run window. This is not evidence of clinical validation.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
+    '  NOTE: Screening aid only. Not clinical validation or authorisation to report. Verify run-to-issue linkage and apply validated SOP.',
     '','=====================================================',
     '  JLIGHT - Health Intelligence Platform',
     '=====================================================',
