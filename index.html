@@ -1919,17 +1919,15 @@ function filterJlightQuickLinks(query) {
 }
 
 function buildJourneyReport() {
-  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)))
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId))&&(STATE.role!=="Trial"||(STATE.participants||[]).some(x=>x&&x.patientId!=null&&String(x.patientId)===String(p.id))))
   const ids=new Set(patients.map(p=>String(p.id))), touched=new Map()
-  const domains=[
-    {key:"hospital",label:"Hospital admissions",rows:STATE.admissions||[]},
-    {key:"hospitalOrders",label:"Hospital orders",rows:STATE.clinicalOrders||[]},
-    {key:"laboratory",label:"Laboratory orders",rows:STATE.labOrders||[]},
-    {key:"labResults",label:"Imported laboratory results",rows:STATE.results||[]},
-    {key:"bioinformatics",label:"Bioinformatics outputs",rows:STATE.bioRuns||[]}
-  ]
+  // Clinical-trial reports are deliberately limited to trial records; other roles never
+  // include trial data in the shared traceability export.
+  const domains=STATE.role==="Trial"
+    ? [{key:"trialParticipants",label:"Clinical-trial enrolments",rows:STATE.participants||[]},{key:"trialVisits",label:"Clinical-trial visits",rows:STATE.visits||[]},{key:"trialSafetyEvents",label:"Clinical-trial safety / issue events",rows:STATE.adverseEvents||[]}]
+    : [{key:"hospital",label:"Hospital admissions",rows:STATE.admissions||[]},{key:"hospitalOrders",label:"Hospital orders",rows:STATE.clinicalOrders||[]},{key:"laboratory",label:"Laboratory orders",rows:STATE.labOrders||[]},{key:"labResults",label:"Imported laboratory results",rows:STATE.results||[]},{key:"bioinformatics",label:"Bioinformatics outputs",rows:STATE.bioRuns||[]}]
   const counts=domains.map(d=>{let linked=0,missing=0,unmatched=0;d.rows.forEach(row=>{const id=row&&row.patientId!=null?String(row.patientId):"";if(!id){missing++;return}if(ids.has(id)){linked++;if(!touched.has(id))touched.set(id,new Set());touched.get(id).add(d.key)}else unmatched++});return {...d,total:d.rows.length,linked,missing,unmatched}})
-  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,trialRecords:(STATE.participants||[]).length+(STATE.visits||[]).length+(STATE.adverseEvents||[]).length,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.","Clinical Trials remain a separate workflow and are excluded from the shared non-trial patient journey.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
+  return {generatedAt:new Date().toISOString(),workspace:STATE.orgName||"Current workspace",workspaceRole:STATE.role,mode:MODE.isOnline?"online":"offline",patients:patients.length,crossDomainPatients:Array.from(touched.values()).filter(set=>set.size>=2).length,unmatchedReferences:counts.reduce((n,c)=>n+c.unmatched,0),missingPatientReference:counts.reduce((n,c)=>n+c.missing,0),counts,notes:[MODE.isOnline?"Online session active; check sync and audit status before relying on this snapshot.":"Offline mode: report uses records cached on this device only.",STATE.role==="Trial"?"This report contains Clinical Trials workspace records only.":"Clinical-trial records are excluded from this shared non-trial traceability report.","JLIGHT reports operational traceability and data-quality signals only; source systems remain authoritative for clinical results.","Records are matched by existing patient ID only; JLIGHT does not infer identity from names or demographics."]}
 }
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
@@ -2022,6 +2020,7 @@ function renderJourney() {
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
     '<div class="journey-panel journey-followup-note"><div class="section-title">How to interpret findings</div><p class="journey-footnote">JLIGHT findings are already shown in the timeline above. Open a Decision Card for its evidence, interpretation and recommended actions. A recommendation is not proof that a correction occurred; only a recorded status or action can establish follow-up.</p></div></section></div>'+
+    '<div class="journey-panel"><div class="section-head"><div><div class="section-title">Traceability report</div><p class="journey-footnote">Download aggregate linkage and missing-identifier counts for this workspace. Patient names are not included.</p></div><button class="btn btn-primary" onclick="generateJourneyReport()">Generate report</button></div><div id="journey-report-output" aria-live="polite"></div></div>' +
     '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>';
 }
 async function generateJourneyReport() {
@@ -4329,7 +4328,8 @@ function bioRecs(e, qcStatus, cards) {
 
 function exportBioReport(entryId) {
   const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
-  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics')
+  // Match the export to the same run window used by the on-screen report.
+  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics'&&c.ts>=e.ts-5000&&c.ts<=e.ts+120000)
   const lines = [
     '=====================================================',
     '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
@@ -4360,8 +4360,8 @@ function exportBioReport(entryId) {
   const blob = new Blob([lines.join('\n')], {type:'text/plain'})
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href=url; a.download='JLIGHT-NGS-'+esc(e.sampleId)+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
-  a.click(); URL.revokeObjectURL(url)
+  a.href=url; a.download='JLIGHT-NGS-'+String(e.sampleId||'run').replace(/[^a-zA-Z0-9_-]+/g,'_')+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000)
   audit('Bio report exported', e.sampleId+' by '+getDisplayName())
   toast('Report exported', e.sampleId, 'good')
 }
