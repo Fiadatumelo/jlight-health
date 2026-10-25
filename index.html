@@ -1393,7 +1393,7 @@ async function doForgotPassword() {
   const status = document.getElementById('si-status');
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : ''); } };
   if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return; }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return; }
   if (!BACKEND || !BACKEND.url || !BACKEND.key) { setStatus('Password recovery is not configured for this environment.', 'error'); return; }
   const button = document.getElementById('si-forgot-password');
   if (button) { button.disabled = true; button.textContent = 'Sending reset email…'; }
