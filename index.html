@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>JLIGHT — Health Intelligence Platform</title>
+<!-- JLIGHT branded favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop stop-color=%22%23087f8c%22/%3E%3Cstop offset=%22.72%22 stop-color=%22%234b8eff%22/%3E%3Cstop offset=%221%22 stop-color=%22%23b88719%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22url(%23g)%22/%3E%3Cpath d=%22M54 32h-9l-7 19L25 13l-7 19H9%22 fill=%22none%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -597,6 +599,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
 }
 
+
+/* Branded sign-in identity */
+.auth-brand { gap:14px; margin-bottom:24px; }
+.auth-mark { width:54px;height:54px;flex:none;border-radius:15px;background:linear-gradient(145deg,#087F8C 0%,#4B8EFF 72%,#B88719 100%);box-shadow:0 8px 20px rgba(8,127,140,.18); }
+.auth-mark svg { width:34px;height:34px;stroke:white;stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round; }
+.auth-wordmark { display:flex;flex-direction:column;align-items:flex-start;gap:1px; }
+.auth-name { font-family:'Plus Jakarta Sans',sans-serif;font-size:29px;font-weight:800;letter-spacing:-1.15px;line-height:1.1;background:linear-gradient(100deg,#172B3A 0%,#087F8C 70%,#B88719 100%);-webkit-background-clip:text;background-clip:text;color:transparent; }
+.auth-brand-caption { color:#708393;font-size:9px;font-weight:750;letter-spacing:1.55px;line-height:1.5; }
+.sb-brand-mark svg { stroke-linecap:round;stroke-linejoin:round; }
+@media(max-width:520px){.auth-mark{width:48px;height:48px;border-radius:13px}.auth-mark svg{width:30px;height:30px}.auth-name{font-size:26px}.auth-brand-caption{font-size:8px;letter-spacing:1.3px}}
+
 </style>
 </head>
 <body>
@@ -605,8 +618,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
+      <div class="auth-mark" role="img" aria-label="JLIGHT logo"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M54 32h-9l-7 19L25 13l-7 19H9" /></svg></div>
+      <div class="auth-wordmark"><div class="auth-name">JLIGHT</div><div class="auth-brand-caption">HEALTH INTELLIGENCE</div></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
     <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
