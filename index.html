@@ -1205,7 +1205,7 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
 async function doSignIn(resend = false) {
@@ -1290,10 +1290,10 @@ async function verifyLoginCode() {
     const meta = user.user_metadata || {};
     MODE.isOnline = true;
     STATE.user = user.email || email;
-    STATE.role = meta.role && ROLES[meta.role] ? meta.role : selectedPath;
+    STATE.role = selectedPath;
     await ensureJlightOrganisation(user, {
       org: meta.org_name || "",
-      role: meta.role || STATE.role,
+      role: selectedPath,
       orgCode: meta.org_code || ""
     });
     await loadOrCreateProfile(user);
