@@ -1990,13 +1990,13 @@ async function generatePatientJourneyReports() {
   const generatedAt = new Date().toISOString();
   const journeyReport = {
     reportType: 'patient-journey-summary', schemaVersion: '1.0', generatedAt,
-    participantLabel, workspace: STATE.orgName || 'Current workspace',
+    participantLabel, workspace: 'Current workspace',
     scope: STATE.role === 'Trial' ? 'clinical-trials-only' : 'hospital-laboratory-bioinformatics-intelligence',
     eventCount: events.length,
     events: events.map(e => ({
       source: String(e.source || 'Unknown'), eventType: String(e.label || 'Recorded event'),
-      occurredAt: e.when && !Number.isNaN(e.when.getTime()) ? e.when.toISOString() : (e.rawWhen ? String(e.rawWhen) : null),
-      status: String(e.status || 'Recorded'), summary: String(e.summary || 'Source record available; summary fields not supplied.')
+      occurredAt: e.when && !Number.isNaN(e.when.getTime()) ? e.when.toISOString() : null,
+      status: 'Source status must be verified in the originating system.', summary: 'Source record available; free-text details omitted from this export to reduce identifier leakage and avoid reproducing unverified clinical statements.'
     })),
     limitations: ['Source systems remain authoritative.', 'Missing records or dates are unknown, not proof that an event did not occur.', 'Participant label is a report-local alias and is not a patient identifier.']
   };
@@ -2006,7 +2006,7 @@ async function generatePatientJourneyReports() {
   events.forEach(e => { const k = String(e.source || 'Unknown'); sourceCounts[k] = (sourceCounts[k] || 0) + 1; });
   const qualityReport = {
     reportType: 'patient-data-quality-traceability', schemaVersion: '1.0', generatedAt,
-    participantLabel, workspace: STATE.orgName || 'Current workspace',
+    participantLabel, workspace: 'Current workspace',
     eventCount: events.length, sourceCounts,
     checks: [
       {check:'journey_has_events', status: events.length ? 'review' : 'not-evaluable', count:events.length, note:events.length ? 'Events are present; verify source completeness against the originating systems.' : 'No linked events are available; absence cannot establish that care or testing did not occur.'},
