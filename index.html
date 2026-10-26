@@ -6567,7 +6567,18 @@ async function syncDomainToBackend(domain, items) {
     if (!rows.length) return { ok: true, count: 0 }
     const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'org_id,jl_id' })
     if (error) throw error
-    return { ok: true, count: rows.length }
+    // Confirm the database can read back every row through the same authenticated,
+    // workspace-scoped session before the UI reports a successful cloud save.
+    const ids = rows.map(row => row.jl_id)
+    const { data: persisted, error: readError } = await sb.from('jl_entries')
+      .select('jl_id')
+      .eq('org_id', STATE.orgId)
+      .in('jl_id', ids)
+    if (readError) throw new Error('Cloud write completed but read-back verification failed: ' + readError.message)
+    const persistedIds = new Set((persisted || []).map(row => row.jl_id))
+    const missing = ids.filter(id => !persistedIds.has(id))
+    if (missing.length) throw new Error('Cloud write could not be verified for ' + missing.length + ' record(s).')
+    return { ok: true, count: rows.length, verified: true }
   } catch (e) {
     console.error('[JLIGHT] domain sync failed:', e.message)
     toast('Cloud save failed', 'Your changes may only be stored on this device. Please retry before leaving this workspace.', 'crit')
