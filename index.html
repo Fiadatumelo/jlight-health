@@ -611,6 +611,48 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:520px){.auth-mark{width:48px;height:48px;border-radius:13px}.auth-mark svg{width:30px;height:30px}.auth-name{font-size:26px}.auth-brand-caption{font-size:8px;letter-spacing:1.3px}}
 
 </style>
+
+<style id="jlight-visual-refresh">
+/* JLIGHT visual refresh: calm blue-grey surfaces, vibrant workspace accents, accessible readability */
+:root {
+  --jlight-navy:#203653;
+  --jlight-teal:#087F8C;
+  --jlight-blue:#4B8EFF;
+  --jlight-purple:#8B6BC2;
+  --jlight-gold:#C89B35;
+  --jlight-bg:#E9EFF5;
+  --jlight-panel:#F8FAFC;
+  --jlight-border:#D5DFE9;
+  --jlight-text:#203047;
+  --jlight-muted:#52657A;
+}
+html, body { background:var(--jlight-bg); color:var(--jlight-text); }
+body { background-image:radial-gradient(ellipse at 8% 0%,rgba(75,142,255,.09),transparent 34%),radial-gradient(ellipse at 94% 4%,rgba(8,127,140,.08),transparent 30%); }
+.sidebar { background:rgba(248,250,252,.98)!important; border-color:var(--jlight-border)!important; }
+.topbar { background:rgba(248,250,252,.96)!important; border-color:var(--jlight-border)!important; }
+.main { background:transparent; }
+.panel,.form-card,.kpi-card,.stat-card,.card,.modal-card,.table-wrap,.content-card {
+  border-color:var(--jlight-border);
+}
+.sb-brand-name,.section-title,.page-title,.tb-title { color:var(--jlight-navy); }
+.sb-link { color:#40546C; border-radius:10px; }
+.sb-link:hover { background:#E7EEF6; color:var(--jlight-navy); }
+.sb-link.active { background:linear-gradient(90deg,rgba(8,127,140,.13),rgba(75,142,255,.08)); color:var(--jlight-navy); box-shadow:inset 3px 0 0 var(--jlight-teal); }
+.btn-primary { background:linear-gradient(135deg,var(--jlight-teal),#086B83); }
+.btn-primary:hover { filter:brightness(1.06); }
+input,select,textarea { background:#FBFCFE; border-color:#CBD7E3; color:var(--jlight-text); }
+input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22); border-color:var(--jlight-blue); }
+.badge,.pill { border-radius:999px; }
+:focus-visible { outline:3px solid var(--jlight-blue)!important; outline-offset:2px; }
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+@media (max-width:760px) {
+  .topbar { padding-left:16px!important; padding-right:16px!important; }
+  .sidebar { background:#F8FAFC!important; }
+}
+</style>
+
 </head>
 <body>
 
