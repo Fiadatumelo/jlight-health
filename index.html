@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>JLIGHT — Health Intelligence Platform</title>
+<!-- JLIGHT branded favicon -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop stop-color=%22%23087f8c%22/%3E%3Cstop offset=%22.72%22 stop-color=%22%234b8eff%22/%3E%3Cstop offset=%221%22 stop-color=%22%23b88719%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22url(%23g)%22/%3E%3Cpath d=%22M54 32h-9l-7 19L25 13l-7 19H9%22 fill=%22none%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -14,11 +16,11 @@
 :root {
   --ink: #F4F7FB; --ink-2: #EAF0F7;
   --surface: #FFFFFF; --surface-2: #FFFFFF; --surface-3: #F4F7FB; --surface-4: #E9F0F8;
-  --teal: #00C9A7; --teal-2: #00A387;
-  --teal-glow: rgba(0,201,167,0.15); --teal-bg: rgba(0,201,167,0.06);
-  --amber: #F5A623; --amber-glow: rgba(245,166,35,0.15); --amber-bg: rgba(245,166,35,0.06);
+  --teal: #087F8C; --teal-2: #056773;
+  --teal-glow: rgba(8,127,140,0.16); --teal-bg: rgba(8,127,140,0.07);
+  --amber: #C89B35; --amber-glow: rgba(200,155,53,0.16); --amber-bg: rgba(200,155,53,0.08);
   --red: #FF4D6D; --red-glow: rgba(255,77,109,0.12); --red-bg: rgba(255,77,109,0.06);
-  --green: #2EE89A; --green-glow: rgba(46,232,154,0.12); --green-bg: rgba(46,232,154,0.06);
+  --green: #168A72; --green-glow: rgba(22,138,114,0.12); --green-bg: rgba(22,138,114,0.06);
   --blue: #4B8EFF; --blue-glow: rgba(75,142,255,0.12); --blue-bg: rgba(75,142,255,0.06);
   --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08);
   --border: #E3EAF2; --border-2: #D4DFEA; --border-strong: #B8C9DA;
@@ -26,7 +28,7 @@
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'Inter', 'Manrope', sans-serif; background: linear-gradient(135deg, #F7FAFD 0%, #EEF4FA 55%, #F5F8FC 100%); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', 'Manrope', sans-serif; background: radial-gradient(ellipse at 12% 4%, rgba(8,127,140,0.08), transparent 36%), radial-gradient(ellipse at 90% 85%, rgba(200,155,53,0.08), transparent 32%), #F7FAFD; color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -34,12 +36,12 @@ a { color: var(--teal); text-decoration: none; }
 
 .auth-screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; position: relative; overflow: hidden; }
 .auth-screen.active { display: flex; }
-.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(0,201,167,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,167,0.04) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
-.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(0,201,167,0.08) 0%, transparent 65%); top: -200px; right: -200px; }
+.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(8,127,140,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(8,127,140,0.045) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
+.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(8,127,140,0.10) 0%, transparent 65%); top: -200px; right: -200px; }
 .auth-glow-2 { position: absolute; width: 500px; height: 500px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(75,142,255,0.06) 0%, transparent 65%); bottom: -100px; left: -100px; }
-.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 24px 64px rgba(28,54,84,0.12); }
+.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 36px; width: 100%; max-width: 520px; position: relative; z-index: 10001; isolation: isolate; box-shadow: 0 28px 80px rgba(28,54,84,0.14), 0 2px 8px rgba(8,127,140,0.05); }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
-.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue) 68%, var(--amber)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
 .auth-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
 .auth-tagline { text-align: center; font-size: 11px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; font-weight: 600; }
@@ -74,6 +76,9 @@ a { color: var(--teal); text-decoration: none; }
 .auth-back { margin-top: 22px; text-align: center; font-size: 12px; color: var(--text-3); }
 .auth-back a { color: var(--text-2); cursor: pointer; }
 .auth-back a:hover { color: var(--teal); }
+.auth-link-button { position: relative; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; color: var(--blue); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font: inherit; font-size: 12px; font-weight: 600; padding: 6px 4px; background: transparent; border: 0; }
+.auth-link-button:hover, .auth-link-button:focus-visible { color: var(--teal-2); outline: 2px solid var(--blue-glow); outline-offset: 3px; border-radius: 3px; }
+.auth-link-button:disabled { opacity: .65; cursor: wait; }
 
 .app-screen { display: none; min-height: 100vh; }
 .app-screen.active { display: block; }
@@ -533,6 +538,78 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .auth-card input:focus,.auth-card select:focus{border-color:#6c8ff2;box-shadow:0 0 0 3px rgba(87,132,241,.12)}
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}.auth-name{font-size:23px}}
 
+
+/* JLIGHT visual refinement — clean clinical workspace, teal + gold, accessible contrast */
+:root {
+  --ink: #F7FAFC;
+  --teal: #087F8C;
+  --teal-2: #066773;
+  --teal-glow: rgba(8,127,140,.14);
+  --teal-bg: #EAF7F7;
+  --amber: #B88719;
+  --amber-glow: rgba(184,135,25,.15);
+  --amber-bg: #FBF5E7;
+  --gold: #B88719;
+  --gold-bg: #FBF5E7;
+  --border: #E1E9EF;
+  --border-2: #D1DEE7;
+  --text: #172B3A;
+  --text-2: #526A79;
+  --text-3: #718795;
+}
+body { background: linear-gradient(135deg,#F8FBFC 0%,#F3F8FA 55%,#FAF8F1 100%); }
+.layout { grid-template-columns: 248px minmax(0,1fr); }
+.sidebar { background: rgba(255,255,255,.96); border-right-color:#DCE7EC; box-shadow: 5px 0 24px rgba(19,54,70,.025); }
+.sb-brand { padding-top:22px; padding-bottom:20px; }
+.sb-brand-mark { background:linear-gradient(145deg,#087F8C 0%,#0C9AA1 70%,#C49A36 100%); box-shadow:0 5px 14px rgba(8,127,140,.18); }
+.sb-brand-name { letter-spacing:-.65px; }
+.sb-role-banner { margin:14px 14px 6px; border:1px solid #D9E9EA; background:linear-gradient(100deg,#EFF9F8,#FFFFFF); border-radius:11px; }
+.sb-link { border-radius:9px; padding:10px 12px; transition:background .16s ease,color .16s ease,transform .16s ease; }
+.sb-link:hover { background:#F0F8F8; color:#066773; }
+.sb-link.active,.sb-link.selected { background:linear-gradient(100deg,#E4F4F3,#F0F8F8); color:#075E67; box-shadow:inset 3px 0 0 #087F8C; font-weight:650; }
+.topbar { background:rgba(255,255,255,.94); backdrop-filter:blur(14px); border-bottom-color:#DDE8ED; padding-inline:clamp(16px,2.2vw,30px); }
+.tb-title { letter-spacing:-.45px; }
+.kpi { border-radius:15px; border-color:#DFE8ED; box-shadow:0 3px 12px rgba(21,55,72,.025); padding:19px 20px; transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
+.kpi:hover { transform:translateY(-2px); box-shadow:0 10px 26px rgba(21,55,72,.07); border-color:#C9DEE3; }
+.kpi::after { height:3px; background:linear-gradient(90deg,#087F8C,#5EB8B4); opacity:.72; }
+.kpi.warn::after { background:linear-gradient(90deg,#B88719,#E2C46B); opacity:.95; }
+.kpi.good::after { background:linear-gradient(90deg,#168A72,#7CC9B4); opacity:.85; }
+.kpi.crit::after { background:linear-gradient(90deg,#C63F55,#F08B92); opacity:.9; }
+.dc,.auth-card,.path-picker { box-shadow:0 5px 20px rgba(20,57,74,.035); }
+.dc { border-radius:15px; border-color:#DFE8ED; }
+.dc:hover { border-color:#B6D7D9; box-shadow:0 10px 24px rgba(8,127,140,.075); transform:translateY(-1px); }
+.btn-primary,.btn.btn-primary { background:linear-gradient(110deg,#087F8C,#066773); box-shadow:0 4px 12px rgba(8,127,140,.16); }
+.btn-primary:hover,.btn.btn-primary:hover { filter:brightness(1.04); box-shadow:0 7px 18px rgba(8,127,140,.22); }
+.auth-card { border-radius:22px; box-shadow:0 24px 70px rgba(25,54,70,.12),0 2px 8px rgba(8,127,140,.04); }
+.path-picker { border-color:#D8E7E9; background:linear-gradient(135deg,#F5FAFA,#FFFFFF 60%,#FCF9F1); }
+.path-choice { border-color:#DDE7EC; }
+.path-choice.selected { border-color:#087F8C; box-shadow:0 0 0 2px rgba(8,127,140,.12),0 8px 20px rgba(8,127,140,.07); }
+.path-lab { border-top-color:#168AA0; }
+.path-hospital { border-top-color:#087F8C; }
+.path-bio { border-top-color:#6B75C8; }
+.path-trial { border-top-color:#B88719; }
+.path-trial .path-choice-icon { background:linear-gradient(145deg,#FBF5E7,#F5E6BD); color:#8C6715; }
+.auth-card input:focus,.auth-card select:focus { border-color:#087F8C; box-shadow:0 0 0 3px rgba(8,127,140,.12); }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid rgba(184,135,25,.65); outline-offset:2px; }
+@media (max-width:900px) {
+  .layout { grid-template-columns: minmax(0,1fr); }
+  .sidebar { position:relative; top:auto; height:auto; max-height:none; }
+}
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
+}
+
+
+/* Branded sign-in identity */
+.auth-brand { gap:14px; margin-bottom:24px; }
+.auth-mark { width:54px;height:54px;flex:none;border-radius:15px;background:linear-gradient(145deg,#087F8C 0%,#4B8EFF 72%,#B88719 100%);box-shadow:0 8px 20px rgba(8,127,140,.18); }
+.auth-mark svg { width:34px;height:34px;stroke:white;stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round; }
+.auth-wordmark { display:flex;flex-direction:column;align-items:flex-start;gap:1px; }
+.auth-name { font-family:'Plus Jakarta Sans',sans-serif;font-size:29px;font-weight:800;letter-spacing:-1.15px;line-height:1.1;background:linear-gradient(100deg,#172B3A 0%,#087F8C 70%,#B88719 100%);-webkit-background-clip:text;background-clip:text;color:transparent; }
+.auth-brand-caption { color:#708393;font-size:9px;font-weight:750;letter-spacing:1.55px;line-height:1.5; }
+.sb-brand-mark svg { stroke-linecap:round;stroke-linejoin:round; }
+@media(max-width:520px){.auth-mark{width:48px;height:48px;border-radius:13px}.auth-mark svg{width:30px;height:30px}.auth-name{font-size:26px}.auth-brand-caption{font-size:8px;letter-spacing:1.3px}}
+
 </style>
 </head>
 <body>
@@ -541,8 +618,8 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
   <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
+      <div class="auth-mark" role="img" aria-label="JLIGHT logo"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M54 32h-9l-7 19L25 13l-7 19H9" /></svg></div>
+      <div class="auth-wordmark"><div class="auth-name">JLIGHT</div><div class="auth-brand-caption">HEALTH INTELLIGENCE</div></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
     <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
@@ -558,10 +635,11 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
         <label class="form-label">Email</label>
         <input class="form-input" id="si-email" type="email" placeholder="you@facility.org" autocomplete="email"/>
       </div>
-      <div class="form-row">
-        <label class="form-label">Password</label>
-        <input class="form-input" id="si-password" type="password" placeholder="At least 8 characters"
-          onkeydown="if(event.key==='Enter')doSignIn()"/>
+      <div class="form-row" id="si-login-code-row" style="display:none">
+        <label class="form-label">Email verification code</label>
+        <input class="form-input" id="si-login-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code from your email"
+          onkeydown="if(event.key==='Enter')verifyLoginCode()"/>
+        <div class="form-help">Use the one-time code sent to your email. It expires and cannot be reused.</div>
       </div>
       <div id="si-org-row" style="display:none" class="form-row">
         <label class="form-label">How are you joining?</label>
@@ -592,12 +670,14 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
-      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
+      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Email me a login code</button>
+      <button class="btn btn-primary" id="si-verify-btn" onclick="verifyLoginCode()" style="display:none;width:100%;justify-content:center;padding:11px">Verify code and continue</button>
+      <button class="btn" id="si-resend-btn" onclick="doSignIn(true)" style="display:none;width:100%;justify-content:center;padding:11px">Send a new code</button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
+      <button type="button" class="auth-link-button" id="si-forgot-password" aria-label="Request a password reset email">Forgot password?</button>
       <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
     </div>
   </div>
@@ -1083,12 +1163,17 @@ function validateConsent(val) {
 // ─── Sign-in / sign-up ───
 function toggleSignupMode() {
   MODE.signupMode = !MODE.signupMode
+  MODE.loginCodeSent = false
   const t = document.getElementById('si-title')
   const s = document.getElementById('si-sub')
   const o = document.getElementById('si-org-row')
   const r = document.getElementById('si-role-row')
   const b = document.getElementById('si-btn')
   const g = document.getElementById('si-toggle')
+  const codeRow = document.getElementById('si-login-code-row')
+  const verifyBtn = document.getElementById('si-verify-btn')
+  const resendBtn = document.getElementById('si-resend-btn')
+  const status = document.getElementById('si-status')
   // A fresh registration defaults to creating a new organisation. Joining is
   // an explicit choice for users who already have a code from an administrator.
   if (MODE.signupMode) {
@@ -1099,7 +1184,11 @@ function toggleSignupMode() {
   if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
   if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
-  if (b) b.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
+  if (b) { b.textContent = MODE.signupMode ? 'Email me a code to create workspace' : 'Email me a login code'; b.style.display = 'flex'; b.disabled = false; }
+  if (codeRow) codeRow.style.display = 'none'
+  if (verifyBtn) { verifyBtn.style.display = 'none'; verifyBtn.disabled = false; verifyBtn.textContent = 'Verify code and continue'; }
+  if (resendBtn) { resendBtn.style.display = 'none'; resendBtn.disabled = false; resendBtn.textContent = 'Send a new code'; }
+  if (status) { status.textContent = ''; status.className = 'auth-status'; }
   if (g) g.textContent = MODE.signupMode ? 'I already have an account' : 'Create new workspace'
   toggleJoinType()
 }
@@ -1116,133 +1205,119 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
-async function doSignIn() {
-  const email = (document.getElementById("si-email")||{}).value?.trim() || ""
-  const pass  = (document.getElementById("si-password")||{}).value || ""
-  const status = document.getElementById("si-status")
-  const selectedPath = sessionStorage.getItem("jl_selected_path")
-  if (!selectedPath || !ROLES[selectedPath]) { if(status){status.textContent="Choose a JLIGHT path before signing in";status.className="auth-status error"} return }
-  if (!email || !pass) { if(status){status.textContent='Email and password required';status.className='auth-status error'} return }
-  if (pass.length < 8) { if(status){status.textContent='Password must be at least 8 characters';status.className='auth-status error'} return }
-  const btn = document.getElementById('si-btn')
-  if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
-  if (status) { status.textContent = ''; status.className = 'auth-status' }
-  const sb = getSupabase()
-  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
+async function doSignIn(resend = false) {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const status = document.getElementById("si-status");
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const sb = getSupabase();
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    showStatus("Enter a valid email address first."); return;
+  }
+  if (!MODE.signupMode && (!selectedPath || !ROLES[selectedPath])) {
+    showStatus("Choose a JLIGHT path before signing in."); return;
+  }
+  if (MODE.signupMode && !selectedPath) {
+    showStatus("Choose a workspace path before creating your workspace."); return;
+  }
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+
+  const btn = document.getElementById("si-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending code…"; }
+  showStatus("");
   try {
+    const options = { shouldCreateUser: !!MODE.signupMode };
     if (MODE.signupMode) {
-      const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
-      const org = (document.getElementById('si-org') || {}).value?.trim() || ''
-      const role = sessionStorage.getItem("jl_selected_path") || (document.getElementById('si-role') || {}).value || 'Laboratory'
-      const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
-
-      // Shared-workspace membership is verified by the server-side
-      // jl_link_user_to_organisation RPC after email confirmation/sign-in.
-      // The client never assigns org_id or elevated workspace permissions.
-      if (joinType === 'join' && !orgCode) {
-        throw new Error('Enter the organisation code supplied by your administrator.')
-      }
-      const organisationName = joinType === 'join'
-        ? ''
-        : (org || 'JLIGHT Health Intelligence Platform')
-
-      const { data, error } = await sb.auth.signUp({
-        email, password: pass,
-        options: { data: { org_name: organisationName, role, org_code: joinType === 'join' ? orgCode : null } }
-      })
-      if (error) throw error
-      if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
-
-      // With email confirmation enabled, signUp returns no session. RLS-protected
-      // organisation creation must wait until the user confirms and signs in.
-      if (!data.session) {
-        if (status) {
-          status.textContent = 'Account created. Check your email to confirm it, then sign in to finish setting up your workspace.'
-          status.className = 'auth-status success'
-        }
-        MODE.signupMode = false
-        const title = document.getElementById('si-title')
-        const sub = document.getElementById('si-sub')
-        const orgRow = document.getElementById('si-org-row')
-        const roleRow = document.getElementById('si-role-row')
-        const toggle = document.getElementById('si-toggle')
-        const submit = document.getElementById('si-btn')
-        if (title) title.textContent = 'Sign in'
-        if (sub) sub.textContent = 'Confirm your email, then sign in to finish workspace setup'
-        if (orgRow) orgRow.style.display = 'none'
-        if (roleRow) roleRow.style.display = 'none'
-        if (toggle) toggle.textContent = 'Create new workspace'
-        if (submit) submit.textContent = 'Sign in'
-        return
-      }
-
-      MODE.isOnline = true
-      STATE.user = data.user.email || email
-      STATE.role = role
-      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
-      await loadOrCreateProfile(data.user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
-      let deliveryNote = ''
-      if (joinType === 'new' && MODE.organisationId && MODE.organisationCode) {
-        try {
-          const { data: activeSession, error: sessionError } = await sb.auth.getSession()
-          if (sessionError) throw sessionError
-          const accessToken = activeSession?.session?.access_token
-          if (!accessToken) throw new Error('No active session available for secure code delivery.')
-          const mailResponse = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + accessToken },
-            body: JSON.stringify({ organisation_id: MODE.organisationId })
-          })
-          const mailResult = await mailResponse.json().catch(() => ({}))
-          if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
-          if (mailResult.email_sent === false) {
-            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
-          } else {
-            deliveryNote = ' The organisation code was emailed to your verified account address.'
-          }
-        } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
-      }
-      if (status) {
-        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
-        status.textContent = (joinType === 'new' ? 'Workspace created successfully' : 'Workspace joined successfully') + codeMsg + deliveryNote + (MODE.organisationCode ? ' You can also copy this code later in Settings → Organisation.' : '')
-        status.className = 'auth-status success'
-      }
-      // Give the owner time to read the generated code before entering the app.
-      setTimeout(()=>enterApp(), 4500)
-    } else {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
-      if (error) throw error
-      if (!data.session) throw new Error('Sign-in failed: no active session was returned.')
-      MODE.isOnline = true
-      const user = data.session.user
-      const meta = user.user_metadata || {}
-      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
-      STATE.user = user.email || email
-      STATE.role = selectedPath
-      await ensureJlightOrganisation(user, {
-        org: meta.org_name || '',
-        role: meta.role || selectedPath,
-        orgCode: meta.org_code || ''
-      })
-      await loadOrCreateProfile(user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
-      // If email confirmation delayed workspace setup, finish delivery after the
-      // first authenticated sign-in rather than leaving the owner without a code.
-      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
-      enterApp()
+      const joinType = (document.getElementById("si-join-type") || {}).value || "new";
+      const org = (document.getElementById("si-org") || {}).value?.trim() || "";
+      const role = selectedPath || (document.getElementById("si-role") || {}).value || "Laboratory";
+      const orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
+      if (joinType === "join" && !orgCode) throw new Error("Enter the organisation code supplied by your administrator.");
+      options.data = {
+        org_name: joinType === "join" ? "" : (org || "JLIGHT Health Intelligence Platform"),
+        role,
+        org_code: joinType === "join" ? orgCode : null,
+        jl_join_type: joinType
+      };
     }
-  } catch(e) {
-    console.error('[JLIGHT] sign-in/workspace creation failed:', e)
-    if (status) { status.textContent = e.message || 'Authentication failed'; status.className = 'auth-status error' }
+    const { error } = await sb.auth.signInWithOtp({ email, options });
+    if (error) throw error;
+    MODE.loginCodeSent = true;
+    const codeRow = document.getElementById("si-login-code-row");
+    const verifyBtn = document.getElementById("si-verify-btn");
+    const resendBtn = document.getElementById("si-resend-btn");
+    if (codeRow) codeRow.style.display = "flex";
+    if (verifyBtn) verifyBtn.style.display = "flex";
+    if (resendBtn) resendBtn.style.display = "flex";
+    if (btn) btn.style.display = "none";
+    showStatus("If this email is eligible, a one-time login code has been sent. Check your inbox and spam folder.", "success");
+    const codeInput = document.getElementById("si-login-code");
+    if (codeInput) codeInput.focus();
+  } catch (e) {
+    console.error("[JLIGHT] login code request failed:", e);
+    showStatus(e.message || "Could not request a login code. Please try again.");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' }
+    if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = "Email me a login code"; }
   }
 }
+
+async function verifyLoginCode() {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const token = (document.getElementById("si-login-code") || {}).value?.trim() || "";
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const status = document.getElementById("si-status");
+  const verifyBtn = document.getElementById("si-verify-btn");
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email) { showStatus("Enter the same email address used to request the code."); return; }
+  if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
+  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
+  const sb = getSupabase();
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = "Verifying…"; }
+  showStatus("");
+  try {
+    const { data, error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    if (error) throw error;
+    if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
+    const user = data.user;
+    const meta = user.user_metadata || {};
+    MODE.isOnline = true;
+    STATE.user = user.email || email;
+    STATE.role = selectedPath;
+    await ensureJlightOrganisation(user, {
+      org: meta.org_name || "",
+      role: selectedPath,
+      orgCode: meta.org_code || ""
+    });
+    await loadOrCreateProfile(user);
+    const codeButton = document.getElementById("si-send-org-code");
+    if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
+    const joinType = meta.jl_join_type || "new";
+    if (joinType === "new" && MODE.organisationId && MODE.organisationCode) {
+      try {
+        await sendOrganisationCodeEmail();
+      } catch (mailError) {
+        console.error("[JLIGHT] organisation-code email failed:", mailError);
+      }
+    }
+    showStatus("Email verified. Opening your secure workspace…", "success");
+    enterApp();
+  } catch (e) {
+    console.error("[JLIGHT] login code verification failed:", e);
+    showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+  } finally {
+    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
+  }
+}
+
+
 
 // Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
 async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
@@ -1385,30 +1460,45 @@ async function sendOrganisationCodeEmail() {
 }
 
 async function doForgotPassword() {
-  const emailInput = document.getElementById('si-email')
-  const addr = (emailInput?.value || '').trim()
-  const status = document.getElementById('si-status')
-  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
-  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
-  const sb = getSupabase()
-  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
-  setStatus('Requesting a secure password-reset email…')
+  const emailInput = document.getElementById('si-email');
+  const addr = (emailInput?.value || '').trim();
+  const status = document.getElementById('si-status');
+  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : ''); } };
+  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return; }
+  if (!BACKEND || !BACKEND.url || !BACKEND.key) { setStatus('Password recovery is not configured for this environment.', 'error'); return; }
+  const button = document.getElementById('si-forgot-password');
+  if (button) { button.disabled = true; button.textContent = 'Sending reset email…'; }
+  setStatus('Requesting a secure password-reset email…');
   try {
     const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
       body: JSON.stringify({ email: addr })
-    })
-    const result = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(result.error || 'Password-reset service is temporarily unavailable.')
-    setStatus('If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success')
-    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'The reset email service could not process the request.');
+    setStatus(result.message || 'If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success');
+    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good');
   } catch (e) {
-    console.error('[JLIGHT] password reset request failed:', e)
-    setStatus(e.message || 'Could not request a reset email. Please try again.', 'error')
-    toast('Password reset unavailable', e.message || 'Please try again', 'crit')
+    console.error('[JLIGHT] password reset request failed:', e);
+    setStatus(e.message || 'Password recovery is temporarily unavailable. Please try again.', 'error');
+    toast('Password reset unavailable', e.message || 'Please try again', 'crit');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Forgot password?'; }
   }
 }
+window.doForgotPassword = doForgotPassword;
+
+// Explicitly expose and bind password recovery; do not depend on inline-handler lookup.
+window.doForgotPassword = doForgotPassword;
+document.addEventListener('click', function (event) {
+  const target = event.target && event.target.closest ? event.target.closest('#si-forgot-password') : null;
+  if (!target) return;
+  event.preventDefault();
+  event.stopPropagation();
+  doForgotPassword();
+}, true);
 
 async function doResetPassword() {
   const np = (document.getElementById('rp-new')||{}).value || ''
@@ -4221,8 +4311,8 @@ function exportBioReport(entryId) {
 
 // ── SUPABASE BACKEND ──
 // Project: wrdwzpmpsbtkrwonejhp · Publishable key below
-const SB_URL  = 'https://wrdwzpmpsbtkrwonejhp.supabase.co'
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZHd6cG1wc2J0a3J3b25lamhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTI0MjksImV4cCI6MjA5MTc2ODQyOX0.MB_-3uRbYhnWvmNCREC1iFgm16X_Hp-4GZgh6X_YY1g'
+const SB_URL = BACKEND.url
+const SB_KEY = BACKEND.key
 let _sb = null
 let _realtimeChannel = null
 
