@@ -6381,31 +6381,44 @@ function buildPatientForm(existing) {
     '</div></div>'
 }
 
-function savePatient(existingId) {
+async function savePatient(existingId) {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const name = get('pf-name')
   if (!name) { toast('Required', 'Patient name required', 'crit'); return }
   let mrn = get('pf-mrn')
   if (!mrn) mrn = 'MRN-' + Date.now().toString(36).toUpperCase().slice(-6)
-  // Check MRN uniqueness
-  const existing = STATE.patients.find(p => p.mrn === mrn && p.id !== existingId)
-  if (existing) { toast('Duplicate MRN', 'MRN ' + mrn + ' already exists', 'crit'); return }
-  const allergies = get('pf-allergies').split(',').map(s=>s.trim()).filter(Boolean)
-  const chronic   = get('pf-chronic').split(',').map(s=>s.trim()).filter(Boolean)
+  const duplicate = STATE.patients.find(p => p.mrn === mrn && p.id !== existingId)
+  if (duplicate) { toast('Duplicate MRN', 'MRN ' + mrn + ' already exists', 'crit'); return }
+  if (MODE.isOnline && (!STATE.orgId || STATE.orgId === 'default')) {
+    toast('Patient not saved', 'No verified workspace is active. Reopen the workspace and retry.', 'crit')
+    return
+  }
+  const allergies = get('pf-allergies').split(',').map(s => s.trim()).filter(Boolean)
+  const chronic = get('pf-chronic').split(',').map(s => s.trim()).filter(Boolean)
+  const previousIndex = existingId ? STATE.patients.findIndex(x => x.id === existingId) : -1
+  if (existingId && previousIndex < 0) { toast('Patient not saved', 'The patient record could not be found. Refresh the registry and retry.', 'crit'); return }
+  const previous = previousIndex >= 0 ? { ...STATE.patients[previousIndex], allergies: [...(STATE.patients[previousIndex].allergies || [])], chronicConditions: [...(STATE.patients[previousIndex].chronicConditions || [])] } : null
+  let patient
   if (existingId) {
-    const p = STATE.patients.find(x => x.id === existingId)
-    if (!p) return
-    Object.assign(p, { fullName: name, mrn, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, updatedAt: Date.now() })
-    audit('Patient updated', name + ' · ' + mrn)
-    toast('Patient updated', name, 'good')
+    patient = STATE.patients[previousIndex]
+    Object.assign(patient, { fullName: name, mrn, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, updatedAt: Date.now(), orgId: STATE.orgId })
   } else {
-    const p = { id: uid(), orgId: STATE.orgId, mrn, fullName: name, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, active: true, createdAt: Date.now() }
-    STATE.patients.push(p)
-    audit('Patient registered', name + ' · ' + mrn)
-    toast('Patient registered', name, 'good')
-    syncDomainToBackend('patients', STATE.patients)
+    patient = { id: uid(), orgId: STATE.orgId, mrn, fullName: name, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, active: true, createdAt: Date.now() }
+    STATE.patients.push(patient)
+  }
+  if (MODE.isOnline) {
+    const saved = await syncDomainToBackend('patients', [patient])
+    if (!saved || !saved.ok) {
+      if (existingId && previous) STATE.patients[previousIndex] = previous
+      else STATE.patients = STATE.patients.filter(p => p.id !== patient.id)
+      toast('Patient not saved', 'Cloud persistence failed: ' + (saved?.reason || 'unknown error') + '. Please retry before leaving this workspace.', 'crit')
+      renderPatients()
+      return
+    }
   }
   lsSet(PATIENT_KEY, STATE.patients)
+  try { await audit(existingId ? 'Patient updated' : 'Patient registered', name + ' · ' + mrn) } catch (e) { console.warn('[JLIGHT] patient audit failed:', e.message) }
+  toast(existingId ? 'Patient updated' : 'Patient registered', MODE.isOnline ? 'Cloud save confirmed.' : 'Saved on this device only; cloud sync is unavailable.', MODE.isOnline ? 'good' : 'warn')
   showRegisterPatient()
   renderPatients()
 }
@@ -6554,7 +6567,18 @@ async function syncDomainToBackend(domain, items) {
     if (!rows.length) return { ok: true, count: 0 }
     const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'org_id,jl_id' })
     if (error) throw error
-    return { ok: true, count: rows.length }
+    // Confirm the database can read back every row through the same authenticated,
+    // workspace-scoped session before the UI reports a successful cloud save.
+    const ids = rows.map(row => row.jl_id)
+    const { data: persisted, error: readError } = await sb.from('jl_entries')
+      .select('jl_id')
+      .eq('org_id', STATE.orgId)
+      .in('jl_id', ids)
+    if (readError) throw new Error('Cloud write completed but read-back verification failed: ' + readError.message)
+    const persistedIds = new Set((persisted || []).map(row => row.jl_id))
+    const missing = ids.filter(id => !persistedIds.has(id))
+    if (missing.length) throw new Error('Cloud write could not be verified for ' + missing.length + ' record(s).')
+    return { ok: true, count: rows.length, verified: true }
   } catch (e) {
     console.error('[JLIGHT] domain sync failed:', e.message)
     toast('Cloud save failed', 'Your changes may only be stored on this device. Please retry before leaving this workspace.', 'crit')
