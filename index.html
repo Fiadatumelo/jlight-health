@@ -2020,7 +2020,8 @@ function downloadJourneyJson(report, filename) {
 }
 async function generatePatientJourneyReports() {
   const status = document.getElementById('patient-journey-report-status');
-  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)));
+  const trialPatientIds = new Set((STATE.participants || []).map(x => x && x.patientId != null ? String(x.patientId) : '').filter(Boolean));
+  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)) && (STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))));
   const patient = patients.find(p => String(p.id) === String(STATE.currentPatientId));
   if (!patient) {
     if (status) status.textContent = 'Select an active patient before generating reports.';
