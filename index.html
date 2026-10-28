@@ -2072,7 +2072,7 @@ async function generatePatientJourneyReports() {
   downloadJourneyJson(combinedReport, 'jlight-' + safeLabel + '-patient-journey-report-' + suffix + '.json');
   try { await audit('Patient journey report generated', participantLabel + '; journey events: ' + events.length + '; sections: journey summary + data-quality traceability'); }
   catch (e) { console.warn('[JLIGHT] patient report audit could not be saved:', e.message); }
-  if (status) status.textContent = 'Generated one combined patient journey report for ' + participantLabel, including the journey summary and data-quality / traceability review. Check the downloads folder.';
+  if (status) status.textContent = 'Generated one combined patient journey report for ' + participantLabel + ', including the journey summary and data-quality / traceability review. Check the downloads folder.';
   toast('Patient journey report generated', 'One report contains both the journey summary and data-quality review.', 'good');
 }
 async function generateJourneyReport() {
