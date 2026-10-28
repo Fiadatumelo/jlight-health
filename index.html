@@ -1878,13 +1878,76 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
   }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" '+(selected?'':'disabled')+' onclick="generateSelectedPatientJourneyReport()">Generate Patient Journey Report</button><button class="btn btn-primary" '+(selected?'':'disabled')+' onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
     '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
-    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>';
+    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate one combined report for the selected patient, with a chronological journey summary and a data-quality / traceability review. The export uses a participant label and excludes direct identifiers.</p><button class="btn btn-primary" type="button" onclick="generatePatientJourneyReports()">Generate patient journey report</button><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
+}
+function downloadJourneyJson(report, filename) {
+  const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function generatePatientJourneyReports() {
+  const status = document.getElementById('patient-journey-report-status');
+  const trialPatientIds = new Set((STATE.participants || []).map(x => x && x.patientId != null ? String(x.patientId) : '').filter(Boolean));
+  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)) && (STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))));
+  const patient = patients.find(p => String(p.id) === String(STATE.currentPatientId));
+  if (!patient) {
+    if (status) status.textContent = 'Select an active patient before generating reports.';
+    toast('No patient selected', 'Select an active patient first.', 'crit');
+    return;
+  }
+  const events = buildPatientJourneyEvents(patient);
+  const participantLabel = 'Participant ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
+  const generatedAt = new Date().toISOString();
+  const journeyReport = {
+    reportType: 'patient-journey-summary', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    scope: STATE.role === 'Trial' ? 'clinical-trials-only' : 'hospital-laboratory-bioinformatics-intelligence',
+    eventCount: events.length,
+    events: events.map(e => ({
+      source: String(e.source || 'Unknown'), eventType: String(e.label || 'Recorded event'),
+      occurredAt: e.when && !Number.isNaN(e.when.getTime()) ? e.when.toISOString() : null,
+      status: 'Source status must be verified in the originating system.', summary: 'Source record available; free-text details omitted from this export to reduce identifier leakage and avoid reproducing unverified clinical statements.'
+    })),
+    limitations: ['Source systems remain authoritative.', 'Missing records or dates are unknown, not proof that an event did not occur.', 'Participant label is a report-local alias and is not a patient identifier.']
+  };
+  const missingDates = events.filter(e => !(e.when && !Number.isNaN(e.when.getTime())) && !e.rawWhen).length;
+  const invalidDates = events.filter(e => e.rawWhen && !(e.when && !Number.isNaN(e.when.getTime()))).length;
+  const sourceCounts = {};
+  events.forEach(e => { const k = String(e.source || 'Unknown'); sourceCounts[k] = (sourceCounts[k] || 0) + 1; });
+  const qualityReport = {
+    reportType: 'patient-data-quality-traceability', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    eventCount: events.length, sourceCounts,
+    checks: [
+      {check:'journey_has_events', status: events.length ? 'review' : 'not-evaluable', count:events.length, note:events.length ? 'Events are present; verify source completeness against the originating systems.' : 'No linked events are available; absence cannot establish that care or testing did not occur.'},
+      {check:'events_missing_dates', status:missingDates ? 'review' : 'pass', count:missingDates},
+      {check:'events_with_unparseable_dates', status:invalidDates ? 'review' : 'pass', count:invalidDates},
+      {check:'source_provenance', status:'manual-review-required', count:events.length, note:'Confirm source record references and provenance in authorised source systems.'}
+    ],
+    limitations:['This is a traceability review, not a diagnostic conclusion.', 'No clinical values are invented or inferred.', 'No duplicate-record claim is made because stable source record identifiers are not exposed by the journey event view.']
+  };
+  const suffix = new Date().toISOString().slice(0,10);
+  const safeLabel = participantLabel.toLowerCase().replace(/\s+/g,'-');
+  // One download and one auditable workflow, with both report sections preserved.
+  const combinedReport = {
+    reportType: 'patient-journey-and-data-quality', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    journeySummary: journeyReport,
+    dataQualityTraceability: qualityReport,
+    limitations: ['Research and operational traceability only; not a diagnostic conclusion.', 'Verify source records in the originating authorised systems.']
+  };
+  downloadJourneyJson(combinedReport, 'jlight-' + safeLabel + '-patient-journey-report-' + suffix + '.json');
+  try { await audit('Patient journey report generated', participantLabel + '; journey events: ' + events.length + '; sections: journey summary + data-quality traceability'); }
+  catch (e) { console.warn('[JLIGHT] patient report audit could not be saved:', e.message); }
+  if (status) status.textContent = 'Generated one combined patient journey report for ' + participantLabel + ', including the journey summary and data-quality / traceability review. Check the downloads folder.';
+  toast('Patient journey report generated', 'One report contains both the journey summary and data-quality review.', 'good');
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
