@@ -45,6 +45,24 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         function = HTML[start:end]
         self.assertGreaterEqual(function.count("String(row.patientId)!==pid"), 2)
 
+    def test_trial_report_selection_is_limited_to_trial_participants(self):
+        start = HTML.index("async function generatePatientJourneyReports()")
+        end = HTML.index("\nasync function generateJourneyReport()", start)
+        function = HTML[start:end]
+        self.assertIn("const trialPatientIds = new Set((STATE.participants || []).map", function)
+        self.assertIn("STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))", function)
+        self.assertIn("patients.find(p => String(p.id) === String(STATE.currentPatientId))", function)
+
+    def test_patient_journey_uses_one_combined_report_download(self):
+        start = HTML.index("async function generatePatientJourneyReports()")
+        end = HTML.index("\nasync function generateJourneyReport()", start)
+        function = HTML[start:end]
+        self.assertIn("const combinedReport = {", function)
+        self.assertIn("journeySummary: journeyReport", function)
+        self.assertIn("dataQualityTraceability: qualityReport", function)
+        self.assertEqual(function.count("downloadJourneyJson("), 1)
+        self.assertIn("patient journey report", HTML.lower())
+
     def test_issue_resolution_is_not_inferred_from_recommendation(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
         end = HTML.index("\nfunction selectJourneyPatient", start)
