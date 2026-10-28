@@ -55,7 +55,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
 
     def test_patient_journey_uses_one_combined_report_download(self):
         start = HTML.index("async function generatePatientJourneyReports()")
-        end = HTML.index("\\nasync function generateJourneyReport()", start)
+        end = HTML.index("\nasync function generateJourneyReport()", start)
         function = HTML[start:end]
         self.assertIn("const combinedReport = {", function)
         self.assertIn("journeySummary: journeyReport", function)
