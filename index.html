@@ -2061,12 +2061,19 @@ async function generatePatientJourneyReports() {
   };
   const suffix = new Date().toISOString().slice(0,10);
   const safeLabel = participantLabel.toLowerCase().replace(/\s+/g,'-');
-  downloadJourneyJson(journeyReport, 'jlight-' + safeLabel + '-journey-' + suffix + '.json');
-  downloadJourneyJson(qualityReport, 'jlight-' + safeLabel + '-data-quality-' + suffix + '.json');
-  try { await audit('Patient journey reports generated', participantLabel + '; journey events: ' + events.length + '; reports: 2'); }
+  // One download and one auditable workflow, with both report sections preserved.
+  const combinedReport = {
+    reportType: 'patient-journey-and-data-quality', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    journeySummary: journeyReport,
+    dataQualityTraceability: qualityReport,
+    limitations: ['Research and operational traceability only; not a diagnostic conclusion.', 'Verify source records in the originating authorised systems.']
+  };
+  downloadJourneyJson(combinedReport, 'jlight-' + safeLabel + '-patient-journey-report-' + suffix + '.json');
+  try { await audit('Patient journey report generated', participantLabel + '; journey events: ' + events.length + '; sections: journey summary + data-quality traceability'); }
   catch (e) { console.warn('[JLIGHT] patient report audit could not be saved:', e.message); }
-  if (status) status.textContent = 'Generated 2 JSON reports for ' + participantLabel + ': journey summary and data-quality / traceability review. Check the downloads folder.';
-  toast('Two patient reports generated', 'Journey summary and data-quality report downloaded.', 'good');
+  if (status) status.textContent = 'Generated one combined patient journey report for ' + participantLabel, including the journey summary and data-quality / traceability review. Check the downloads folder.';
+  toast('Patient journey report generated', 'One report contains both the journey summary and data-quality review.', 'good');
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
