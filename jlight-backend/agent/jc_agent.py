@@ -96,6 +96,8 @@ class JCAgent:
         approved: bool = False,
     ) -> dict[str, Any]:
         """Execute one allowlisted tool and return a verified, bounded result."""
+        if self.audit is None:
+            raise JCError("JC execution is disabled until the JLIGHT audit sink is configured.")
         if not isinstance(tool_name, str) or tool_name not in self.tools:
             raise JCInvalidRequest("Unknown JC tool.")
         tool = self.tools[tool_name]
