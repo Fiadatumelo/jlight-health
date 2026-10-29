@@ -49,7 +49,7 @@ def test_intelligence_route_returns_privacy_minimised_summary():
 
 
 def test_clinical_trials_scope_is_rejected_before_execution():
-    claims = verified_claims(role="Trial", clinical_trials_scope=True)
+    claims = verified_claims(role="Trial")
     with patch("api.app.verify_access_token", return_value=claims):
         response = app.test_client().post(
             "/api/intelligence/summary",
