@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>JLIGHT — Health Intelligence Platform</title>
-<!-- JLIGHT branded favicon -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop stop-color=%22%23087f8c%22/%3E%3Cstop offset=%22.72%22 stop-color=%22%234b8eff%22/%3E%3Cstop offset=%221%22 stop-color=%22%23b88719%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22url(%23g)%22/%3E%3Cpath d=%22M54 32h-9l-7 19L25 13l-7 19H9%22 fill=%22none%22 stroke=%22white%22 stroke-width=%224%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -16,11 +14,11 @@
 :root {
   --ink: #F4F7FB; --ink-2: #EAF0F7;
   --surface: #FFFFFF; --surface-2: #FFFFFF; --surface-3: #F4F7FB; --surface-4: #E9F0F8;
-  --teal: #087F8C; --teal-2: #056773;
-  --teal-glow: rgba(8,127,140,0.16); --teal-bg: rgba(8,127,140,0.07);
-  --amber: #C89B35; --amber-glow: rgba(200,155,53,0.16); --amber-bg: rgba(200,155,53,0.08);
+  --teal: #00C9A7; --teal-2: #00A387;
+  --teal-glow: rgba(0,201,167,0.15); --teal-bg: rgba(0,201,167,0.06);
+  --amber: #F5A623; --amber-glow: rgba(245,166,35,0.15); --amber-bg: rgba(245,166,35,0.06);
   --red: #FF4D6D; --red-glow: rgba(255,77,109,0.12); --red-bg: rgba(255,77,109,0.06);
-  --green: #168A72; --green-glow: rgba(22,138,114,0.12); --green-bg: rgba(22,138,114,0.06);
+  --green: #2EE89A; --green-glow: rgba(46,232,154,0.12); --green-bg: rgba(46,232,154,0.06);
   --blue: #4B8EFF; --blue-glow: rgba(75,142,255,0.12); --blue-bg: rgba(75,142,255,0.06);
   --purple: #A78BFA; --purple-bg: rgba(167,139,250,0.08);
   --border: #E3EAF2; --border-2: #D4DFEA; --border-strong: #B8C9DA;
@@ -28,7 +26,7 @@
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { font-family: 'Inter', 'Manrope', sans-serif; background: radial-gradient(ellipse at 12% 4%, rgba(8,127,140,0.08), transparent 36%), radial-gradient(ellipse at 90% 85%, rgba(200,155,53,0.08), transparent 32%), #F7FAFD; color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+body { font-family: 'Inter', 'Manrope', sans-serif; background: linear-gradient(135deg, #F7FAFD 0%, #EEF4FA 55%, #F5F8FC 100%); color: var(--text); line-height: 1.55; font-size: 14px; min-height: 100vh; -webkit-font-smoothing: antialiased; }
 body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; pointer-events: none; z-index: 9999; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; background: transparent; border: none; outline: none; }
@@ -36,12 +34,12 @@ a { color: var(--teal); text-decoration: none; }
 
 .auth-screen { display: none; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; position: relative; overflow: hidden; }
 .auth-screen.active { display: flex; }
-.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(8,127,140,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(8,127,140,0.045) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
-.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(8,127,140,0.10) 0%, transparent 65%); top: -200px; right: -200px; }
+.auth-bg-grid { position: absolute; inset: 0; pointer-events: none; background-image: linear-gradient(rgba(0,201,167,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,201,167,0.04) 1px, transparent 1px); background-size: 80px 80px; mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black, transparent); }
+.auth-glow { position: absolute; width: 700px; height: 700px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(0,201,167,0.08) 0%, transparent 65%); top: -200px; right: -200px; }
 .auth-glow-2 { position: absolute; width: 500px; height: 500px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(75,142,255,0.06) 0%, transparent 65%); bottom: -100px; left: -100px; }
-.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 24px; padding: 36px; width: 100%; max-width: 520px; position: relative; z-index: 10001; isolation: isolate; box-shadow: 0 28px 80px rgba(28,54,84,0.14), 0 2px 8px rgba(8,127,140,0.05); }
+.auth-card { background: rgba(255,255,255,0.96); border: 1px solid var(--border); border-radius: 20px; padding: 32px; width: 100%; max-width: 520px; position: relative; z-index: 1; box-shadow: 0 24px 64px rgba(28,54,84,0.12); }
 .auth-brand { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 28px; }
-.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue) 68%, var(--amber)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.auth-mark { width: 42px; height: 42px; background: linear-gradient(135deg, var(--teal), var(--blue)); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
 .auth-mark svg { width: 22px; height: 22px; fill: none; stroke: white; stroke-width: 2.4; }
 .auth-name { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
 .auth-tagline { text-align: center; font-size: 11px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 28px; font-weight: 600; }
@@ -70,15 +68,14 @@ a { color: var(--teal); text-decoration: none; }
 .pin-key:hover { background: var(--surface-4); border-color: var(--border-2); }
 .pin-key:active { transform: scale(0.95); background: var(--teal-bg); border-color: var(--teal); color: var(--teal); }
 .pin-key.empty { visibility: hidden; }
+.auth-link { appearance:none; border:0; padding:0; background:transparent; font:inherit; font-size:12px; color:var(--text-2); cursor:pointer; text-decoration:underline; text-underline-offset:3px; position:relative; z-index:2; pointer-events:auto; }
+.auth-link:hover,.auth-link:focus-visible { color:var(--teal); outline-offset:3px; }
 .auth-status { text-align: center; font-size: 12.5px; margin-top: 16px; min-height: 20px; color: var(--text-2); }
 .auth-status.error { color: var(--red); }
 .auth-status.success { color: var(--green); }
 .auth-back { margin-top: 22px; text-align: center; font-size: 12px; color: var(--text-3); }
 .auth-back a { color: var(--text-2); cursor: pointer; }
 .auth-back a:hover { color: var(--teal); }
-.auth-link-button { position: relative; z-index: 2; pointer-events: auto; display: inline-flex; align-items: center; color: var(--blue); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font: inherit; font-size: 12px; font-weight: 600; padding: 6px 4px; background: transparent; border: 0; }
-.auth-link-button:hover, .auth-link-button:focus-visible { color: var(--teal-2); outline: 2px solid var(--blue-glow); outline-offset: 3px; border-radius: 3px; }
-.auth-link-button:disabled { opacity: .65; cursor: wait; }
 
 .app-screen { display: none; min-height: 100vh; }
 .app-screen.active { display: block; }
@@ -538,121 +535,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .auth-card input:focus,.auth-card select:focus{border-color:#6c8ff2;box-shadow:0 0 0 3px rgba(87,132,241,.12)}
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}.auth-name{font-size:23px}}
 
-
-/* JLIGHT visual refinement — clean clinical workspace, teal + gold, accessible contrast */
-:root {
-  --ink: #F7FAFC;
-  --teal: #087F8C;
-  --teal-2: #066773;
-  --teal-glow: rgba(8,127,140,.14);
-  --teal-bg: #EAF7F7;
-  --amber: #B88719;
-  --amber-glow: rgba(184,135,25,.15);
-  --amber-bg: #FBF5E7;
-  --gold: #B88719;
-  --gold-bg: #FBF5E7;
-  --border: #E1E9EF;
-  --border-2: #D1DEE7;
-  --text: #172B3A;
-  --text-2: #526A79;
-  --text-3: #718795;
-}
-body { background: linear-gradient(135deg,#F8FBFC 0%,#F3F8FA 55%,#FAF8F1 100%); }
-.layout { grid-template-columns: 248px minmax(0,1fr); }
-.sidebar { background: rgba(255,255,255,.96); border-right-color:#DCE7EC; box-shadow: 5px 0 24px rgba(19,54,70,.025); }
-.sb-brand { padding-top:22px; padding-bottom:20px; }
-.sb-brand-mark { background:linear-gradient(145deg,#087F8C 0%,#0C9AA1 70%,#C49A36 100%); box-shadow:0 5px 14px rgba(8,127,140,.18); }
-.sb-brand-name { letter-spacing:-.65px; }
-.sb-role-banner { margin:14px 14px 6px; border:1px solid #D9E9EA; background:linear-gradient(100deg,#EFF9F8,#FFFFFF); border-radius:11px; }
-.sb-link { border-radius:9px; padding:10px 12px; transition:background .16s ease,color .16s ease,transform .16s ease; }
-.sb-link:hover { background:#F0F8F8; color:#066773; }
-.sb-link.active,.sb-link.selected { background:linear-gradient(100deg,#E4F4F3,#F0F8F8); color:#075E67; box-shadow:inset 3px 0 0 #087F8C; font-weight:650; }
-.topbar { background:rgba(255,255,255,.94); backdrop-filter:blur(14px); border-bottom-color:#DDE8ED; padding-inline:clamp(16px,2.2vw,30px); }
-.tb-title { letter-spacing:-.45px; }
-.kpi { border-radius:15px; border-color:#DFE8ED; box-shadow:0 3px 12px rgba(21,55,72,.025); padding:19px 20px; transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease; }
-.kpi:hover { transform:translateY(-2px); box-shadow:0 10px 26px rgba(21,55,72,.07); border-color:#C9DEE3; }
-.kpi::after { height:3px; background:linear-gradient(90deg,#087F8C,#5EB8B4); opacity:.72; }
-.kpi.warn::after { background:linear-gradient(90deg,#B88719,#E2C46B); opacity:.95; }
-.kpi.good::after { background:linear-gradient(90deg,#168A72,#7CC9B4); opacity:.85; }
-.kpi.crit::after { background:linear-gradient(90deg,#C63F55,#F08B92); opacity:.9; }
-.dc,.auth-card,.path-picker { box-shadow:0 5px 20px rgba(20,57,74,.035); }
-.dc { border-radius:15px; border-color:#DFE8ED; }
-.dc:hover { border-color:#B6D7D9; box-shadow:0 10px 24px rgba(8,127,140,.075); transform:translateY(-1px); }
-.btn-primary,.btn.btn-primary { background:linear-gradient(110deg,#087F8C,#066773); box-shadow:0 4px 12px rgba(8,127,140,.16); }
-.btn-primary:hover,.btn.btn-primary:hover { filter:brightness(1.04); box-shadow:0 7px 18px rgba(8,127,140,.22); }
-.auth-card { border-radius:22px; box-shadow:0 24px 70px rgba(25,54,70,.12),0 2px 8px rgba(8,127,140,.04); }
-.path-picker { border-color:#D8E7E9; background:linear-gradient(135deg,#F5FAFA,#FFFFFF 60%,#FCF9F1); }
-.path-choice { border-color:#DDE7EC; }
-.path-choice.selected { border-color:#087F8C; box-shadow:0 0 0 2px rgba(8,127,140,.12),0 8px 20px rgba(8,127,140,.07); }
-.path-lab { border-top-color:#168AA0; }
-.path-hospital { border-top-color:#087F8C; }
-.path-bio { border-top-color:#6B75C8; }
-.path-trial { border-top-color:#B88719; }
-.path-trial .path-choice-icon { background:linear-gradient(145deg,#FBF5E7,#F5E6BD); color:#8C6715; }
-.auth-card input:focus,.auth-card select:focus { border-color:#087F8C; box-shadow:0 0 0 3px rgba(8,127,140,.12); }
-button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible { outline:3px solid rgba(184,135,25,.65); outline-offset:2px; }
-@media (max-width:900px) {
-  .layout { grid-template-columns: minmax(0,1fr); }
-  .sidebar { position:relative; top:auto; height:auto; max-height:none; }
-}
-@media (prefers-reduced-motion:reduce) {
-  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
-}
-
-
-/* Branded sign-in identity */
-.auth-brand { gap:14px; margin-bottom:24px; }
-.auth-mark { width:54px;height:54px;flex:none;border-radius:15px;background:linear-gradient(145deg,#087F8C 0%,#4B8EFF 72%,#B88719 100%);box-shadow:0 8px 20px rgba(8,127,140,.18); }
-.auth-mark svg { width:34px;height:34px;stroke:white;stroke-width:3.3;stroke-linecap:round;stroke-linejoin:round; }
-.auth-wordmark { display:flex;flex-direction:column;align-items:flex-start;gap:1px; }
-.auth-name { font-family:'Plus Jakarta Sans',sans-serif;font-size:29px;font-weight:800;letter-spacing:-1.15px;line-height:1.1;background:linear-gradient(100deg,#172B3A 0%,#087F8C 70%,#B88719 100%);-webkit-background-clip:text;background-clip:text;color:transparent; }
-.auth-brand-caption { color:#708393;font-size:9px;font-weight:750;letter-spacing:1.55px;line-height:1.5; }
-.sb-brand-mark svg { stroke-linecap:round;stroke-linejoin:round; }
-@media(max-width:520px){.auth-mark{width:48px;height:48px;border-radius:13px}.auth-mark svg{width:30px;height:30px}.auth-name{font-size:26px}.auth-brand-caption{font-size:8px;letter-spacing:1.3px}}
-
 </style>
-
-<style id="jlight-visual-refresh">
-/* JLIGHT visual refresh: calm blue-grey surfaces, vibrant workspace accents, accessible readability */
-:root {
-  --jlight-navy:#203653;
-  --jlight-teal:#087F8C;
-  --jlight-blue:#4B8EFF;
-  --jlight-purple:#8B6BC2;
-  --jlight-gold:#C89B35;
-  --jlight-bg:#E9EFF5;
-  --jlight-panel:#F8FAFC;
-  --jlight-border:#D5DFE9;
-  --jlight-text:#203047;
-  --jlight-muted:#52657A;
-}
-html, body { background:var(--jlight-bg); color:var(--jlight-text); }
-body { background-image:radial-gradient(ellipse at 8% 0%,rgba(75,142,255,.09),transparent 34%),radial-gradient(ellipse at 94% 4%,rgba(8,127,140,.08),transparent 30%); }
-.sidebar { background:rgba(248,250,252,.98)!important; border-color:var(--jlight-border)!important; }
-.topbar { background:rgba(248,250,252,.96)!important; border-color:var(--jlight-border)!important; }
-.main { background:transparent; }
-.panel,.form-card,.kpi-card,.stat-card,.card,.modal-card,.table-wrap,.content-card {
-  border-color:var(--jlight-border);
-}
-.sb-brand-name,.section-title,.page-title,.tb-title { color:var(--jlight-navy); }
-.sb-link { color:#40546C; border-radius:10px; }
-.sb-link:hover { background:#E7EEF6; color:var(--jlight-navy); }
-.sb-link.active { background:linear-gradient(90deg,rgba(8,127,140,.13),rgba(75,142,255,.08)); color:var(--jlight-navy); box-shadow:inset 3px 0 0 var(--jlight-teal); }
-.btn-primary { background:linear-gradient(135deg,var(--jlight-teal),#086B83); }
-.btn-primary:hover { filter:brightness(1.06); }
-input,select,textarea { background:#FBFCFE; border-color:#CBD7E3; color:var(--jlight-text); }
-input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22); border-color:var(--jlight-blue); }
-.badge,.pill { border-radius:999px; }
-:focus-visible { outline:3px solid var(--jlight-blue)!important; outline-offset:2px; }
-@media (prefers-reduced-motion:reduce) {
-  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; transition-duration:.01ms!important; }
-}
-@media (max-width:760px) {
-  .topbar { padding-left:16px!important; padding-right:16px!important; }
-  .sidebar { background:#F8FAFC!important; }
-}
-</style>
-
 </head>
 <body>
 
@@ -660,8 +543,8 @@ input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22)
   <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
   <div class="auth-card">
     <div class="auth-brand">
-      <div class="auth-mark" role="img" aria-label="JLIGHT logo"><svg viewBox="0 0 64 64" aria-hidden="true"><path d="M54 32h-9l-7 19L25 13l-7 19H9" /></svg></div>
-      <div class="auth-wordmark"><div class="auth-name">JLIGHT</div><div class="auth-brand-caption">HEALTH INTELLIGENCE</div></div>
+      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
     <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
@@ -677,11 +560,10 @@ input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22)
         <label class="form-label">Email</label>
         <input class="form-input" id="si-email" type="email" placeholder="you@facility.org" autocomplete="email"/>
       </div>
-      <div class="form-row" id="si-login-code-row" style="display:none">
-        <label class="form-label">Email verification code</label>
-        <input class="form-input" id="si-login-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code from your email"
-          onkeydown="if(event.key==='Enter')verifyLoginCode()"/>
-        <div class="form-help">Use the one-time code sent to your email. It expires and cannot be reused.</div>
+      <div class="form-row">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="si-password" type="password" placeholder="At least 8 characters"
+          onkeydown="if(event.key==='Enter')doSignIn()"/>
       </div>
       <div id="si-org-row" style="display:none" class="form-row">
         <label class="form-label">How are you joining?</label>
@@ -712,15 +594,13 @@ input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22)
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
-      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Email me a login code</button>
-      <button class="btn btn-primary" id="si-verify-btn" onclick="verifyLoginCode()" style="display:none;width:100%;justify-content:center;padding:11px">Verify code and continue</button>
-      <button class="btn" id="si-resend-btn" onclick="doSignIn(true)" style="display:none;width:100%;justify-content:center;padding:11px">Send a new code</button>
+      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <button type="button" class="auth-link-button" id="si-forgot-password" aria-label="Request a password reset email">Forgot password?</button>
-      <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
+      <button type="button" class="auth-link" id="forgot-password-link" onclick="window.jlightRequestPasswordReset(event)" aria-label="Request password reset">Forgot password?</button>
+      <a onclick="doOfflineMode()" title="Optional local-only mode; data stays on this device and is not cloud-synchronised" style="color:var(--text-3);cursor:pointer">Work offline (local-only) →</a>
     </div>
   </div>
 </div>
@@ -816,7 +696,7 @@ input:focus,select:focus,textarea:focus { outline:3px solid rgba(75,142,255,.22)
           <span class="dot"></span>
           <span>Local · Encrypted</span>
         </div>
-        <button class="tb-btn primary" onclick="goPage('connectors')">+ Connect Data Source</button>
+        <button class="tb-btn primary" type="button" id="connect-data-source-btn" onclick="openDataSourcesWorkflow()">+ Connect Data Source</button>
       </header>
       <div class="content">
         <div id="page-dashboard" class="page active"></div>
@@ -1124,11 +1004,9 @@ async function pushReqToSupa(req) {
   const sb = getSupabase()
   if (!sb || !MODE.isOnline) return
   try {
-    const { data: { session }, error: sessionError } = await sb.auth.getSession()
-    if (sessionError) throw sessionError
-    if (!session) throw new Error('Sign-in expired; please sign in again.')
-    if (!MODE.organisationId || !req.targetOrgId) throw new Error('Verified sender and receiving organisation are required.')
-    const { error: saveError } = await sb.from('jl_requests').upsert({
+    const { data: { session } } = await sb.auth.getSession()
+    if (!session) return
+    await sb.from('jl_requests').upsert({
       jl_id: req.id,
       from_workspace: req.fromWorkspace,
       target_workspace: 'Laboratory',
@@ -1157,12 +1035,7 @@ async function pushReqToSupa(req) {
       card_generated: req.cardGenerated||false,
       ts: new Date(req.ts).toISOString(),
     }, { onConflict: 'jl_id' })
-    if (saveError) throw saveError
-    return { ok: true }
-  } catch(e) {
-    console.error('[JLIGHT] request persistence failed:', e.message)
-    return { ok: false, reason: e.message || 'request_save_failed' }
-  }
+  } catch(e) { console.warn('Request sync failed:', e.message) }
 }
 
 async function loadReqsFromSupa() {
@@ -1212,17 +1085,12 @@ function validateConsent(val) {
 // ─── Sign-in / sign-up ───
 function toggleSignupMode() {
   MODE.signupMode = !MODE.signupMode
-  MODE.loginCodeSent = false
   const t = document.getElementById('si-title')
   const s = document.getElementById('si-sub')
   const o = document.getElementById('si-org-row')
   const r = document.getElementById('si-role-row')
   const b = document.getElementById('si-btn')
   const g = document.getElementById('si-toggle')
-  const codeRow = document.getElementById('si-login-code-row')
-  const verifyBtn = document.getElementById('si-verify-btn')
-  const resendBtn = document.getElementById('si-resend-btn')
-  const status = document.getElementById('si-status')
   // A fresh registration defaults to creating a new organisation. Joining is
   // an explicit choice for users who already have a code from an administrator.
   if (MODE.signupMode) {
@@ -1233,11 +1101,7 @@ function toggleSignupMode() {
   if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
   if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
-  if (b) { b.textContent = MODE.signupMode ? 'Email me a code to create workspace' : 'Email me a login code'; b.style.display = 'flex'; b.disabled = false; }
-  if (codeRow) codeRow.style.display = 'none'
-  if (verifyBtn) { verifyBtn.style.display = 'none'; verifyBtn.disabled = false; verifyBtn.textContent = 'Verify code and continue'; }
-  if (resendBtn) { resendBtn.style.display = 'none'; resendBtn.disabled = false; resendBtn.textContent = 'Send a new code'; }
-  if (status) { status.textContent = ''; status.className = 'auth-status'; }
+  if (b) b.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
   if (g) g.textContent = MODE.signupMode ? 'I already have an account' : 'Create new workspace'
   toggleJoinType()
 }
@@ -1257,119 +1121,130 @@ async function continueWithSelectedPath() {
   try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
-async function doSignIn(resend = false) {
-  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
-  const status = document.getElementById("si-status");
-  const selectedPath = sessionStorage.getItem("jl_selected_path");
-  const sb = getSupabase();
-  const showStatus = (message, kind = "error") => {
-    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
-  };
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    showStatus("Enter a valid email address first."); return;
-  }
-  if (!MODE.signupMode && (!selectedPath || !ROLES[selectedPath])) {
-    showStatus("Choose a JLIGHT path before signing in."); return;
-  }
-  if (MODE.signupMode && !selectedPath) {
-    showStatus("Choose a workspace path before creating your workspace."); return;
-  }
-  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
-
-  const btn = document.getElementById("si-btn");
-  if (btn) { btn.disabled = true; btn.textContent = "Sending code…"; }
-  showStatus("");
+async function doSignIn() {
+  const email = (document.getElementById("si-email")||{}).value?.trim() || ""
+  const pass  = (document.getElementById("si-password")||{}).value || ""
+  const status = document.getElementById("si-status")
+  const selectedPath = sessionStorage.getItem("jl_selected_path")
+  if (!selectedPath || !ROLES[selectedPath]) { if(status){status.textContent="Choose a JLIGHT path before signing in";status.className="auth-status error"} return }
+  if (!email || !pass) { if(status){status.textContent='Email and password required';status.className='auth-status error'} return }
+  if (pass.length < 8) { if(status){status.textContent='Password must be at least 8 characters';status.className='auth-status error'} return }
+  const btn = document.getElementById('si-btn')
+  if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
+  if (status) { status.textContent = ''; status.className = 'auth-status' }
+  const sb = getSupabase()
+  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
   try {
-    const options = { shouldCreateUser: !!MODE.signupMode };
     if (MODE.signupMode) {
-      const joinType = (document.getElementById("si-join-type") || {}).value || "new";
-      const org = (document.getElementById("si-org") || {}).value?.trim() || "";
-      const role = selectedPath || (document.getElementById("si-role") || {}).value || "Laboratory";
-      const orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
-      if (joinType === "join" && !orgCode) throw new Error("Enter the organisation code supplied by your administrator.");
-      options.data = {
-        org_name: joinType === "join" ? "" : (org || "JLIGHT Health Intelligence Platform"),
-        role,
-        org_code: joinType === "join" ? orgCode : null,
-        jl_join_type: joinType
-      };
-    }
-    const { error } = await sb.auth.signInWithOtp({ email, options });
-    if (error) throw error;
-    MODE.loginCodeSent = true;
-    const codeRow = document.getElementById("si-login-code-row");
-    const verifyBtn = document.getElementById("si-verify-btn");
-    const resendBtn = document.getElementById("si-resend-btn");
-    if (codeRow) codeRow.style.display = "flex";
-    if (verifyBtn) verifyBtn.style.display = "flex";
-    if (resendBtn) resendBtn.style.display = "flex";
-    if (btn) btn.style.display = "none";
-    showStatus("If this email is eligible, a one-time login code has been sent. Check your inbox and spam folder.", "success");
-    const codeInput = document.getElementById("si-login-code");
-    if (codeInput) codeInput.focus();
-  } catch (e) {
-    console.error("[JLIGHT] login code request failed:", e);
-    showStatus(e.message || "Could not request a login code. Please try again.");
-  } finally {
-    if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = "Email me a login code"; }
-  }
-}
+      const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
+      const org = (document.getElementById('si-org') || {}).value?.trim() || ''
+      const role = sessionStorage.getItem("jl_selected_path") || (document.getElementById('si-role') || {}).value || 'Laboratory'
+      const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
 
-async function verifyLoginCode() {
-  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
-  const token = (document.getElementById("si-login-code") || {}).value?.trim() || "";
-  const selectedPath = sessionStorage.getItem("jl_selected_path");
-  const status = document.getElementById("si-status");
-  const verifyBtn = document.getElementById("si-verify-btn");
-  const showStatus = (message, kind = "error") => {
-    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
-  };
-  if (!email) { showStatus("Enter the same email address used to request the code."); return; }
-  if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
-  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
-  const sb = getSupabase();
-  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
-  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = "Verifying…"; }
-  showStatus("");
-  try {
-    const { data, error } = await sb.auth.verifyOtp({ email, token, type: "email" });
-    if (error) throw error;
-    if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
-    const user = data.user;
-    const meta = user.user_metadata || {};
-    MODE.isOnline = true;
-    STATE.user = user.email || email;
-    // The user explicitly selected a workspace path before authentication.
-    // Auth metadata can be stale from a previous module; it must not override
-    // the current selection (e.g. Bioinformatics silently opening Laboratory).
-    STATE.role = selectedPath;
-    await ensureJlightOrganisation(user, {
-      org: meta.org_name || "",
-      role: selectedPath,
-      orgCode: meta.org_code || ""
-    });
-    await loadOrCreateProfile(user);
-    const codeButton = document.getElementById("si-send-org-code");
-    if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
-    const joinType = meta.jl_join_type || "new";
-    if (joinType === "new" && MODE.organisationId && MODE.organisationCode) {
-      try {
-        await sendOrganisationCodeEmail();
-      } catch (mailError) {
-        console.error("[JLIGHT] organisation-code email failed:", mailError);
+      // Shared-workspace membership is verified by the server-side
+      // jl_link_user_to_organisation RPC after email confirmation/sign-in.
+      // The client never assigns org_id or elevated workspace permissions.
+      if (joinType === 'join' && !orgCode) {
+        throw new Error('Enter the organisation code supplied by your administrator.')
       }
+      const organisationName = joinType === 'join'
+        ? ''
+        : (org || 'JLIGHT Health Intelligence Platform')
+
+      const { data, error } = await sb.auth.signUp({
+        email, password: pass,
+        options: { data: { org_name: organisationName, role, org_code: joinType === 'join' ? orgCode : null } }
+      })
+      if (error) throw error
+      if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
+
+      // With email confirmation enabled, signUp returns no session. RLS-protected
+      // organisation creation must wait until the user confirms and signs in.
+      if (!data.session) {
+        if (status) {
+          status.textContent = 'Account created. Check your email to confirm it, then sign in to finish setting up your workspace.'
+          status.className = 'auth-status success'
+        }
+        MODE.signupMode = false
+        const title = document.getElementById('si-title')
+        const sub = document.getElementById('si-sub')
+        const orgRow = document.getElementById('si-org-row')
+        const roleRow = document.getElementById('si-role-row')
+        const toggle = document.getElementById('si-toggle')
+        const submit = document.getElementById('si-btn')
+        if (title) title.textContent = 'Sign in'
+        if (sub) sub.textContent = 'Confirm your email, then sign in to finish workspace setup'
+        if (orgRow) orgRow.style.display = 'none'
+        if (roleRow) roleRow.style.display = 'none'
+        if (toggle) toggle.textContent = 'Create new workspace'
+        if (submit) submit.textContent = 'Sign in'
+        return
+      }
+
+      MODE.isOnline = true
+      STATE.user = data.user.email || email
+      STATE.role = role
+      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
+      await loadOrCreateProfile(data.user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
+      let deliveryNote = ''
+      if (joinType === 'new' && MODE.organisationId && MODE.organisationCode) {
+        try {
+          const { data: activeSession, error: sessionError } = await sb.auth.getSession()
+          if (sessionError) throw sessionError
+          const accessToken = activeSession?.session?.access_token
+          if (!accessToken) throw new Error('No active session available for secure code delivery.')
+          const mailResponse = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + accessToken },
+            body: JSON.stringify({ organisation_id: MODE.organisationId })
+          })
+          const mailResult = await mailResponse.json().catch(() => ({}))
+          if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
+          if (mailResult.email_sent === false) {
+            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
+          } else {
+            deliveryNote = ' The organisation code was emailed to your verified account address.'
+          }
+        } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
+      }
+      if (status) {
+        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
+        status.textContent = (joinType === 'new' ? 'Workspace created successfully' : 'Workspace joined successfully') + codeMsg + deliveryNote + (MODE.organisationCode ? ' You can also copy this code later in Settings → Organisation.' : '')
+        status.className = 'auth-status success'
+      }
+      // Give the owner time to read the generated code before entering the app.
+      setTimeout(()=>enterApp(), 4500)
+    } else {
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
+      if (error) throw error
+      if (!data.session) throw new Error('Sign-in failed: no active session was returned.')
+      MODE.isOnline = true
+      const user = data.session.user
+      const meta = user.user_metadata || {}
+      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
+      STATE.user = user.email || email
+      STATE.role = selectedPath
+      await ensureJlightOrganisation(user, {
+        org: meta.org_name || '',
+        role: meta.role || selectedPath,
+        orgCode: meta.org_code || ''
+      })
+      await loadOrCreateProfile(user)
+      const codeButton = document.getElementById('si-send-org-code')
+      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
+      // If email confirmation delayed workspace setup, finish delivery after the
+      // first authenticated sign-in rather than leaving the owner without a code.
+      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
+      enterApp()
     }
-    showStatus("Email verified. Opening your secure workspace…", "success");
-    enterApp();
-  } catch (e) {
-    console.error("[JLIGHT] login code verification failed:", e);
-    showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+  } catch(e) {
+    console.error('[JLIGHT] sign-in/workspace creation failed:', e)
+    if (status) { status.textContent = e.message || 'Authentication failed'; status.className = 'auth-status error' }
   } finally {
-    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
+    if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' }
   }
 }
-
-
 
 // Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
 async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
@@ -1511,46 +1386,45 @@ async function sendOrganisationCodeEmail() {
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
 }
 
+window.jlightRequestPasswordReset = function(event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  const button = document.getElementById('forgot-password-link');
+  if (button && button.dataset.busy === 'true') return;
+  if (button) { button.dataset.busy = 'true'; button.disabled = true; }
+  Promise.resolve(doForgotPassword()).catch(error => {
+    console.error('[JLIGHT] password-reset click handler failed:', error);
+    const status = document.getElementById('si-status');
+    if (status) { status.textContent = 'Password reset could not be started. Please retry.'; status.className = 'auth-status error'; }
+  }).finally(() => {
+    if (button) { button.dataset.busy = 'false'; button.disabled = false; }
+  });
+};
+
 async function doForgotPassword() {
-  const emailInput = document.getElementById('si-email');
-  const addr = (emailInput?.value || '').trim();
-  const status = document.getElementById('si-status');
-  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : ''); } };
-  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return; }
-  if (!BACKEND || !BACKEND.url || !BACKEND.key) { setStatus('Password recovery is not configured for this environment.', 'error'); return; }
-  const button = document.getElementById('si-forgot-password');
-  if (button) { button.disabled = true; button.textContent = 'Sending reset email…'; }
-  setStatus('Requesting a secure password-reset email…');
+  const emailInput = document.getElementById('si-email')
+  const addr = (emailInput?.value || '').trim()
+  const status = document.getElementById('si-status')
+  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
+  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  const sb = getSupabase()
+  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
+  setStatus('Requesting a secure password-reset email…')
   try {
     const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
       body: JSON.stringify({ email: addr })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || 'The reset email service could not process the request.');
-    setStatus(result.message || 'If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success');
-    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good');
+    })
+    const result = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(result.error || 'Password-reset service is temporarily unavailable.')
+    setStatus('If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success')
+    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
   } catch (e) {
-    console.error('[JLIGHT] password reset request failed:', e);
-    setStatus(e.message || 'Password recovery is temporarily unavailable. Please try again.', 'error');
-    toast('Password reset unavailable', e.message || 'Please try again', 'crit');
-  } finally {
-    if (button) { button.disabled = false; button.textContent = 'Forgot password?'; }
+    console.error('[JLIGHT] password reset request failed:', e)
+    setStatus(e.message || 'Could not request a reset email. Please try again.', 'error')
+    toast('Password reset unavailable', e.message || 'Please try again', 'crit')
   }
 }
-window.doForgotPassword = doForgotPassword;
-
-// Explicitly expose and bind password recovery; do not depend on inline-handler lookup.
-window.doForgotPassword = doForgotPassword;
-document.addEventListener('click', function (event) {
-  const target = event.target && event.target.closest ? event.target.closest('#si-forgot-password') : null;
-  if (!target) return;
-  event.preventDefault();
-  event.stopPropagation();
-  doForgotPassword();
-}, true);
 
 async function doResetPassword() {
   const np = (document.getElementById('rp-new')||{}).value || ''
@@ -2004,13 +1878,13 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
   }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn btn-primary" onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
     '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
-    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate one combined report for the selected patient, with a chronological journey summary and a data-quality / traceability review. The export uses a participant label and excludes direct identifiers.</p><button class="btn btn-primary" type="button" onclick="generatePatientJourneyReports()">Generate patient journey report</button><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
+    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate two separate reports for the selected patient: a chronological journey summary and a data-quality / traceability review. Both share a correlation ID and exclude direct identifiers.</p><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
 }
 function downloadJourneyJson(report, filename) {
   const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
@@ -2018,6 +1892,41 @@ function downloadJourneyJson(report, filename) {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+async function requestJlightIntelligenceSummary(patient, events) {
+  if (String(STATE.role || '').toLowerCase() === 'trial') {
+    return { success: false, skipped: true, message: 'Intelligence summary is not available in the isolated Clinical Trials workspace.' };
+  }
+  const sb = getSupabase();
+  if (!sb) return { success: false, message: 'Secure session is unavailable. Sign in again.' };
+  const sessionResult = await sb.auth.getSession();
+  const session = sessionResult && sessionResult.data && sessionResult.data.session;
+  if (!session || !session.access_token) return { success: false, message: 'A verified session is required for Intelligence.' };
+  const pid = String(patient.id);
+  const patientOrders = (STATE.labOrders || []).filter(r => r && r.patientId != null && String(r.patientId) === pid);
+  const patientResults = (STATE.results || []).filter(r => r && r.patientId != null && String(r.patientId) === pid);
+  const checks = [];
+  if (patientOrders.length > patientResults.length) {
+    checks.push({ check_id: 'missing_lab_result', source: 'laboratory', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, patientOrders.length - patientResults.length) });
+  }
+  const undated = (events || []).filter(e => !(e.when instanceof Date && !Number.isNaN(e.when.getTime()))).length;
+  if (undated > 0) {
+    checks.push({ check_id: 'source_data_incomplete', source: 'interoperability', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, undated) });
+  }
+  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+  try {
+    const response = await fetch(baseUrl + '/api/intelligence/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ journey_checks: checks })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Intelligence service returned HTTP ' + response.status) };
+    return { success: true, summary: body.result, engine: body.result && body.result.engine_version || null };
+  } catch (_) {
+    return { success: false, message: 'Intelligence service could not be reached. The two local reports can still be generated.' };
+  }
+}
+
 async function generatePatientJourneyReports() {
   const status = document.getElementById('patient-journey-report-status');
   const trialPatientIds = new Set((STATE.participants || []).map(x => x && x.patientId != null ? String(x.patientId) : '').filter(Boolean));
@@ -2031,6 +1940,7 @@ async function generatePatientJourneyReports() {
   const events = buildPatientJourneyEvents(patient);
   const participantLabel = 'Participant ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
   const generatedAt = new Date().toISOString();
+  const intelligence = await requestJlightIntelligenceSummary(patient, events);
   const journeyReport = {
     reportType: 'patient-journey-summary', schemaVersion: '1.0', generatedAt,
     participantLabel, workspace: 'Current workspace',
@@ -2051,6 +1961,7 @@ async function generatePatientJourneyReports() {
     reportType: 'patient-data-quality-traceability', schemaVersion: '1.0', generatedAt,
     participantLabel, workspace: 'Current workspace',
     eventCount: events.length, sourceCounts,
+    intelligence: intelligence.success ? intelligence.summary : { status: intelligence.skipped ? 'isolated' : 'unavailable', message: intelligence.message || 'No Intelligence summary returned.' },
     checks: [
       {check:'journey_has_events', status: events.length ? 'review' : 'not-evaluable', count:events.length, note:events.length ? 'Events are present; verify source completeness against the originating systems.' : 'No linked events are available; absence cannot establish that care or testing did not occur.'},
       {check:'events_missing_dates', status:missingDates ? 'review' : 'pass', count:missingDates},
@@ -2061,19 +1972,20 @@ async function generatePatientJourneyReports() {
   };
   const suffix = new Date().toISOString().slice(0,10);
   const safeLabel = participantLabel.toLowerCase().replace(/\s+/g,'-');
-  // One download and one auditable workflow, with both report sections preserved.
-  const combinedReport = {
-    reportType: 'patient-journey-and-data-quality', schemaVersion: '1.0', generatedAt,
-    participantLabel, workspace: 'Current workspace',
-    journeySummary: journeyReport,
-    dataQualityTraceability: qualityReport,
-    limitations: ['Research and operational traceability only; not a diagnostic conclusion.', 'Verify source records in the originating authorised systems.']
-  };
-  downloadJourneyJson(combinedReport, 'jlight-' + safeLabel + '-patient-journey-report-' + suffix + '.json');
-  try { await audit('Patient journey report generated', participantLabel + '; journey events: ' + events.length + '; sections: journey summary + data-quality traceability'); }
+  // Two separate reports share one correlation ID for traceability.
+  const correlationId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+    ? window.crypto.randomUUID()
+    : 'jlight-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  journeyReport.correlationId = correlationId;
+  qualityReport.correlationId = correlationId;
+  journeyReport.intelligenceStatus = intelligence.success ? 'completed' : (intelligence.skipped ? 'isolated' : 'unavailable');
+  downloadJourneyJson(journeyReport, 'jlight-' + safeLabel + '-journey-summary-' + suffix + '.json');
+  downloadJourneyJson(qualityReport, 'jlight-' + safeLabel + '-data-quality-traceability-' + suffix + '.json');
+  try { await audit('Patient journey reports generated', participantLabel + '; correlation: ' + correlationId + '; event count: ' + events.length + '; outputs: 2'); }
   catch (e) { console.warn('[JLIGHT] patient report audit could not be saved:', e.message); }
-  if (status) status.textContent = 'Generated one combined patient journey report for ' + participantLabel + ', including the journey summary and data-quality / traceability review. Check the downloads folder.';
-  toast('Patient journey report generated', 'One report contains both the journey summary and data-quality review.', 'good');
+  const intelligenceText = intelligence.success ? ' Intelligence summary completed.' : intelligence.skipped ? ' Intelligence was skipped because Clinical Trials is isolated.' : ' Intelligence unavailable; both reports were still generated.';
+  if (status) status.textContent = 'Generated two separate reports for ' + participantLabel + ' (journey summary and data-quality / traceability). Correlation ID: ' + correlationId + '.' + intelligenceText + ' Check the downloads folder.';
+  toast('Two patient journey reports generated', intelligence.success ? 'Journey summary and data-quality report include the Intelligence summary status.' : 'Journey summary and data-quality report generated; Intelligence status is recorded in the quality report.', 'good');
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
@@ -2083,6 +1995,66 @@ async function generateJourneyReport() {
   link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
   toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
 }
+
+function openPrintableReport(title,bodyHtml) {
+  const win=window.open('','_blank','width=1000,height=800');
+  if(!win){toast('Pop-up blocked','Allow pop-ups for JLIGHT to preview and print the report.','warn');return false;}
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial,sans-serif;color:#182638;max-width:1000px;margin:36px auto;padding:0 24px;line-height:1.5}h1{color:#243f68;font-size:24px}h2{margin-top:28px;color:#345a8b;font-size:17px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;vertical-align:top;padding:9px;border-bottom:1px solid #dce4ee;overflow-wrap:anywhere}th{background:#f0f5fb}@media print{body{margin:12mm auto;padding:0}}</style></head><body>'+bodyHtml+'<p><button onclick="window.print()">Print / Save as PDF</button></p></body></html>');
+  win.document.close();return true;
+}
+
+
+function generateSelectedPatientJourneyReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Clinical Trials remain outside the shared patient journey.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>String(p.id)===pid&&!p.archivedAt&&String(p.orgId||'')===orgId);
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation before generating the report.','warn');return;}
+  const events=buildPatientJourneyEvents(patient).map(e=>({source:e.source,event:e.label,date:e.when?e.when.toISOString():(e.rawWhen||null),status:e.status||'Recorded',summary:e.summary||'Source summary not supplied'}));
+  const generatedAt=new Date().toISOString();
+  const report={reportType:'JLIGHT Patient Journey Report',reportId:uid(),generatedAt,workspace:STATE.orgName||'Current workspace',generatedBy:getDisplayName(),patientReference:patient.mrn||patient.id,dataCutoff:generatedAt,eventCount:events.length,events,limitations:['Traceability and decision-support summary only; not an autonomous diagnosis.','Events are linked by exact existing patient ID only. Missing records do not indicate negative findings.','Raw sequence reads, sequence files and unrestricted variant files are excluded.','Clinical Trials remain a separate workflow.']};
+  const html='<h1>JLIGHT Patient Journey Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Workspace:</b> '+esc(report.workspace)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Data cut-off:</b> '+esc(new Date(generatedAt).toLocaleString())+'</p><h2>Journey timeline ('+events.length+' events)</h2>'+(events.length?'<table><thead><tr><th>Date</th><th>Source</th><th>Event</th><th>Status</th><th>Summary</th></tr></thead><tbody>'+events.map(e=>'<tr><td>'+esc(e.date?new Date(e.date).toLocaleString():'Date not supplied')+'</td><td>'+esc(e.source)+'</td><td>'+esc(e.event)+'</td><td>'+esc(e.status)+'</td><td>'+esc(e.summary)+'</td></tr>').join('')+'</tbody></table>':'<p>No authorised linked events were found. This is not evidence that no events occurred.</p>')+'<h2>Limitations and privacy</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p>Source systems remain authoritative. Review permissions before sharing.</p>';
+  if(!openPrintableReport('JLIGHT-Patient-Journey-'+String(patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  try{audit('Patient Journey report generated',report.reportId+' · patient reference '+report.patientReference+' · '+events.length+' events')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Patient-Journey-'+new Date(generatedAt).toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  toast('Patient Journey Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
+function generateSelectedPatientBioinformaticsReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
+  if(STATE.role!=='Bioinformatics'){toast('Permission required','Generate this report from an authorised Bioinformatics workspace.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>p&&!p.archivedAt&&String(p.id)===pid&&String(p.orgId||'')===orgId);
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation first.','warn');return;}
+  const entries=(STATE.entries||[]).filter(e=>e&&e.role==='Bioinformatics'&&String(e.orgId||'')===orgId&&String(e.patientId||'')===pid).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
+  if(!entries.length){toast('No linked analysis','Record a Bioinformatics run and link it to this exact patient reference first.','warn');return;}
+  const generatedAt=new Date().toISOString();
+  const analyses=entries.map(e=>{
+    const cards=(STATE.cards||[]).filter(card=>card&&card.role==='Bioinformatics'&&String(card.orgId||'')===orgId&&String(card.patientId||'')===pid&&String(card.analysisEntryId||'')===String(e.id||''));
+    const metrics=[
+      ['Coverage',e.coverage,'x',Number(e.coverage)>=30?'Pass':'Review'],
+      ['Mapping rate',e.mappingRate,'%',Number(e.mappingRate)>=85?'Pass':'Review'],
+      ['Q-score',e.qscore,'',Number(e.qscore)>=30?'Pass':'Review'],
+      ['Duplication',e.dupRate,'%',Number(e.dupRate)<=20?'Pass':'Review'],
+      ['GC content',e.gcContent,'%',Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+      ['Contamination',e.contamination,'%',Number(e.contamination)<=5?'Pass':'Review'],
+      ['Variant count',e.variantCount,'','Review']
+    ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1]))).map(row=>({metric:row[0],value:Number(row[1]),unit:row[2],reviewStatus:row[3]}));
+    return {runId:String(e.sampleId||'Not supplied'),analysisType:e.analysisType||'Not supplied',platform:e.platform||'Not supplied',pipeline:e.pipeline||'Not supplied',reference:e.reference||'Not supplied',runDate:e.ts?new Date(e.ts).toISOString():null,qcMetrics:metrics,qcIssues:cards.map(card=>({severity:card.severity,title:card.title,description:card.description}))};
+  });
+  const report={reportType:'JLIGHT Bioinformatics Analysis Report',reportId:uid(),generatedAt,generatedBy:getDisplayName(),organisationReference:STATE.orgName||'Current organisation',patientReference:String(patient.mrn||patient.id),analysisCount:analyses.length,analyses,limitations:['This report summarises Bioinformatics records explicitly linked by exact patient ID within the current organisation.','Missing metrics are not inferred; missing source records do not indicate a negative result.','QC thresholds are screening indicators and must be checked against the validated workflow and assay.','This report is not a clinical diagnosis; expert review is required.']};
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Organisation:</b> '+esc(report.organisationReference)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Linked analysis runs:</b> '+analyses.length+'</p>'+analyses.map((analysis,index)=>'<h2>Analysis '+(index+1)+': '+esc(analysis.runId)+'</h2><p><b>Type:</b> '+esc(analysis.analysisType)+' · <b>Platform:</b> '+esc(analysis.platform)+' · <b>Pipeline:</b> '+esc(analysis.pipeline)+' · <b>Reference:</b> '+esc(analysis.reference)+'<br><b>Run date:</b> '+esc(analysis.runDate?new Date(analysis.runDate).toLocaleString():'Not supplied')+'</p>'+(analysis.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+analysis.qcMetrics.map(metric=>'<tr><td>'+esc(metric.metric)+'</td><td>'+esc(metric.value)+'</td><td>'+esc(metric.unit)+'</td><td>'+esc(metric.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+(analysis.qcIssues.length?'<ul>'+analysis.qcIssues.map(issue=>'<li>'+esc(issue.severity)+' · '+esc(issue.title)+' · '+esc(issue.description)+'</li>').join('')+'</ul>':'<p>No linked QC issue cards were found for this run; this is not proof that no issues exist.</p>')).join('')+'<h2>Limitations and review</h2><ul>'+report.limitations.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  try{audit('Patient-linked Bioinformatics Analysis report generated',report.reportId+' · patient reference '+report.patientReference+' · '+analyses.length+' runs')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Bioinformatics Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -2525,7 +2497,14 @@ function submitTrialEntry() {
 
   const cards = analyseTrialEvent(e)
   if (cards.length > 0) {
-    cards.forEach(c => STATE.cards.push(c))
+    // Bind every generated QC issue to the exact analysis, patient and organisation.
+    // Reports must never infer linkage from timestamp proximity alone.
+    cards.forEach(card => STATE.cards.push({
+      ...card,
+      orgId: e.orgId,
+      patientId: e.patientId,
+      analysisEntryId: e.id,
+    }))
     STORAGE.saveCards(STATE.role, STATE.cards)
     toast(`${cards.length} decision${cards.length > 1 ? 's' : ''} generated`, cards[0].title, cards[0].severity)
   } else {
@@ -3162,7 +3141,24 @@ function resetSourceImportPreview() {
   const commit = document.getElementById('source-import-commit')
   if (commit) commit.disabled = true
   const el = document.getElementById('source-import-preview')
-  if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  if (el) el.innerHTML = '<p class="source-import-help">Preview cleared. Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  const file = document.getElementById('source-import-file')
+  if (file) file.value = ''
+  SOURCE_IMPORT_FILE_NAME = ''
+}
+function openDataSourcesWorkflow() {
+  try {
+    if (typeof goPage !== 'function') throw new Error('Navigation is unavailable. Reload JLIGHT and sign in again.')
+    goPage('connectors')
+    const page = document.getElementById('page-connectors')
+    if (!page || !page.classList.contains('active')) throw new Error('Data Sources could not be opened. Please retry.')
+    const heading = page.querySelector('.page-title')
+    if (heading) heading.setAttribute('tabindex', '-1'), heading.focus({ preventScroll: true })
+    page.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  } catch (error) {
+    console.error('[JLIGHT] Connect Data Source navigation failed:', error)
+    if (typeof toast === 'function') toast('Data Sources unavailable', error.message || 'Please reload and try again.', 'crit')
+  }
 }
 function renderConnectors() {
   const page = document.getElementById('page-connectors')
@@ -3178,7 +3174,7 @@ function renderConnectors() {
     '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online or de-identified offline)</option></select></div>' +
     '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
     '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
-    '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
+    '<div class="source-import-actions"><button class="btn" type="button" onclick="previewSourceCsv()">Preview and validate</button><button class="btn" type="button" onclick="resetSourceImportPreview()">Clear preview</button><button class="btn btn-primary" id="source-import-commit" type="button" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
     '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
 }
 function handleSourceImportFile(event) {
@@ -4013,14 +4009,8 @@ async function submitReq() {
     targetOrgId, localRef, pseudoRef, test, sampleType: stype, priority, consentRef: consent, notes,
     status: 'pending', requestedBy: getDisplayName(),
   }
-  // Persist to the authenticated staging workspace first. Never report a local-only
-  // request as created when the database write has failed.
-  const saved = await pushReqToSupa(req)
-  if (!saved || !saved.ok) {
-    toast('Request not saved', 'The request was not added. Cloud persistence failed: ' + (saved?.reason || 'unknown error'), 'crit')
-    return
-  }
   const all = loadReqs(); all.push(req); saveReqs(all)
+  pushReqToSupa(req)
 
   // Detect request-level errors
   if (stype==='CSF' && !notes) {
@@ -4386,42 +4376,44 @@ function bioRecs(e, qcStatus, cards) {
 }
 
 function exportBioReport(entryId) {
-  const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
-  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics')
-  const lines = [
-    '=====================================================',
-    '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
-    '  Generated: '+new Date().toLocaleString(undefined,{hour12:false}),
-    '  Operator: '+getDisplayName(),
-    '=====================================================','',
-    'RUN ID        : '+e.sampleId,
-    'ANALYSIS TYPE : '+(e.analysisType||''),
-    'PLATFORM      : '+(e.platform||''),
-    'PIPELINE      : '+(e.pipeline||''),
-    'REFERENCE     : '+(e.reference||''),
-    'DATE          : '+new Date(e.ts).toLocaleDateString(),'',
-    'QC METRICS','--------------------------------------------------',
-    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(PASS)':'(REVIEW)') : null,
-    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.variantCount) ? '  Variants      : '+Number(e.variantCount).toLocaleString() : null,'',
-    'QC ISSUES','--------------------------------------------------',
-    ...(cards.length===0 ? ['  No QC issues detected.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
-    '','=====================================================',
-    '  JLIGHT - Health Intelligence Platform',
-    '=====================================================',
-  ].filter(x=>x!==null)
-
-  const blob = new Blob([lines.join('\n')], {type:'text/plain'})
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href=url; a.download='JLIGHT-NGS-'+esc(e.sampleId)+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
-  a.click(); URL.revokeObjectURL(url)
-  audit('Bio report exported', e.sampleId+' by '+getDisplayName())
-  toast('Report exported', e.sampleId, 'good')
+  // Clinical Trials is a separate data domain and must never export Bioinformatics reports.
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before exporting reports.','warn');return;}
+  const e = STATE.entries.find(x=>x.id===entryId&&x.role==='Bioinformatics'&&String(x.orgId||'')===orgId); if(!e) {toast('Report unavailable','The analysis record is not available in the current organisation.','warn');return;}
+  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics');
+  const generatedAt = new Date();
+  const metricRows = [
+    ['Coverage', e.coverage, 'x', Number(e.coverage)>=30?'Pass':'Review'],
+    ['Mapping rate', e.mappingRate, '%', Number(e.mappingRate)>=85?'Pass':'Review'],
+    ['Q-score', e.qscore, '', Number(e.qscore)>=30?'Pass':'Review'],
+    ['Duplication', e.dupRate, '%', Number(e.dupRate)<=20?'Pass':'Review'],
+    ['GC content', e.gcContent, '%', Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+    ['Contamination', e.contamination, '%', Number(e.contamination)<=5?'Pass':'Review'],
+    ['Variant count', e.variantCount, '', 'Review']
+  ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1])));
+  const report = {
+    reportType:'JLIGHT Bioinformatics Analysis Report',
+    reportId:uid(), generatedAt:generatedAt.toISOString(), generatedBy:getDisplayName(),
+    runId:e.sampleId, analysisType:e.analysisType||'Not supplied', platform:e.platform||'Not supplied',
+    pipeline:e.pipeline||'Not supplied', reference:e.reference||'Not supplied',
+    runDate:e.ts?new Date(e.ts).toISOString():null,
+    qcMetrics:metricRows.map(r=>({metric:r[0],value:Number(r[1]),unit:r[2],reviewStatus:r[3]})),
+    qcIssues:cards.map(c=>({severity:c.severity,title:c.title,description:c.description})),
+    limitations:['This report summarises records currently available in JLIGHT; missing metrics are not inferred.',
+      'QC thresholds are screening indicators and must be checked against the validated workflow and assay.',
+      'Research or bioinformatics outputs are not, by themselves, a clinical diagnosis. Expert review is required.']
+  };
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(generatedAt.toLocaleString())+'<br><b>Operator:</b> '+esc(report.generatedBy)+'</p><h2>Run details</h2><table><tbody>'+
+    [['Run ID',report.runId],['Analysis type',report.analysisType],['Platform',report.platform],['Pipeline',report.pipeline],['Reference',report.reference],['Run date',report.runDate?new Date(report.runDate).toLocaleString():'Not supplied']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+
+    '</tbody></table><h2>Quality metrics</h2>'+(report.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+report.qcMetrics.map(r=>'<tr><td>'+esc(r.metric)+'</td><td>'+esc(r.value)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+
+    '<h2>QC issues</h2>'+(report.qcIssues.length?'<table><thead><tr><th>Severity</th><th>Issue</th><th>Details</th></tr></thead><tbody>'+report.qcIssues.map(c=>'<tr><td>'+esc(c.severity)+'</td><td>'+esc(c.title)+'</td><td>'+esc(c.description)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC issue cards are recorded in the current workspace view. This is not proof that no issues exist.</p>')+
+    '<h2>Limitations and review</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  try{audit('Bioinformatics Analysis report generated',report.reportId+' · run '+report.runId);}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
 }
 
 
@@ -4432,8 +4424,8 @@ function exportBioReport(entryId) {
 
 // ── SUPABASE BACKEND ──
 // Project: wrdwzpmpsbtkrwonejhp · Publishable key below
-const SB_URL = BACKEND.url
-const SB_KEY = BACKEND.key
+const SB_URL  = 'https://wrdwzpmpsbtkrwonejhp.supabase.co'
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZHd6cG1wc2J0a3J3b25lamhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTI0MjksImV4cCI6MjA5MTc2ODQyOX0.MB_-3uRbYhnWvmNCREC1iFgm16X_Hp-4GZgh6X_YY1g'
 let _sb = null
 let _realtimeChannel = null
 
@@ -5309,6 +5301,9 @@ function renderRegisterBio() {
     '<option>AMR Profiling</option><option>Viral Sequencing (SARS-CoV-2 / HIV / HBV)</option>' +
     '<option>TB Drug Resistance (MTB-Seq)</option></select></div>' +
     '<div class="form-row"><label class="form-label">Sample / Run ID</label><input class="form-input" id="bf-sid" type="text" placeholder="e.g. RUN-2026-04-001"/></div>' +
+    '<div class="form-row"><label class="form-label">Link to patient journey</label><select class="form-input" id="bf-patient"><option value="">— Not linked —</option>' +
+    (STATE.patients || []).filter(p=>p&&!p.archivedAt&&!!STATE.orgId&&String(p.orgId)===String(STATE.orgId)).map(p=>'<option value="'+esc(String(p.id))+'">'+esc(String(p.mrn||p.id))+'</option>').join('') +
+    '</select><div class="form-hint">Select an existing patient reference to include this run in that patient’s Bioinformatics Analysis Report. Matching uses the exact patient ID.</div></div>' +
     '<div class="form-row"><label class="form-label">Sequencing Platform</label>' +
     '<select class="form-input" id="bf-platform"><option value="">— Select —</option>' +
     '<option>Illumina MiSeq</option><option>Illumina NextSeq</option><option>Illumina NovaSeq</option>' +
@@ -5348,8 +5343,8 @@ function submitBioEntry() {
   if (!sampleId)     { toast('Required', 'Sample/Run ID required', 'crit'); return }
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
   const e = {
-    id: uid(), ts: Date.now(), role: STATE.role, user: getDisplayName(),
-    analysisType, sampleId, pipelineStage: 'queued',
+    id: uid(), ts: Date.now(), role: STATE.role, orgId: STATE.orgId, user: getDisplayName(),
+    analysisType, sampleId, patientId: get('bf-patient') || null, pipelineStage: 'queued',
     platform: get('bf-platform'), reference: get('bf-ref'),
     coverage: parseFloat(get('bf-cov')), mappingRate: parseFloat(get('bf-map')),
     qscore: parseFloat(get('bf-q')), dupRate: parseFloat(get('bf-dup')),
@@ -5374,7 +5369,12 @@ function submitBioEntry() {
 // ── BIOINFORMATICS FULL REPORT GENERATOR ──
 function generateBioReport(e) {
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
-  const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
+  const cards = STATE.cards.filter(c =>
+    c.role === 'Bioinformatics' &&
+    String(c.orgId || '') === String(e.orgId || '') &&
+    String(c.patientId || '') === String(e.patientId || '') &&
+    String(c.analysisEntryId || '') === String(e.id)
+  )
   const hasCrit = cards.some(c => c.severity === 'crit')
   const hasWarn = cards.some(c => c.severity === 'warn')
   const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
@@ -6431,44 +6431,31 @@ function buildPatientForm(existing) {
     '</div></div>'
 }
 
-async function savePatient(existingId) {
+function savePatient(existingId) {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const name = get('pf-name')
   if (!name) { toast('Required', 'Patient name required', 'crit'); return }
   let mrn = get('pf-mrn')
   if (!mrn) mrn = 'MRN-' + Date.now().toString(36).toUpperCase().slice(-6)
-  const duplicate = STATE.patients.find(p => p.mrn === mrn && p.id !== existingId)
-  if (duplicate) { toast('Duplicate MRN', 'MRN ' + mrn + ' already exists', 'crit'); return }
-  if (MODE.isOnline && (!STATE.orgId || STATE.orgId === 'default')) {
-    toast('Patient not saved', 'No verified workspace is active. Reopen the workspace and retry.', 'crit')
-    return
-  }
-  const allergies = get('pf-allergies').split(',').map(s => s.trim()).filter(Boolean)
-  const chronic = get('pf-chronic').split(',').map(s => s.trim()).filter(Boolean)
-  const previousIndex = existingId ? STATE.patients.findIndex(x => x.id === existingId) : -1
-  if (existingId && previousIndex < 0) { toast('Patient not saved', 'The patient record could not be found. Refresh the registry and retry.', 'crit'); return }
-  const previous = previousIndex >= 0 ? { ...STATE.patients[previousIndex], allergies: [...(STATE.patients[previousIndex].allergies || [])], chronicConditions: [...(STATE.patients[previousIndex].chronicConditions || [])] } : null
-  let patient
+  // Check MRN uniqueness
+  const existing = STATE.patients.find(p => p.mrn === mrn && p.id !== existingId)
+  if (existing) { toast('Duplicate MRN', 'MRN ' + mrn + ' already exists', 'crit'); return }
+  const allergies = get('pf-allergies').split(',').map(s=>s.trim()).filter(Boolean)
+  const chronic   = get('pf-chronic').split(',').map(s=>s.trim()).filter(Boolean)
   if (existingId) {
-    patient = STATE.patients[previousIndex]
-    Object.assign(patient, { fullName: name, mrn, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, updatedAt: Date.now(), orgId: STATE.orgId })
+    const p = STATE.patients.find(x => x.id === existingId)
+    if (!p) return
+    Object.assign(p, { fullName: name, mrn, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, updatedAt: Date.now() })
+    audit('Patient updated', name + ' · ' + mrn)
+    toast('Patient updated', name, 'good')
   } else {
-    patient = { id: uid(), orgId: STATE.orgId, mrn, fullName: name, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, active: true, createdAt: Date.now() }
-    STATE.patients.push(patient)
-  }
-  if (MODE.isOnline) {
-    const saved = await syncDomainToBackend('patients', [patient])
-    if (!saved || !saved.ok) {
-      if (existingId && previous) STATE.patients[previousIndex] = previous
-      else STATE.patients = STATE.patients.filter(p => p.id !== patient.id)
-      toast('Patient not saved', 'Cloud persistence failed: ' + (saved?.reason || 'unknown error') + '. Please retry before leaving this workspace.', 'crit')
-      renderPatients()
-      return
-    }
+    const p = { id: uid(), orgId: STATE.orgId, mrn, fullName: name, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, active: true, createdAt: Date.now() }
+    STATE.patients.push(p)
+    audit('Patient registered', name + ' · ' + mrn)
+    toast('Patient registered', name, 'good')
+    syncDomainToBackend('patients', STATE.patients)
   }
   lsSet(PATIENT_KEY, STATE.patients)
-  try { await audit(existingId ? 'Patient updated' : 'Patient registered', name + ' · ' + mrn) } catch (e) { console.warn('[JLIGHT] patient audit failed:', e.message) }
-  toast(existingId ? 'Patient updated' : 'Patient registered', MODE.isOnline ? 'Cloud save confirmed.' : 'Saved on this device only; cloud sync is unavailable.', MODE.isOnline ? 'good' : 'warn')
   showRegisterPatient()
   renderPatients()
 }
@@ -6615,20 +6602,9 @@ async function syncDomainToBackend(domain, items) {
       ts: new Date(item.createdAt || item.ts || Date.now()).toISOString()
     }))
     if (!rows.length) return { ok: true, count: 0 }
-    const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'org_id,jl_id' })
+    const { error } = await sb.from('jl_entries').upsert(rows, { onConflict: 'jl_id' })
     if (error) throw error
-    // Confirm the database can read back every row through the same authenticated,
-    // workspace-scoped session before the UI reports a successful cloud save.
-    const ids = rows.map(row => row.jl_id)
-    const { data: persisted, error: readError } = await sb.from('jl_entries')
-      .select('jl_id')
-      .eq('org_id', STATE.orgId)
-      .in('jl_id', ids)
-    if (readError) throw new Error('Cloud write completed but read-back verification failed: ' + readError.message)
-    const persistedIds = new Set((persisted || []).map(row => row.jl_id))
-    const missing = ids.filter(id => !persistedIds.has(id))
-    if (missing.length) throw new Error('Cloud write could not be verified for ' + missing.length + ' record(s).')
-    return { ok: true, count: rows.length, verified: true }
+    return { ok: true, count: rows.length }
   } catch (e) {
     console.error('[JLIGHT] domain sync failed:', e.message)
     toast('Cloud save failed', 'Your changes may only be stored on this device. Please retry before leaving this workspace.', 'crit')
@@ -7988,123 +7964,74 @@ function renderDashboard_v10_extras() {
 // ═══════════════════════════════════════════════════════════════════
 
 const JLIGHT_AI = {
-  model: 'claude-sonnet-4-20250514',
-  _key: null,
-
-  getKey() {
-    if (this._key) return this._key
-    // Check session storage first
-    const stored = sessionStorage.getItem('jl_ai_key')
-    if (stored) { this._key = stored; return this._key }
-    return null  // Never auto-prompt — only prompt when user clicks AI Analysis
-  },
-
-  promptForKey() {
-    const key = prompt(
-      'JLIGHT AI Analysis\n\nEnter your Anthropic API key to enable AI-powered Decision Card enrichment.\n\nStored in this browser session only — never saved to any file or server.',
-      ''
-    )
-    if (key && key.startsWith('sk-ant-')) {
-      this._key = key
-      sessionStorage.setItem('jl_ai_key', key)
-      return this._key
-    }
-    toast('Invalid key', 'API key must start with sk-ant-', 'warn')
-    return null
-  },
-
-  clearKey() {
-    this._key = null
-    sessionStorage.removeItem('jl_ai_key')
-  },
-  maxTokens: 1000,
-  endpoint: 'https://api.anthropic.com/v1/messages',
-
-  systemPrompt: `You are JLIGHT's clinical intelligence engine — a specialist in South African health system quality management. Analyse clinical events and produce enriched Decision Cards for laboratory scientists, clinicians, and trial coordinators. Always reference published clinical standards. Your output must be a JSON object with exactly these fields: {"severity":"crit|warn|info|good","title":"concise title under 12 words","insight":"1-2 sentence clinical explanation","rootCause":[{"stage":"Pre-analytical|Analytical|Post-analytical|Clinical","cause":"specific cause"}],"actions":["action 1","action 2","action 3"],"clinicalContext":"1 sentence South African context","urgency":"immediate|within_1h|within_4h|within_24h|routine"}. Never output anything other than the JSON object.`,
-
-  async enrichCard(card, patientData, recentResults) {
+  // Legacy object name retained for UI compatibility; no direct browser-to-model calls.
+  async enrichCard(card) {
+    if (!card || String(STATE.role || '').toLowerCase() === 'trial') return null;
+    const sb = getSupabase();
+    if (!sb) return null;
+    const sessionResult = await sb.auth.getSession();
+    const session = sessionResult && sessionResult.data && sessionResult.data.session;
+    if (!session || !session.access_token) return null;
+    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const severity = String(card.severity || '').toLowerCase();
+    const sourceRaw = String(card.domain || card.engine || '').toLowerCase();
+    const source = sourceRaw.includes('bio') ? 'bioinformatics' : sourceRaw.includes('lab') || sourceRaw.includes('qc') ? 'laboratory' : sourceRaw.includes('hospital') ? 'hospital' : 'interoperability';
+    const checkId = source === 'laboratory' ? 'missing_lab_result' : 'source_data_incomplete';
+    const status = ['crit','critical','warn','warning','high'].includes(severity) ? 'review' : ['good','info','pass','stable'].includes(severity) ? 'pass' : 'unknown';
     try {
-      const eventData = {
-        engine: card.engine, domain: card.domain, severity: card.severity,
-        signals: card.signals || [], description: card.description,
-        patient: patientData ? {
-          age: patientData.dateOfBirth ? Math.floor((Date.now() - new Date(patientData.dateOfBirth)) / 31557600000) : null,
-          gender: patientData.gender,
-          chronicConditions: patientData.chronicConditions || [],
-          allergies: patientData.allergies || [],
-        } : null,
-        recentResults: (recentResults || []).slice(-5).map(r => ({
-          test: r.testName, value: r.resultValue, unit: r.resultUnit,
-          interpretation: r.interpretation,
-          date: r.resultedAt ? new Date(r.resultedAt).toISOString().slice(0,10) : null,
-        })),
-        facility: STATE.orgName || 'South African health facility',
-        timestamp: new Date().toISOString(),
-      }
-      const apiKey = JLIGHT_AI.getKey()
-      if (!apiKey) { console.warn('[JLIGHT AI] No API key provided'); return null }
-      const response = await fetch(JLIGHT_AI.endpoint, {
+      const response = await fetch(baseUrl + '/api/intelligence/summary', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': JLIGHT_AI.getKey(),
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: JLIGHT_AI.model,
-          max_tokens: JLIGHT_AI.maxTokens,
-          system: JLIGHT_AI.systemPrompt,
-          messages: [{ role: 'user', content: `Analyse this clinical event and generate a Decision Card:\n\n${JSON.stringify(eventData, null, 2)}` }]
-        })
-      })
-      if (!response.ok) { console.warn('[JLIGHT AI] API error:', response.status); return null }
-      const data = await response.json()
-      const text = data.content?.find(b => b.type === 'text')?.text || ''
-      return JSON.parse(text.replace(/```json|```/g, '').trim())
-    } catch (e) { console.warn('[JLIGHT AI] Enrichment failed:', e.message); return null }
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ journey_checks: [{ check_id: checkId, source, status, severity: ['info','low','medium','high','critical'].includes(severity) ? severity : (status === 'pass' ? 'info' : 'medium'), evidence_count: 1 }] })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success !== true) return null;
+      const finding = (body.result && Array.isArray(body.result.findings)) ? body.result.findings[0] : null;
+      if (!finding) return { insight: 'The JLIGHT Intelligence Engine completed without producing a structured finding.', actions: ['Verify source records in the originating authorised system.'], rootCause: [], clinicalContext: 'Operational data-quality summary only; not a diagnostic conclusion.', urgency: 'routine', aiEnriched: true, aiEnrichedAt: Date.now() };
+      return {
+        insight: String(finding.recommended_next_step || 'Review the structured finding in the originating system.'),
+        actions: [String(finding.recommended_next_step || 'Review the source record.')],
+        rootCause: [{ stage: 'Data quality', cause: String(finding.rule_id || 'structured_journey_check') }],
+        clinicalContext: 'Structured, privacy-minimised JLIGHT intelligence; human review is required where flagged.',
+        urgency: finding.requires_human_review ? 'within_24h' : 'routine',
+        aiEnriched: true, aiEnrichedAt: Date.now()
+      };
+    } catch (_) { return null; }
   },
-
   async enrichCards(cards) {
-    if (!cards || cards.length === 0) return cards
-    const enriched = []
-    for (const card of cards) {
-      const patient = card.patientId ? STATE.patients.find(p => p.id === card.patientId) : null
-      const recentResults = card.patientId
-        ? (STATE.results || []).filter(r => r.patientId === card.patientId).sort((a,b) => (b.resultedAt||0) - (a.resultedAt||0)).slice(0,10)
-        : []
-      const ai = await JLIGHT_AI.enrichCard(card, patient, recentResults)
-      enriched.push(ai ? { ...card, insight: ai.insight || card.insight, rootCause: ai.rootCause || card.rootCause, actions: ai.actions || card.actions, clinicalContext: ai.clinicalContext || '', urgency: ai.urgency || 'routine', aiEnriched: true, aiEnrichedAt: Date.now() } : card)
+    const enriched = [];
+    for (const card of (cards || [])) {
+      const result = await this.enrichCard(card);
+      enriched.push(result ? { ...card, ...result } : card);
     }
-    return enriched
+    return enriched;
   },
-
   async analyseCard(cardId) {
-    const card = STATE.cards.find(c => c.id === cardId)
-    if (!card) return
-    const btn = document.getElementById('ai-analyse-btn-' + cardId)
-    // Ensure we have a key — prompt only when user explicitly clicks
-    if (!JLIGHT_AI.getKey()) {
-      const key = JLIGHT_AI.promptForKey()
-      if (!key) return
+    const card = (STATE.cards || []).find(c => c.id === cardId);
+    if (!card) return;
+    const btn = document.getElementById('ai-analyse-btn-' + cardId);
+    if (String(STATE.role || '').toLowerCase() === 'trial') {
+      toast('Intelligence isolated', 'The Intelligence Engine is not available inside Clinical Trials.', 'warn');
+      return;
     }
-    if (btn) { btn.textContent = 'Analysing...'; btn.disabled = true }
-    const patient = card.patientId ? STATE.patients.find(p => p.id === card.patientId) : null
-    const recentResults = card.patientId ? (STATE.results || []).filter(r => r.patientId === card.patientId).slice(-10) : []
-    const ai = await JLIGHT_AI.enrichCard(card, patient, recentResults)
-    if (ai) {
-      const idx = STATE.cards.findIndex(c => c.id === cardId)
-      if (idx >= 0) {
-        STATE.cards[idx] = { ...STATE.cards[idx], insight: ai.insight || STATE.cards[idx].insight, rootCause: ai.rootCause || STATE.cards[idx].rootCause, actions: ai.actions || STATE.cards[idx].actions, clinicalContext: ai.clinicalContext || '', urgency: ai.urgency || 'routine', aiEnriched: true, aiEnrichedAt: Date.now() }
-        STORAGE.saveCards(STATE.role, STATE.cards)
-        if (typeof openCard === 'function') openCard(cardId)
-        toast('AI analysis complete', 'Decision Card enriched with clinical context', 'good')
+    if (btn) { btn.textContent = 'Analysing...'; btn.disabled = true; }
+    try {
+      const result = await this.enrichCard(card);
+      if (!result) {
+        toast('Intelligence unavailable', 'Check your sign-in, permissions and staging API configuration.', 'warn');
+        return;
       }
-    } else {
-      toast('AI unavailable', 'Card intelligence running on local engines', 'warn')
+      const idx = STATE.cards.findIndex(c => c.id === cardId);
+      if (idx >= 0) {
+        STATE.cards[idx] = { ...STATE.cards[idx], ...result };
+        STORAGE.saveCards(STATE.role, STATE.cards);
+        if (typeof openCard === 'function') openCard(cardId);
+        toast('JLIGHT Intelligence complete', 'Structured summary returned by the authenticated JLIGHT backend.', 'good');
+      }
+    } finally {
+      if (btn) { btn.textContent = '✦ JLIGHT Intelligence'; btn.disabled = false; }
     }
-    if (btn) { btn.textContent = '✦ AI Analysis'; btn.disabled = false }
-  },
+  }
 }
 
 function runAIAnalysis(cardId) { JLIGHT_AI.analyseCard(cardId) }
