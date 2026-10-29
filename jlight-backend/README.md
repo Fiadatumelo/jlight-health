@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 # 3. Copy and configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL (optional — runs without DB in stateless mode)
+# Edit .env with your DATABASE_URL (optional) and SUPABASE_JWT_SECRET (required for protected routes)
 
 # 4. Run tests
 python3 tests/test_all.py
@@ -57,7 +57,8 @@ python3 api/app.py
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/health | System health check |
+| GET | /api/health | Public system health check |
+| — | Protected routes | `/api/bio/sequence` and `/api/audit` require `Authorization: Bearer <Supabase access token>` |
 | POST | /api/analyse-csv | CSV/XLSX QC analysis |
 | POST | /api/bio/tb | TB drug resistance screening |
 | POST | /api/bio/variant | SNV/INDEL variant detection |
@@ -68,6 +69,10 @@ python3 api/app.py
 | GET | /api/cards | Decision cards from DB |
 | POST | /api/cards/acknowledge | Acknowledge a card |
 | GET | /api/audit | Audit log entries |
+
+## Authentication
+
+Set `SUPABASE_JWT_SECRET` on the backend to the Supabase project's JWT signing secret for HS256-signed access tokens. Never put this secret in frontend code or commit a real secret. Protected routes fail closed: missing/invalid tokens return HTTP 401; verifier configuration or service failures return HTTP 503. If the Supabase project uses asymmetric JWT signing keys rather than HS256, this verifier must be adapted to the project's JWKS/public-key configuration before enabling these routes.
 
 ## Example: CSV Analysis
 
