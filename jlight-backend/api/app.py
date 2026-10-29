@@ -214,10 +214,13 @@ def api_intelligence_summary():
     permissions = claims.get("permissions")
     if permissions is None:
         permissions = app_metadata.get("permissions", [])
+    token_role = str(claims.get("role", "")).strip().lower()
+    # Supabase's standard database roles are not JLIGHT workspace roles.
+    custom_top_level_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
     role = str(
         claims.get("jlight_role") or claims.get("workspace_role")
         or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or ""
+        or app_metadata.get("role") or custom_top_level_role or ""
     ).strip().lower()
     trial_scope = (
         role in {"trial", "clinical_trials"}
