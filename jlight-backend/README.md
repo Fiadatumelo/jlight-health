@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 # 3. Copy and configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL (optional) and SUPABASE_JWT_SECRET (required for protected routes)
+# Edit .env with DATABASE_URL (optional) and SUPABASE_URL (required for protected routes)
 
 # 4. Run tests
 python3 tests/test_all.py
@@ -72,7 +72,7 @@ python3 api/app.py
 
 ## Authentication
 
-Set `SUPABASE_JWT_SECRET` on the backend to the Supabase project's JWT signing secret for HS256-signed access tokens. Never put this secret in frontend code or commit a real secret. Every data endpoint (`/api/analyse-csv`, `/api/bio/*`, `/api/cards`, `/api/cards/acknowledge`, and `/api/audit`) requires `Authorization: Bearer <Supabase access token>`. Only `/api/health` is public. Missing/invalid tokens return HTTP 401; verifier configuration or service failures return HTTP 503. If the Supabase project uses asymmetric JWT signing keys rather than HS256, this verifier must be adapted to the project's JWKS/public-key configuration before enabling these routes.
+The API uses the shared verifier in `api/security.py`. Set `SUPABASE_URL` to the project URL; the issuer defaults to `${SUPABASE_URL}/auth/v1` and the JWKS endpoint defaults to `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`. `SUPABASE_JWT_ISSUER` and `SUPABASE_JWKS_URL` can override those defaults. The verifier supports Supabase HS256, RS256, and ES256 access tokens. Set `SUPABASE_JWT_SECRET` only for projects using HS256. Keep all signing secrets server-side and never commit real secrets. Every data endpoint (`/api/analyse-csv`, `/api/bio/*`, `/api/cards`, `/api/cards/acknowledge`, and `/api/audit`) requires `Authorization: Bearer <Supabase access token>`; only `/api/health` is public. Invalid tokens return HTTP 401. Missing verifier configuration or verification-service failures return HTTP 503.
 
 ## Example: CSV Analysis
 
