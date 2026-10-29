@@ -144,9 +144,11 @@ def build_intelligence_summary(
     for finding in findings:
         counts[finding["status"]] += 1
 
-    review_count = counts["review"] + counts["fail"] + counts["unknown"]
+    # A finding can have status="pass" but still carry high/critical severity.
+    # Aggregate the actual per-finding review requirement, not status labels alone.
+    review_required = any(item["requires_human_review"] for item in findings)
     overall = ("insufficient_input" if not findings else
-               "review_required" if review_count else "no_flags_from_supplied_checks")
+               "review_required" if review_required else "no_flags_from_supplied_checks")
     return {
         "engine": "JLIGHT Intelligence Engine",
         "engine_version": ENGINE_VERSION,
@@ -154,7 +156,7 @@ def build_intelligence_summary(
         "overall_status": overall,
         "finding_count": len(findings),
         "status_counts": counts,
-        "human_review_required": review_count > 0,
+        "human_review_required": review_required,
         "findings": findings,
         "limitations": [
             "This summary aggregates supplied structured outputs; it does not independently validate source systems.",
