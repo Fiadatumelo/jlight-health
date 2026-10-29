@@ -37,6 +37,9 @@ jobs:
       - name: Run JC agent core tests
         working-directory: jlight-backend
         run: python -m pytest tests/test_jc_agent.py -q
+      - name: Run API authentication regression tests
+        working-directory: jlight-backend
+        run: python -m pytest tests/test_api_security.py -q
       - name: Run authenticated AI/JC integration tests
         working-directory: jlight-backend
         run: python -m pytest tests/test_intelligence_api.py -q
