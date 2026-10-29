@@ -171,53 +171,6 @@ def get_json_field(data: dict, field: str, required: bool = True):
 
 
 
-:
-    return jsonify({"error": "Internal server error"}), 500
-
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def success(data: dict, status: int = 200):
-    return jsonify({"success": True, **data}), status
-
-def error(message: str, status: int = 400):
-    return jsonify({"success": False, "error": message}), status
-
-def get_json_field(data: dict, field: str, required: bool = True):
-    val = data.get(field)
-    if required and (val is None or val == ""):
-        raise ValueError(f"Missing required field: {field}")
-    return val
-
-
-
-# ─── Verified identity for the new AI/JC route ────────────────────────────────
-def verify_access_token(token: str) -> dict:
-    """Verify a Supabase HS256 access token; fail closed if configuration is absent."""
-    secret = os.environ.get("SUPABASE_JWT_SECRET", "").strip()
-    if not secret:
-        raise RuntimeError("JWT verification is not configured")
-    claims = jwt.decode(
-        token, secret, algorithms=["HS256"], audience="authenticated",
-        options={"require": ["sub", "aud", "exp"]},
-    )
-    if not isinstance(claims.get("sub"), str) or not claims["sub"].strip():
-        raise jwt.InvalidTokenError("Missing subject")
-    return claims
-
-
-def _verified_claims():
-    header = request.headers.get("Authorization", "")
-    scheme, _, token = header.partition(" ")
-    if scheme.lower() != "bearer" or not token.strip():
-        return None, (jsonify({"success": False, "error": "Authentication required"}), 401)
-    try:
-        return verify_access_token(token.strip()), None
-    except Exception:
-        # Do not disclose token validation details or secrets.
-        return None, (jsonify({"success": False, "error": "Authentication service unavailable"}), 503)
-
-
 def _write_jc_audit(event):
     """Persist metadata-only JC audit events; fail closed if audit storage is unavailable."""
     db = get_db()
