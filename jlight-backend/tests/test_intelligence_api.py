@@ -58,6 +58,47 @@ def test_clinical_trials_scope_is_rejected_before_execution():
         )
     assert response.status_code == 403
 
+def test_trusted_supabase_app_metadata_claims_are_supported():
+    claims = {
+        "sub": "00000000-0000-4000-8000-000000000002",
+        "aud": "authenticated",
+        "role": "authenticated",
+        "app_metadata": {
+            "org_id": "org-from-trusted-app-metadata",
+            "permissions": ["intelligence:read"],
+            "jlight_role": "Laboratory",
+        },
+    }
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app._write_jc_audit"):
+        response = app.test_client().post(
+            "/api/intelligence/summary",
+            headers={"Authorization": "Bearer verified-test-token"},
+            json={"journey_checks": []},
+        )
+    assert response.status_code == 200
+    assert response.get_json()["organisation_id"] == "org-from-trusted-app-metadata"
+
+
+def test_user_metadata_is_never_used_for_tenant_or_permissions():
+    claims = {
+        "sub": "00000000-0000-4000-8000-000000000003",
+        "aud": "authenticated",
+        "role": "authenticated",
+        "user_metadata": {
+            "org_id": "attacker-controlled-org",
+            "permissions": ["intelligence:read"],
+            "jlight_role": "Laboratory",
+        },
+    }
+    with patch("api.app.verify_access_token", return_value=claims):
+        response = app.test_client().post(
+            "/api/intelligence/summary",
+            headers={"Authorization": "Bearer verified-test-token"},
+            json={"journey_checks": []},
+        )
+    assert response.status_code == 403
+
 
 def test_intelligence_permission_is_required():
     claims = verified_claims(permissions=["system:read"])
