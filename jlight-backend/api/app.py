@@ -203,10 +203,27 @@ def api_intelligence_summary():
     if not isinstance(claims, dict):
         return jsonify({"success": False, "error": "Authentication required"}), 401
 
-    org_id = claims.get("organisation_id") or claims.get("org_id")
-    permissions = claims.get("permissions", [])
-    role = str(claims.get("role", "")).strip().lower()
-    trial_scope = role in {"trial", "clinical_trials"} or claims.get("clinical_trials_scope") is True
+    # Supabase app_metadata is server-managed and signed into the access token.
+    # Never authorise from user_metadata, which users can edit themselves.
+    app_metadata = claims.get("app_metadata")
+    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
+    org_id = (
+        claims.get("organisation_id") or claims.get("org_id")
+        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
+    )
+    permissions = claims.get("permissions")
+    if permissions is None:
+        permissions = app_metadata.get("permissions", [])
+    role = str(
+        claims.get("jlight_role") or claims.get("workspace_role")
+        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
+        or app_metadata.get("role") or ""
+    ).strip().lower()
+    trial_scope = (
+        role in {"trial", "clinical_trials"}
+        or claims.get("clinical_trials_scope") is True
+        or app_metadata.get("clinical_trials_scope") is True
+    )
     if not isinstance(org_id, str) or not org_id.strip():
         return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
     if not isinstance(permissions, list) or not all(isinstance(p, str) for p in permissions):
