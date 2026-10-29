@@ -68,6 +68,8 @@ a { color: var(--teal); text-decoration: none; }
 .pin-key:hover { background: var(--surface-4); border-color: var(--border-2); }
 .pin-key:active { transform: scale(0.95); background: var(--teal-bg); border-color: var(--teal); color: var(--teal); }
 .pin-key.empty { visibility: hidden; }
+.auth-link { appearance:none; border:0; padding:0; background:transparent; font:inherit; font-size:12px; color:var(--text-2); cursor:pointer; text-decoration:underline; text-underline-offset:3px; position:relative; z-index:2; pointer-events:auto; }
+.auth-link:hover,.auth-link:focus-visible { color:var(--teal); outline-offset:3px; }
 .auth-status { text-align: center; font-size: 12.5px; margin-top: 16px; min-height: 20px; color: var(--text-2); }
 .auth-status.error { color: var(--red); }
 .auth-status.success { color: var(--green); }
@@ -597,8 +599,8 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
-      <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
+      <button type="button" class="auth-link" id="forgot-password-link" onclick="window.jlightRequestPasswordReset(event)" aria-label="Request password reset">Forgot password?</button>
+      <a onclick="doOfflineMode()" title="Optional local-only mode; data stays on this device and is not cloud-synchronised" style="color:var(--text-3);cursor:pointer">Work offline (local-only) →</a>
     </div>
   </div>
 </div>
@@ -694,7 +696,7 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
           <span class="dot"></span>
           <span>Local · Encrypted</span>
         </div>
-        <button class="tb-btn primary" onclick="goPage('connectors')">+ Connect Data Source</button>
+        <button class="tb-btn primary" type="button" id="connect-data-source-btn" onclick="openDataSourcesWorkflow()">+ Connect Data Source</button>
       </header>
       <div class="content">
         <div id="page-dashboard" class="page active"></div>
@@ -1384,13 +1386,27 @@ async function sendOrganisationCodeEmail() {
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
 }
 
+window.jlightRequestPasswordReset = function(event) {
+  if (event) { event.preventDefault(); event.stopPropagation(); }
+  const button = document.getElementById('forgot-password-link');
+  if (button && button.dataset.busy === 'true') return;
+  if (button) { button.dataset.busy = 'true'; button.disabled = true; }
+  Promise.resolve(doForgotPassword()).catch(error => {
+    console.error('[JLIGHT] password-reset click handler failed:', error);
+    const status = document.getElementById('si-status');
+    if (status) { status.textContent = 'Password reset could not be started. Please retry.'; status.className = 'auth-status error'; }
+  }).finally(() => {
+    if (button) { button.dataset.busy = 'false'; button.disabled = false; }
+  });
+};
+
 async function doForgotPassword() {
   const emailInput = document.getElementById('si-email')
   const addr = (emailInput?.value || '').trim()
   const status = document.getElementById('si-status')
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
   if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
   const sb = getSupabase()
   if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
   setStatus('Requesting a secure password-reset email…')
@@ -1862,13 +1878,114 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
   }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn btn-primary" onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
     '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
-    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>';
+    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate two separate reports for the selected patient: a chronological journey summary and a data-quality / traceability review. Both share a correlation ID and exclude direct identifiers.</p><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
+}
+function downloadJourneyJson(report, filename) {
+  const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function requestJlightIntelligenceSummary(patient, events) {
+  if (String(STATE.role || '').toLowerCase() === 'trial') {
+    return { success: false, skipped: true, message: 'Intelligence summary is not available in the isolated Clinical Trials workspace.' };
+  }
+  const sb = getSupabase();
+  if (!sb) return { success: false, message: 'Secure session is unavailable. Sign in again.' };
+  const sessionResult = await sb.auth.getSession();
+  const session = sessionResult && sessionResult.data && sessionResult.data.session;
+  if (!session || !session.access_token) return { success: false, message: 'A verified session is required for Intelligence.' };
+  const pid = String(patient.id);
+  const patientOrders = (STATE.labOrders || []).filter(r => r && r.patientId != null && String(r.patientId) === pid);
+  const patientResults = (STATE.results || []).filter(r => r && r.patientId != null && String(r.patientId) === pid);
+  const checks = [];
+  if (patientOrders.length > patientResults.length) {
+    checks.push({ check_id: 'missing_lab_result', source: 'laboratory', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, patientOrders.length - patientResults.length) });
+  }
+  const undated = (events || []).filter(e => !(e.when instanceof Date && !Number.isNaN(e.when.getTime()))).length;
+  if (undated > 0) {
+    checks.push({ check_id: 'source_data_incomplete', source: 'interoperability', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, undated) });
+  }
+  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+  try {
+    const response = await fetch(baseUrl + '/api/intelligence/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ journey_checks: checks })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Intelligence service returned HTTP ' + response.status) };
+    return { success: true, summary: body.result, engine: body.result && body.result.engine_version || null };
+  } catch (_) {
+    return { success: false, message: 'Intelligence service could not be reached. The two local reports can still be generated.' };
+  }
+}
+
+async function generatePatientJourneyReports() {
+  const status = document.getElementById('patient-journey-report-status');
+  const trialPatientIds = new Set((STATE.participants || []).map(x => x && x.patientId != null ? String(x.patientId) : '').filter(Boolean));
+  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)) && (STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))));
+  const patient = patients.find(p => String(p.id) === String(STATE.currentPatientId));
+  if (!patient) {
+    if (status) status.textContent = 'Select an active patient before generating reports.';
+    toast('No patient selected', 'Select an active patient first.', 'crit');
+    return;
+  }
+  const events = buildPatientJourneyEvents(patient);
+  const participantLabel = 'Participant ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
+  const generatedAt = new Date().toISOString();
+  const intelligence = await requestJlightIntelligenceSummary(patient, events);
+  const journeyReport = {
+    reportType: 'patient-journey-summary', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    scope: STATE.role === 'Trial' ? 'clinical-trials-only' : 'hospital-laboratory-bioinformatics-intelligence',
+    eventCount: events.length,
+    events: events.map(e => ({
+      source: String(e.source || 'Unknown'), eventType: String(e.label || 'Recorded event'),
+      occurredAt: e.when && !Number.isNaN(e.when.getTime()) ? e.when.toISOString() : null,
+      status: 'Source status must be verified in the originating system.', summary: 'Source record available; free-text details omitted from this export to reduce identifier leakage and avoid reproducing unverified clinical statements.'
+    })),
+    limitations: ['Source systems remain authoritative.', 'Missing records or dates are unknown, not proof that an event did not occur.', 'Participant label is a report-local alias and is not a patient identifier.']
+  };
+  const missingDates = events.filter(e => !(e.when && !Number.isNaN(e.when.getTime())) && !e.rawWhen).length;
+  const invalidDates = events.filter(e => e.rawWhen && !(e.when && !Number.isNaN(e.when.getTime()))).length;
+  const sourceCounts = {};
+  events.forEach(e => { const k = String(e.source || 'Unknown'); sourceCounts[k] = (sourceCounts[k] || 0) + 1; });
+  const qualityReport = {
+    reportType: 'patient-data-quality-traceability', schemaVersion: '1.0', generatedAt,
+    participantLabel, workspace: 'Current workspace',
+    eventCount: events.length, sourceCounts,
+    intelligence: intelligence.success ? intelligence.summary : { status: intelligence.skipped ? 'isolated' : 'unavailable', message: intelligence.message || 'No Intelligence summary returned.' },
+    checks: [
+      {check:'journey_has_events', status: events.length ? 'review' : 'not-evaluable', count:events.length, note:events.length ? 'Events are present; verify source completeness against the originating systems.' : 'No linked events are available; absence cannot establish that care or testing did not occur.'},
+      {check:'events_missing_dates', status:missingDates ? 'review' : 'pass', count:missingDates},
+      {check:'events_with_unparseable_dates', status:invalidDates ? 'review' : 'pass', count:invalidDates},
+      {check:'source_provenance', status:'manual-review-required', count:events.length, note:'Confirm source record references and provenance in authorised source systems.'}
+    ],
+    limitations:['This is a traceability review, not a diagnostic conclusion.', 'No clinical values are invented or inferred.', 'No duplicate-record claim is made because stable source record identifiers are not exposed by the journey event view.']
+  };
+  const suffix = new Date().toISOString().slice(0,10);
+  const safeLabel = participantLabel.toLowerCase().replace(/\s+/g,'-');
+  // Two separate reports share one correlation ID for traceability.
+  const correlationId = (window.crypto && typeof window.crypto.randomUUID === 'function')
+    ? window.crypto.randomUUID()
+    : 'jlight-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  journeyReport.correlationId = correlationId;
+  qualityReport.correlationId = correlationId;
+  journeyReport.intelligenceStatus = intelligence.success ? 'completed' : (intelligence.skipped ? 'isolated' : 'unavailable');
+  downloadJourneyJson(journeyReport, 'jlight-' + safeLabel + '-journey-summary-' + suffix + '.json');
+  downloadJourneyJson(qualityReport, 'jlight-' + safeLabel + '-data-quality-traceability-' + suffix + '.json');
+  try { await audit('Patient journey reports generated', participantLabel + '; correlation: ' + correlationId + '; event count: ' + events.length + '; outputs: 2'); }
+  catch (e) { console.warn('[JLIGHT] patient report audit could not be saved:', e.message); }
+  const intelligenceText = intelligence.success ? ' Intelligence summary completed.' : intelligence.skipped ? ' Intelligence was skipped because Clinical Trials is isolated.' : ' Intelligence unavailable; both reports were still generated.';
+  if (status) status.textContent = 'Generated two separate reports for ' + participantLabel + ' (journey summary and data-quality / traceability). Correlation ID: ' + correlationId + '.' + intelligenceText + ' Check the downloads folder.';
+  toast('Two patient journey reports generated', intelligence.success ? 'Journey summary and data-quality report include the Intelligence summary status.' : 'Journey summary and data-quality report generated; Intelligence status is recorded in the quality report.', 'good');
 }
 async function generateJourneyReport() {
   const report=buildJourneyReport(),output=document.getElementById("journey-report-output")
@@ -1878,6 +1995,66 @@ async function generateJourneyReport() {
   link.href=url;link.download="jlight-traceability-report-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)
   toast("Traceability report generated","Aggregate report downloaded. Check the audit trail for the event.","good")
 }
+
+function openPrintableReport(title,bodyHtml) {
+  const win=window.open('','_blank','width=1000,height=800');
+  if(!win){toast('Pop-up blocked','Allow pop-ups for JLIGHT to preview and print the report.','warn');return false;}
+  win.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+esc(title)+'</title><style>body{font:14px Arial,sans-serif;color:#182638;max-width:1000px;margin:36px auto;padding:0 24px;line-height:1.5}h1{color:#243f68;font-size:24px}h2{margin-top:28px;color:#345a8b;font-size:17px}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{text-align:left;vertical-align:top;padding:9px;border-bottom:1px solid #dce4ee;overflow-wrap:anywhere}th{background:#f0f5fb}@media print{body{margin:12mm auto;padding:0}}</style></head><body>'+bodyHtml+'<p><button onclick="window.print()">Print / Save as PDF</button></p></body></html>');
+  win.document.close();return true;
+}
+
+
+function generateSelectedPatientJourneyReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Clinical Trials remain outside the shared patient journey.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>String(p.id)===pid&&!p.archivedAt&&String(p.orgId||'')===orgId);
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation before generating the report.','warn');return;}
+  const events=buildPatientJourneyEvents(patient).map(e=>({source:e.source,event:e.label,date:e.when?e.when.toISOString():(e.rawWhen||null),status:e.status||'Recorded',summary:e.summary||'Source summary not supplied'}));
+  const generatedAt=new Date().toISOString();
+  const report={reportType:'JLIGHT Patient Journey Report',reportId:uid(),generatedAt,workspace:STATE.orgName||'Current workspace',generatedBy:getDisplayName(),patientReference:patient.mrn||patient.id,dataCutoff:generatedAt,eventCount:events.length,events,limitations:['Traceability and decision-support summary only; not an autonomous diagnosis.','Events are linked by exact existing patient ID only. Missing records do not indicate negative findings.','Raw sequence reads, sequence files and unrestricted variant files are excluded.','Clinical Trials remain a separate workflow.']};
+  const html='<h1>JLIGHT Patient Journey Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Workspace:</b> '+esc(report.workspace)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Data cut-off:</b> '+esc(new Date(generatedAt).toLocaleString())+'</p><h2>Journey timeline ('+events.length+' events)</h2>'+(events.length?'<table><thead><tr><th>Date</th><th>Source</th><th>Event</th><th>Status</th><th>Summary</th></tr></thead><tbody>'+events.map(e=>'<tr><td>'+esc(e.date?new Date(e.date).toLocaleString():'Date not supplied')+'</td><td>'+esc(e.source)+'</td><td>'+esc(e.event)+'</td><td>'+esc(e.status)+'</td><td>'+esc(e.summary)+'</td></tr>').join('')+'</tbody></table>':'<p>No authorised linked events were found. This is not evidence that no events occurred.</p>')+'<h2>Limitations and privacy</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul><p>Source systems remain authoritative. Review permissions before sharing.</p>';
+  if(!openPrintableReport('JLIGHT-Patient-Journey-'+String(patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  try{audit('Patient Journey report generated',report.reportId+' · patient reference '+report.patientReference+' · '+events.length+' events')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Patient-Journey-'+new Date(generatedAt).toISOString().slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  toast('Patient Journey Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
+function generateSelectedPatientBioinformaticsReport() {
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
+  if(STATE.role!=='Bioinformatics'){toast('Permission required','Generate this report from an authorised Bioinformatics workspace.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before generating reports.','warn');return;}
+  const pid=String(STATE.currentPatientId||'');
+  const patient=(STATE.patients||[]).find(p=>p&&!p.archivedAt&&String(p.id)===pid&&String(p.orgId||'')===orgId);
+  if(!patient){toast('Select a patient','Choose a patient in the current organisation first.','warn');return;}
+  const entries=(STATE.entries||[]).filter(e=>e&&e.role==='Bioinformatics'&&String(e.orgId||'')===orgId&&String(e.patientId||'')===pid).sort((a,b)=>(Number(b.ts)||0)-(Number(a.ts)||0));
+  if(!entries.length){toast('No linked analysis','Record a Bioinformatics run and link it to this exact patient reference first.','warn');return;}
+  const generatedAt=new Date().toISOString();
+  const analyses=entries.map(e=>{
+    const cards=(STATE.cards||[]).filter(card=>card&&card.role==='Bioinformatics'&&String(card.orgId||'')===orgId&&String(card.patientId||'')===pid&&String(card.analysisEntryId||'')===String(e.id||''));
+    const metrics=[
+      ['Coverage',e.coverage,'x',Number(e.coverage)>=30?'Pass':'Review'],
+      ['Mapping rate',e.mappingRate,'%',Number(e.mappingRate)>=85?'Pass':'Review'],
+      ['Q-score',e.qscore,'',Number(e.qscore)>=30?'Pass':'Review'],
+      ['Duplication',e.dupRate,'%',Number(e.dupRate)<=20?'Pass':'Review'],
+      ['GC content',e.gcContent,'%',Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+      ['Contamination',e.contamination,'%',Number(e.contamination)<=5?'Pass':'Review'],
+      ['Variant count',e.variantCount,'','Review']
+    ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1]))).map(row=>({metric:row[0],value:Number(row[1]),unit:row[2],reviewStatus:row[3]}));
+    return {runId:String(e.sampleId||'Not supplied'),analysisType:e.analysisType||'Not supplied',platform:e.platform||'Not supplied',pipeline:e.pipeline||'Not supplied',reference:e.reference||'Not supplied',runDate:e.ts?new Date(e.ts).toISOString():null,qcMetrics:metrics,qcIssues:cards.map(card=>({severity:card.severity,title:card.title,description:card.description}))};
+  });
+  const report={reportType:'JLIGHT Bioinformatics Analysis Report',reportId:uid(),generatedAt,generatedBy:getDisplayName(),organisationReference:STATE.orgName||'Current organisation',patientReference:String(patient.mrn||patient.id),analysisCount:analyses.length,analyses,limitations:['This report summarises Bioinformatics records explicitly linked by exact patient ID within the current organisation.','Missing metrics are not inferred; missing source records do not indicate a negative result.','QC thresholds are screening indicators and must be checked against the validated workflow and assay.','This report is not a clinical diagnosis; expert review is required.']};
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(new Date(generatedAt).toLocaleString())+'<br><b>Organisation:</b> '+esc(report.organisationReference)+'<br><b>Patient reference:</b> '+esc(report.patientReference)+'<br><b>Linked analysis runs:</b> '+analyses.length+'</p>'+analyses.map((analysis,index)=>'<h2>Analysis '+(index+1)+': '+esc(analysis.runId)+'</h2><p><b>Type:</b> '+esc(analysis.analysisType)+' · <b>Platform:</b> '+esc(analysis.platform)+' · <b>Pipeline:</b> '+esc(analysis.pipeline)+' · <b>Reference:</b> '+esc(analysis.reference)+'<br><b>Run date:</b> '+esc(analysis.runDate?new Date(analysis.runDate).toLocaleString():'Not supplied')+'</p>'+(analysis.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+analysis.qcMetrics.map(metric=>'<tr><td>'+esc(metric.metric)+'</td><td>'+esc(metric.value)+'</td><td>'+esc(metric.unit)+'</td><td>'+esc(metric.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+(analysis.qcIssues.length?'<ul>'+analysis.qcIssues.map(issue=>'<li>'+esc(issue.severity)+' · '+esc(issue.title)+' · '+esc(issue.description)+'</li>').join('')+'</ul>':'<p>No linked QC issue cards were found for this run; this is not proof that no issues exist.</p>')).join('')+'<h2>Limitations and review</h2><ul>'+report.limitations.map(item=>'<li>'+esc(item)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='JLIGHT-Bioinformatics-Analysis-'+String(patient.mrn||patient.id).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.slice(0,10)+'.json';document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+  try{audit('Patient-linked Bioinformatics Analysis report generated',report.reportId+' · patient reference '+report.patientReference+' · '+analyses.length+' runs')}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Bioinformatics Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
+}
+
 function renderDashboard() {
   const cfg = ROLES[STATE.role]
   const cards = STATE.cards
@@ -2320,7 +2497,14 @@ function submitTrialEntry() {
 
   const cards = analyseTrialEvent(e)
   if (cards.length > 0) {
-    cards.forEach(c => STATE.cards.push(c))
+    // Bind every generated QC issue to the exact analysis, patient and organisation.
+    // Reports must never infer linkage from timestamp proximity alone.
+    cards.forEach(card => STATE.cards.push({
+      ...card,
+      orgId: e.orgId,
+      patientId: e.patientId,
+      analysisEntryId: e.id,
+    }))
     STORAGE.saveCards(STATE.role, STATE.cards)
     toast(`${cards.length} decision${cards.length > 1 ? 's' : ''} generated`, cards[0].title, cards[0].severity)
   } else {
@@ -2957,7 +3141,24 @@ function resetSourceImportPreview() {
   const commit = document.getElementById('source-import-commit')
   if (commit) commit.disabled = true
   const el = document.getElementById('source-import-preview')
-  if (el) el.innerHTML = '<p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  if (el) el.innerHTML = '<p class="source-import-help">Preview cleared. Choose a source type and preview a CSV before importing. No records are saved during preview.</p>'
+  const file = document.getElementById('source-import-file')
+  if (file) file.value = ''
+  SOURCE_IMPORT_FILE_NAME = ''
+}
+function openDataSourcesWorkflow() {
+  try {
+    if (typeof goPage !== 'function') throw new Error('Navigation is unavailable. Reload JLIGHT and sign in again.')
+    goPage('connectors')
+    const page = document.getElementById('page-connectors')
+    if (!page || !page.classList.contains('active')) throw new Error('Data Sources could not be opened. Please retry.')
+    const heading = page.querySelector('.page-title')
+    if (heading) heading.setAttribute('tabindex', '-1'), heading.focus({ preventScroll: true })
+    page.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  } catch (error) {
+    console.error('[JLIGHT] Connect Data Source navigation failed:', error)
+    if (typeof toast === 'function') toast('Data Sources unavailable', error.message || 'Please reload and try again.', 'crit')
+  }
 }
 function renderConnectors() {
   const page = document.getElementById('page-connectors')
@@ -2973,7 +3174,7 @@ function renderConnectors() {
     '<div class="source-import-grid"><div class="form-row"><label class="form-label" for="source-import-domain">Record type</label><select class="form-input" id="source-import-domain" onchange="resetSourceImportPreview()"><option value="labOrders">Laboratory order status</option><option value="results">Imported laboratory result records</option><option value="admissions">Hospital admissions</option><option value="clinicalOrders">Hospital orders</option><option value="bioRuns">Bioinformatics outputs</option><option value="patients">Patient registry (online or de-identified offline)</option></select></div>' +
     '<div class="form-row"><label class="form-label" for="source-import-file">Choose CSV / TSV file</label><input class="form-input" type="file" id="source-import-file" accept=".csv,.tsv,text/csv,text/tab-separated-values" onchange="handleSourceImportFile(event)"/></div>' +
     '<div class="form-row source-import-full"><label class="form-label" for="source-import-text">Or paste CSV text</label><textarea class="form-input" id="source-import-text" rows="7" placeholder="Header row first, for example: patientId,status,sourceSystem"></textarea></div><div class="source-import-full"><label class="source-import-consent"><input type="checkbox" id="source-import-deidentified"/> I confirm that any offline import is de-identified and patientId values are pseudonymous, not MRNs or direct identifiers.</label></div></div>' +
-    '<div class="source-import-actions"><button class="btn" onclick="previewSourceCsv()">Preview and validate</button><button class="btn btn-primary" id="source-import-commit" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
+    '<div class="source-import-actions"><button class="btn" type="button" onclick="previewSourceCsv()">Preview and validate</button><button class="btn" type="button" onclick="resetSourceImportPreview()">Clear preview</button><button class="btn btn-primary" id="source-import-commit" type="button" onclick="commitSourceCsv()" disabled>Import validated records</button></div>' +
     '<div id="source-import-preview" class="source-import-preview" aria-live="polite"><p class="source-import-help">Choose a source type and preview a CSV before importing. No records are saved during preview.</p></div></div>'
 }
 function handleSourceImportFile(event) {
@@ -4175,42 +4376,44 @@ function bioRecs(e, qcStatus, cards) {
 }
 
 function exportBioReport(entryId) {
-  const e = STATE.entries.find(x=>x.id===entryId); if(!e) return
-  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics')
-  const lines = [
-    '=====================================================',
-    '  JLIGHT v10.0 -- NGS ANALYSIS REPORT',
-    '  Generated: '+new Date().toLocaleString(undefined,{hour12:false}),
-    '  Operator: '+getDisplayName(),
-    '=====================================================','',
-    'RUN ID        : '+e.sampleId,
-    'ANALYSIS TYPE : '+(e.analysisType||''),
-    'PLATFORM      : '+(e.platform||''),
-    'PIPELINE      : '+(e.pipeline||''),
-    'REFERENCE     : '+(e.reference||''),
-    'DATE          : '+new Date(e.ts).toLocaleDateString(),'',
-    'QC METRICS','--------------------------------------------------',
-    !isNaN(e.coverage)     ? '  Coverage      : '+e.coverage+'x '+(e.coverage>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.mappingRate)  ? '  Mapping Rate  : '+e.mappingRate+'% '+(e.mappingRate>=85?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.qscore)       ? '  Q-Score       : Q'+Math.round(e.qscore)+' '+(e.qscore>=30?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.dupRate)      ? '  Duplication   : '+e.dupRate+'% '+(e.dupRate<=20?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.gcContent)    ? '  GC Content    : '+e.gcContent+'% '+(e.gcContent>=30&&e.gcContent<=70?'(PASS)':'(REVIEW)') : null,
-    !isNaN(e.contamination)? '  Contamination : '+e.contamination+'% '+(e.contamination<=5?'(PASS)':'(FAIL)') : null,
-    !isNaN(e.variantCount) ? '  Variants      : '+Number(e.variantCount).toLocaleString() : null,'',
-    'QC ISSUES','--------------------------------------------------',
-    ...(cards.length===0 ? ['  No QC issues detected.'] : cards.map(c=>'  ['+c.severity.toUpperCase()+'] '+c.title+'\n    '+c.description)),
-    '','=====================================================',
-    '  JLIGHT - Health Intelligence Platform',
-    '=====================================================',
-  ].filter(x=>x!==null)
-
-  const blob = new Blob([lines.join('\n')], {type:'text/plain'})
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href=url; a.download='JLIGHT-NGS-'+esc(e.sampleId)+'-'+new Date(e.ts).toISOString().slice(0,10)+'.txt'
-  a.click(); URL.revokeObjectURL(url)
-  audit('Bio report exported', e.sampleId+' by '+getDisplayName())
-  toast('Report exported', e.sampleId, 'good')
+  // Clinical Trials is a separate data domain and must never export Bioinformatics reports.
+  if(STATE.role==='Trial'){toast('Separate workflow','Bioinformatics reports are not available in Clinical Trials.','warn');return;}
+  const orgId=String(STATE.orgId||'');
+  if(!orgId){toast('Organisation required','Select an authenticated organisation before exporting reports.','warn');return;}
+  const e = STATE.entries.find(x=>x.id===entryId&&x.role==='Bioinformatics'&&String(x.orgId||'')===orgId); if(!e) {toast('Report unavailable','The analysis record is not available in the current organisation.','warn');return;}
+  const cards = STATE.cards.filter(c=>c.role==='Bioinformatics');
+  const generatedAt = new Date();
+  const metricRows = [
+    ['Coverage', e.coverage, 'x', Number(e.coverage)>=30?'Pass':'Review'],
+    ['Mapping rate', e.mappingRate, '%', Number(e.mappingRate)>=85?'Pass':'Review'],
+    ['Q-score', e.qscore, '', Number(e.qscore)>=30?'Pass':'Review'],
+    ['Duplication', e.dupRate, '%', Number(e.dupRate)<=20?'Pass':'Review'],
+    ['GC content', e.gcContent, '%', Number(e.gcContent)>=30&&Number(e.gcContent)<=70?'Pass':'Review'],
+    ['Contamination', e.contamination, '%', Number(e.contamination)<=5?'Pass':'Review'],
+    ['Variant count', e.variantCount, '', 'Review']
+  ].filter(row=>row[1]!==null&&row[1]!==undefined&&row[1]!==''&&!Number.isNaN(Number(row[1])));
+  const report = {
+    reportType:'JLIGHT Bioinformatics Analysis Report',
+    reportId:uid(), generatedAt:generatedAt.toISOString(), generatedBy:getDisplayName(),
+    runId:e.sampleId, analysisType:e.analysisType||'Not supplied', platform:e.platform||'Not supplied',
+    pipeline:e.pipeline||'Not supplied', reference:e.reference||'Not supplied',
+    runDate:e.ts?new Date(e.ts).toISOString():null,
+    qcMetrics:metricRows.map(r=>({metric:r[0],value:Number(r[1]),unit:r[2],reviewStatus:r[3]})),
+    qcIssues:cards.map(c=>({severity:c.severity,title:c.title,description:c.description})),
+    limitations:['This report summarises records currently available in JLIGHT; missing metrics are not inferred.',
+      'QC thresholds are screening indicators and must be checked against the validated workflow and assay.',
+      'Research or bioinformatics outputs are not, by themselves, a clinical diagnosis. Expert review is required.']
+  };
+  const html='<h1>JLIGHT Bioinformatics Analysis Report</h1><p><b>Report ID:</b> '+esc(report.reportId)+'<br><b>Generated:</b> '+esc(generatedAt.toLocaleString())+'<br><b>Operator:</b> '+esc(report.generatedBy)+'</p><h2>Run details</h2><table><tbody>'+
+    [['Run ID',report.runId],['Analysis type',report.analysisType],['Platform',report.platform],['Pipeline',report.pipeline],['Reference',report.reference],['Run date',report.runDate?new Date(report.runDate).toLocaleString():'Not supplied']].map(r=>'<tr><th>'+esc(r[0])+'</th><td>'+esc(r[1])+'</td></tr>').join('')+
+    '</tbody></table><h2>Quality metrics</h2>'+(report.qcMetrics.length?'<table><thead><tr><th>Metric</th><th>Value</th><th>Unit</th><th>Review</th></tr></thead><tbody>'+report.qcMetrics.map(r=>'<tr><td>'+esc(r.metric)+'</td><td>'+esc(r.value)+'</td><td>'+esc(r.unit)+'</td><td>'+esc(r.reviewStatus)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC metrics are recorded for this run.</p>')+
+    '<h2>QC issues</h2>'+(report.qcIssues.length?'<table><thead><tr><th>Severity</th><th>Issue</th><th>Details</th></tr></thead><tbody>'+report.qcIssues.map(c=>'<tr><td>'+esc(c.severity)+'</td><td>'+esc(c.title)+'</td><td>'+esc(c.description)+'</td></tr>').join('')+'</tbody></table>':'<p>No QC issue cards are recorded in the current workspace view. This is not proof that no issues exist.</p>')+
+    '<h2>Limitations and review</h2><ul>'+report.limitations.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+  if(!openPrintableReport('JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_'),html))return;
+  const blob=new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='JLIGHT-Bioinformatics-Analysis-'+String(e.sampleId).replace(/[^a-zA-Z0-9_-]/g,'_')+'-'+generatedAt.toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  try{audit('Bioinformatics Analysis report generated',report.reportId+' · run '+report.runId);}catch(err){console.warn('[JLIGHT] report audit failed:',err.message);}
+  toast('Analysis Report generated','Print dialog allows saving a PDF; structured JSON copy downloaded.','good');
 }
 
 
@@ -5098,6 +5301,9 @@ function renderRegisterBio() {
     '<option>AMR Profiling</option><option>Viral Sequencing (SARS-CoV-2 / HIV / HBV)</option>' +
     '<option>TB Drug Resistance (MTB-Seq)</option></select></div>' +
     '<div class="form-row"><label class="form-label">Sample / Run ID</label><input class="form-input" id="bf-sid" type="text" placeholder="e.g. RUN-2026-04-001"/></div>' +
+    '<div class="form-row"><label class="form-label">Link to patient journey</label><select class="form-input" id="bf-patient"><option value="">— Not linked —</option>' +
+    (STATE.patients || []).filter(p=>p&&!p.archivedAt&&!!STATE.orgId&&String(p.orgId)===String(STATE.orgId)).map(p=>'<option value="'+esc(String(p.id))+'">'+esc(String(p.mrn||p.id))+'</option>').join('') +
+    '</select><div class="form-hint">Select an existing patient reference to include this run in that patient’s Bioinformatics Analysis Report. Matching uses the exact patient ID.</div></div>' +
     '<div class="form-row"><label class="form-label">Sequencing Platform</label>' +
     '<select class="form-input" id="bf-platform"><option value="">— Select —</option>' +
     '<option>Illumina MiSeq</option><option>Illumina NextSeq</option><option>Illumina NovaSeq</option>' +
@@ -5137,8 +5343,8 @@ function submitBioEntry() {
   if (!sampleId)     { toast('Required', 'Sample/Run ID required', 'crit'); return }
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
   const e = {
-    id: uid(), ts: Date.now(), role: STATE.role, user: getDisplayName(),
-    analysisType, sampleId, pipelineStage: 'queued',
+    id: uid(), ts: Date.now(), role: STATE.role, orgId: STATE.orgId, user: getDisplayName(),
+    analysisType, sampleId, patientId: get('bf-patient') || null, pipelineStage: 'queued',
     platform: get('bf-platform'), reference: get('bf-ref'),
     coverage: parseFloat(get('bf-cov')), mappingRate: parseFloat(get('bf-map')),
     qscore: parseFloat(get('bf-q')), dupRate: parseFloat(get('bf-dup')),
@@ -5163,7 +5369,12 @@ function submitBioEntry() {
 // ── BIOINFORMATICS FULL REPORT GENERATOR ──
 function generateBioReport(e) {
   const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
-  const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
+  const cards = STATE.cards.filter(c =>
+    c.role === 'Bioinformatics' &&
+    String(c.orgId || '') === String(e.orgId || '') &&
+    String(c.patientId || '') === String(e.patientId || '') &&
+    String(c.analysisEntryId || '') === String(e.id)
+  )
   const hasCrit = cards.some(c => c.severity === 'crit')
   const hasWarn = cards.some(c => c.severity === 'warn')
   const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
@@ -7753,123 +7964,74 @@ function renderDashboard_v10_extras() {
 // ═══════════════════════════════════════════════════════════════════
 
 const JLIGHT_AI = {
-  model: 'claude-sonnet-4-20250514',
-  _key: null,
-
-  getKey() {
-    if (this._key) return this._key
-    // Check session storage first
-    const stored = sessionStorage.getItem('jl_ai_key')
-    if (stored) { this._key = stored; return this._key }
-    return null  // Never auto-prompt — only prompt when user clicks AI Analysis
-  },
-
-  promptForKey() {
-    const key = prompt(
-      'JLIGHT AI Analysis\n\nEnter your Anthropic API key to enable AI-powered Decision Card enrichment.\n\nStored in this browser session only — never saved to any file or server.',
-      ''
-    )
-    if (key && key.startsWith('sk-ant-')) {
-      this._key = key
-      sessionStorage.setItem('jl_ai_key', key)
-      return this._key
-    }
-    toast('Invalid key', 'API key must start with sk-ant-', 'warn')
-    return null
-  },
-
-  clearKey() {
-    this._key = null
-    sessionStorage.removeItem('jl_ai_key')
-  },
-  maxTokens: 1000,
-  endpoint: 'https://api.anthropic.com/v1/messages',
-
-  systemPrompt: `You are JLIGHT's clinical intelligence engine — a specialist in South African health system quality management. Analyse clinical events and produce enriched Decision Cards for laboratory scientists, clinicians, and trial coordinators. Always reference published clinical standards. Your output must be a JSON object with exactly these fields: {"severity":"crit|warn|info|good","title":"concise title under 12 words","insight":"1-2 sentence clinical explanation","rootCause":[{"stage":"Pre-analytical|Analytical|Post-analytical|Clinical","cause":"specific cause"}],"actions":["action 1","action 2","action 3"],"clinicalContext":"1 sentence South African context","urgency":"immediate|within_1h|within_4h|within_24h|routine"}. Never output anything other than the JSON object.`,
-
-  async enrichCard(card, patientData, recentResults) {
+  // Legacy object name retained for UI compatibility; no direct browser-to-model calls.
+  async enrichCard(card) {
+    if (!card || String(STATE.role || '').toLowerCase() === 'trial') return null;
+    const sb = getSupabase();
+    if (!sb) return null;
+    const sessionResult = await sb.auth.getSession();
+    const session = sessionResult && sessionResult.data && sessionResult.data.session;
+    if (!session || !session.access_token) return null;
+    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const severity = String(card.severity || '').toLowerCase();
+    const sourceRaw = String(card.domain || card.engine || '').toLowerCase();
+    const source = sourceRaw.includes('bio') ? 'bioinformatics' : sourceRaw.includes('lab') || sourceRaw.includes('qc') ? 'laboratory' : sourceRaw.includes('hospital') ? 'hospital' : 'interoperability';
+    const checkId = source === 'laboratory' ? 'missing_lab_result' : 'source_data_incomplete';
+    const status = ['crit','critical','warn','warning','high'].includes(severity) ? 'review' : ['good','info','pass','stable'].includes(severity) ? 'pass' : 'unknown';
     try {
-      const eventData = {
-        engine: card.engine, domain: card.domain, severity: card.severity,
-        signals: card.signals || [], description: card.description,
-        patient: patientData ? {
-          age: patientData.dateOfBirth ? Math.floor((Date.now() - new Date(patientData.dateOfBirth)) / 31557600000) : null,
-          gender: patientData.gender,
-          chronicConditions: patientData.chronicConditions || [],
-          allergies: patientData.allergies || [],
-        } : null,
-        recentResults: (recentResults || []).slice(-5).map(r => ({
-          test: r.testName, value: r.resultValue, unit: r.resultUnit,
-          interpretation: r.interpretation,
-          date: r.resultedAt ? new Date(r.resultedAt).toISOString().slice(0,10) : null,
-        })),
-        facility: STATE.orgName || 'South African health facility',
-        timestamp: new Date().toISOString(),
-      }
-      const apiKey = JLIGHT_AI.getKey()
-      if (!apiKey) { console.warn('[JLIGHT AI] No API key provided'); return null }
-      const response = await fetch(JLIGHT_AI.endpoint, {
+      const response = await fetch(baseUrl + '/api/intelligence/summary', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': JLIGHT_AI.getKey(),
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({
-          model: JLIGHT_AI.model,
-          max_tokens: JLIGHT_AI.maxTokens,
-          system: JLIGHT_AI.systemPrompt,
-          messages: [{ role: 'user', content: `Analyse this clinical event and generate a Decision Card:\n\n${JSON.stringify(eventData, null, 2)}` }]
-        })
-      })
-      if (!response.ok) { console.warn('[JLIGHT AI] API error:', response.status); return null }
-      const data = await response.json()
-      const text = data.content?.find(b => b.type === 'text')?.text || ''
-      return JSON.parse(text.replace(/```json|```/g, '').trim())
-    } catch (e) { console.warn('[JLIGHT AI] Enrichment failed:', e.message); return null }
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+        body: JSON.stringify({ journey_checks: [{ check_id: checkId, source, status, severity: ['info','low','medium','high','critical'].includes(severity) ? severity : (status === 'pass' ? 'info' : 'medium'), evidence_count: 1 }] })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body.success !== true) return null;
+      const finding = (body.result && Array.isArray(body.result.findings)) ? body.result.findings[0] : null;
+      if (!finding) return { insight: 'The JLIGHT Intelligence Engine completed without producing a structured finding.', actions: ['Verify source records in the originating authorised system.'], rootCause: [], clinicalContext: 'Operational data-quality summary only; not a diagnostic conclusion.', urgency: 'routine', aiEnriched: true, aiEnrichedAt: Date.now() };
+      return {
+        insight: String(finding.recommended_next_step || 'Review the structured finding in the originating system.'),
+        actions: [String(finding.recommended_next_step || 'Review the source record.')],
+        rootCause: [{ stage: 'Data quality', cause: String(finding.rule_id || 'structured_journey_check') }],
+        clinicalContext: 'Structured, privacy-minimised JLIGHT intelligence; human review is required where flagged.',
+        urgency: finding.requires_human_review ? 'within_24h' : 'routine',
+        aiEnriched: true, aiEnrichedAt: Date.now()
+      };
+    } catch (_) { return null; }
   },
-
   async enrichCards(cards) {
-    if (!cards || cards.length === 0) return cards
-    const enriched = []
-    for (const card of cards) {
-      const patient = card.patientId ? STATE.patients.find(p => p.id === card.patientId) : null
-      const recentResults = card.patientId
-        ? (STATE.results || []).filter(r => r.patientId === card.patientId).sort((a,b) => (b.resultedAt||0) - (a.resultedAt||0)).slice(0,10)
-        : []
-      const ai = await JLIGHT_AI.enrichCard(card, patient, recentResults)
-      enriched.push(ai ? { ...card, insight: ai.insight || card.insight, rootCause: ai.rootCause || card.rootCause, actions: ai.actions || card.actions, clinicalContext: ai.clinicalContext || '', urgency: ai.urgency || 'routine', aiEnriched: true, aiEnrichedAt: Date.now() } : card)
+    const enriched = [];
+    for (const card of (cards || [])) {
+      const result = await this.enrichCard(card);
+      enriched.push(result ? { ...card, ...result } : card);
     }
-    return enriched
+    return enriched;
   },
-
   async analyseCard(cardId) {
-    const card = STATE.cards.find(c => c.id === cardId)
-    if (!card) return
-    const btn = document.getElementById('ai-analyse-btn-' + cardId)
-    // Ensure we have a key — prompt only when user explicitly clicks
-    if (!JLIGHT_AI.getKey()) {
-      const key = JLIGHT_AI.promptForKey()
-      if (!key) return
+    const card = (STATE.cards || []).find(c => c.id === cardId);
+    if (!card) return;
+    const btn = document.getElementById('ai-analyse-btn-' + cardId);
+    if (String(STATE.role || '').toLowerCase() === 'trial') {
+      toast('Intelligence isolated', 'The Intelligence Engine is not available inside Clinical Trials.', 'warn');
+      return;
     }
-    if (btn) { btn.textContent = 'Analysing...'; btn.disabled = true }
-    const patient = card.patientId ? STATE.patients.find(p => p.id === card.patientId) : null
-    const recentResults = card.patientId ? (STATE.results || []).filter(r => r.patientId === card.patientId).slice(-10) : []
-    const ai = await JLIGHT_AI.enrichCard(card, patient, recentResults)
-    if (ai) {
-      const idx = STATE.cards.findIndex(c => c.id === cardId)
-      if (idx >= 0) {
-        STATE.cards[idx] = { ...STATE.cards[idx], insight: ai.insight || STATE.cards[idx].insight, rootCause: ai.rootCause || STATE.cards[idx].rootCause, actions: ai.actions || STATE.cards[idx].actions, clinicalContext: ai.clinicalContext || '', urgency: ai.urgency || 'routine', aiEnriched: true, aiEnrichedAt: Date.now() }
-        STORAGE.saveCards(STATE.role, STATE.cards)
-        if (typeof openCard === 'function') openCard(cardId)
-        toast('AI analysis complete', 'Decision Card enriched with clinical context', 'good')
+    if (btn) { btn.textContent = 'Analysing...'; btn.disabled = true; }
+    try {
+      const result = await this.enrichCard(card);
+      if (!result) {
+        toast('Intelligence unavailable', 'Check your sign-in, permissions and staging API configuration.', 'warn');
+        return;
       }
-    } else {
-      toast('AI unavailable', 'Card intelligence running on local engines', 'warn')
+      const idx = STATE.cards.findIndex(c => c.id === cardId);
+      if (idx >= 0) {
+        STATE.cards[idx] = { ...STATE.cards[idx], ...result };
+        STORAGE.saveCards(STATE.role, STATE.cards);
+        if (typeof openCard === 'function') openCard(cardId);
+        toast('JLIGHT Intelligence complete', 'Structured summary returned by the authenticated JLIGHT backend.', 'good');
+      }
+    } finally {
+      if (btn) { btn.textContent = '✦ JLIGHT Intelligence'; btn.disabled = false; }
     }
-    if (btn) { btn.textContent = '✦ AI Analysis'; btn.disabled = false }
-  },
+  }
 }
 
 function runAIAnalysis(cardId) { JLIGHT_AI.analyseCard(cardId) }
