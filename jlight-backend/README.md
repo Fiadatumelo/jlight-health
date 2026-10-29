@@ -72,7 +72,7 @@ python3 api/app.py
 
 ## Authentication
 
-Set `SUPABASE_JWT_SECRET` on the backend to the Supabase project's JWT signing secret for HS256-signed access tokens. Never put this secret in frontend code or commit a real secret. Protected routes fail closed: missing/invalid tokens return HTTP 401; verifier configuration or service failures return HTTP 503. If the Supabase project uses asymmetric JWT signing keys rather than HS256, this verifier must be adapted to the project's JWKS/public-key configuration before enabling these routes.
+Set `SUPABASE_JWT_SECRET` on the backend to the Supabase project's JWT signing secret for HS256-signed access tokens. Never put this secret in frontend code or commit a real secret. Every data endpoint (`/api/analyse-csv`, `/api/bio/*`, `/api/cards`, `/api/cards/acknowledge`, and `/api/audit`) requires `Authorization: Bearer <Supabase access token>`. Only `/api/health` is public. Missing/invalid tokens return HTTP 401; verifier configuration or service failures return HTTP 503. If the Supabase project uses asymmetric JWT signing keys rather than HS256, this verifier must be adapted to the project's JWKS/public-key configuration before enabling these routes.
 
 ## Example: CSV Analysis
 
