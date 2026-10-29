@@ -6,6 +6,11 @@ on:
       - release/jlight-staging-unified-20261029
     paths:
       - "jlight-backend/agent/**"
+      - "jlight-backend/api/**"
+      - "jlight-backend/engine/intelligence_engine.py"
+      - "jlight-backend/requirements.txt"
+      - "jlight-backend/tests/test_api_security.py"
+      - "jlight-backend/tests/test_intelligence_api.py"
       - "jlight-backend/tests/test_jc_agent.py"
       - ".github/workflows/jc-agent-tests.yml"
   push:
