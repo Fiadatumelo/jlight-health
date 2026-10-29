@@ -1,0 +1,36 @@
+name: JC agent core tests
+
+on:
+  pull_request:
+    branches:
+      - release/jlight-staging-unified-20261029
+    paths:
+      - "jlight-backend/agent/**"
+      - "jlight-backend/tests/test_jc_agent.py"
+      - ".github/workflows/jc-agent-tests.yml"
+  push:
+    branches:
+      - feature/jc-integrated-agent
+    paths:
+      - "jlight-backend/agent/**"
+      - "jlight-backend/tests/test_jc_agent.py"
+      - ".github/workflows/jc-agent-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  jc-agent-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test runner
+        run: python -m pip install --upgrade pip pytest
+      - name: Run JC agent core tests
+        working-directory: jlight-backend
+        run: python -m pytest tests/test_jc_agent.py -q
