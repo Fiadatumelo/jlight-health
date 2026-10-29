@@ -42,6 +42,7 @@ def test_all_data_routes_reject_missing_bearer_token(method, path, payload):
 
 def test_protected_route_rejects_invalid_signed_token(monkeypatch):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
+    monkeypatch.setenv("SUPABASE_URL", "https://test-project.supabase.co")
     client = app.test_client()
     response = client.post(
         "/api/bio/sequence",
@@ -63,10 +64,14 @@ def test_protected_route_returns_503_when_verifier_unavailable():
 
 def test_protected_route_accepts_verified_session(monkeypatch):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
+    monkeypatch.setenv("SUPABASE_URL", "https://test-project.supabase.co")
+    now = int(time.time())
     claims = {
         "sub": "00000000-0000-4000-8000-000000000001",
         "aud": "authenticated",
-        "exp": int(time.time()) + 60,
+        "iss": "https://test-project.supabase.co/auth/v1",
+        "iat": now,
+        "exp": now + 60,
     }
     token = jwt.encode(claims, "test-only-secret", algorithm="HS256")
     response = app.test_client().post(
