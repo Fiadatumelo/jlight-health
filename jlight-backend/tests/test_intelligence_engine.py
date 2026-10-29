@@ -77,6 +77,16 @@ class IntelligenceEngineTests(unittest.TestCase):
         self.assertTrue(all(item["requires_human_review"] for item in result["findings"]))
         self.assertTrue(any("not proof" in limitation for limitation in result["limitations"]))
 
+    def test_high_severity_requires_review_even_when_status_is_pass(self):
+        result = build_intelligence_summary(journey_checks=[
+            {"check_id": "missing_lab_result", "source": "laboratory",
+             "status": "pass", "severity": "high", "evidence_count": 1},
+        ])
+        self.assertEqual(result["findings"][0]["status"], "pass")
+        self.assertTrue(result["findings"][0]["requires_human_review"])
+        self.assertEqual(result["overall_status"], "review_required")
+        self.assertTrue(result["human_review_required"])
+
 
 if __name__ == "__main__":
     unittest.main()
