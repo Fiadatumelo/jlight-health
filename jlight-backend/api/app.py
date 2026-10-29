@@ -23,6 +23,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 import os
 import json
 import traceback
+import jwt
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -127,6 +128,44 @@ def get_json_field(data: dict, field: str, required: bool = True):
     if required and (val is None or val == ""):
         raise ValueError(f"Missing required field: {field}")
     return val
+
+
+# ─── Bearer-token authentication ──────────────────────────────────────────────
+def verify_access_token(token: str) -> dict:
+    """Verify a Supabase HS256 access token; fail closed if server secret is absent."""
+    secret = os.environ.get("SUPABASE_JWT_SECRET") or os.environ.get("JWT_SECRET")
+    if not secret:
+        raise RuntimeError("JWT verification is not configured")
+    claims = jwt.decode(
+        token,
+        secret,
+        algorithms=["HS256"],
+        audience="authenticated",
+        options={"require": ["exp", "sub", "aud"]},
+    )
+    if not isinstance(claims.get("sub"), str) or not claims["sub"].strip():
+        raise jwt.InvalidTokenError("Missing subject")
+    return claims
+
+
+def require_auth(view):
+    """Require a verified bearer token on routes that expose protected data."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        authorization = request.headers.get("Authorization", "")
+        scheme, separator, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not separator or not token.strip():
+            return error("Authentication required", 401)
+        try:
+            claims = verify_access_token(token.strip())
+        except Exception:
+            app.logger.warning("Access token verification failed", exc_info=True)
+            return error("Authentication verification unavailable", 503)
+        if not isinstance(claims, dict) or not claims.get("sub") or claims.get("aud") != "authenticated":
+            return error("Authentication required", 401)
+        g.auth_claims = claims
+        return view(*args, **kwargs)
+    return wrapped
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
@@ -345,6 +384,7 @@ def api_wgs():
 
 
 @app.route("/api/bio/sequence", methods=["POST"])
+@require_auth
 def api_sequence():
     """Full sequence analysis: GC%, ORFs, Tm, MW, reverse complement."""
     try:
@@ -440,6 +480,7 @@ def api_acknowledge():
 # ─── Audit Log ────────────────────────────────────────────────────────────────
 
 @app.route("/api/audit", methods=["GET"])
+@require_auth
 def api_audit():
     """Return recent audit log entries."""
     db = get_db()
