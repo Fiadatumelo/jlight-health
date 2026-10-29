@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
-import re
 
-ENGINE_VERSION = "0.1.1"
+ENGINE_VERSION = "0.1.2"
 ALLOWED_SOURCES = {"hospital", "laboratory", "bioinformatics", "interoperability"}
 ALLOWED_STATUSES = {"pass", "review", "fail", "unknown"}
 ALLOWED_SEVERITIES = {"info", "low", "medium", "high", "critical"}
-_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}$")
+ALLOWED_JOURNEY_CHECKS = {
+    "missing_lab_result", "patient_match_conflict", "missing_source_record",
+    "timestamp_order_conflict", "organisation_scope_mismatch", "duplicate_record",
+    "unlinked_bioinformatics_result", "source_data_incomplete",
+}
 
 
 def _bounded_int(value: Any, *, maximum: int = 1_000_000) -> int:
@@ -124,7 +127,7 @@ def build_intelligence_summary(
             continue
         check_id = str(item.get("check_id", "")).strip().lower()
         source = str(item.get("source", "")).strip().lower()
-        if not _ID_RE.fullmatch(check_id) or source not in ALLOWED_SOURCES:
+        if check_id not in ALLOWED_JOURNEY_CHECKS or source not in ALLOWED_SOURCES:
             continue
         status = _status(item.get("status"))
         severity = _severity(item.get("severity"))
