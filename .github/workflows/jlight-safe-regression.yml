@@ -56,6 +56,9 @@ jobs:
       - name: Test interoperability and resilience foundation
         working-directory: jlight-backend
         run: python -m unittest tests.test_interoperability
+      - name: Test backend API authentication regressions
+        working-directory: jlight-backend
+        run: python -m pytest tests/test_api_security.py -q
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py

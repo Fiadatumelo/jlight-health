@@ -42,7 +42,7 @@ pip install -r requirements.txt
 
 # 3. Copy and configure environment
 cp .env.example .env
-# Edit .env with your DATABASE_URL (optional — runs without DB in stateless mode)
+# Edit .env with DATABASE_URL (optional) and SUPABASE_URL (required for protected routes)
 
 # 4. Run tests
 python3 tests/test_all.py
@@ -57,7 +57,8 @@ python3 api/app.py
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/health | System health check |
+| GET | /api/health | Public system health check |
+| — | Protected routes | `/api/bio/sequence` and `/api/audit` require `Authorization: Bearer <Supabase access token>` |
 | POST | /api/analyse-csv | CSV/XLSX QC analysis |
 | POST | /api/bio/tb | TB drug resistance screening |
 | POST | /api/bio/variant | SNV/INDEL variant detection |
@@ -68,6 +69,10 @@ python3 api/app.py
 | GET | /api/cards | Decision cards from DB |
 | POST | /api/cards/acknowledge | Acknowledge a card |
 | GET | /api/audit | Audit log entries |
+
+## Authentication
+
+The API uses the shared verifier in `api/security.py`. Set `SUPABASE_URL` to the project URL; the issuer defaults to `${SUPABASE_URL}/auth/v1` and the JWKS endpoint defaults to `${SUPABASE_URL}/auth/v1/.well-known/jwks.json`. `SUPABASE_JWT_ISSUER` and `SUPABASE_JWKS_URL` can override those defaults. The verifier supports Supabase HS256, RS256, and ES256 access tokens. Set `SUPABASE_JWT_SECRET` only for projects using HS256. Keep all signing secrets server-side and never commit real secrets. Every data endpoint (`/api/analyse-csv`, `/api/bio/*`, `/api/cards`, `/api/cards/acknowledge`, and `/api/audit`) requires `Authorization: Bearer <Supabase access token>`; only `/api/health` is public. Invalid tokens return HTTP 401. Missing verifier configuration or verification-service failures return HTTP 503.
 
 ## Example: CSV Analysis
 

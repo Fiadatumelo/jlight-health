@@ -23,6 +23,7 @@ _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)
 import os
 import json
 import traceback
+import jwt
 from datetime import datetime, timezone
 from functools import wraps
 
@@ -30,6 +31,8 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 
 from engine.csv_engine import analyse_csv
+from api.security import verify_access_token
+
 from engine.bio_engine import (
     screen_tb_resistance,
     detect_variants,
@@ -129,6 +132,29 @@ def get_json_field(data: dict, field: str, required: bool = True):
     return val
 
 
+# ─── Bearer-token authentication ──────────────────────────────────────────────
+def require_auth(view):
+    """Require a verified bearer token on routes that expose protected data."""
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        authorization = request.headers.get("Authorization", "")
+        scheme, separator, token = authorization.partition(" ")
+        if scheme.lower() != "bearer" or not separator or not token.strip():
+            return error("Authentication required", 401)
+        try:
+            claims = verify_access_token(token.strip())
+        except jwt.InvalidTokenError:
+            return error("Invalid or expired access token", 401)
+        except Exception:
+            app.logger.warning("Access token verification failed", exc_info=True)
+            return error("Authentication verification unavailable", 503)
+        if not isinstance(claims, dict) or not claims.get("sub") or claims.get("aud") != "authenticated":
+            return error("Authentication required", 401)
+        g.auth_claims = claims
+        return view(*args, **kwargs)
+    return wrapped
+
+
 # ─── Health Check ─────────────────────────────────────────────────────────────
 
 @app.route("/api/health", methods=["GET"])
@@ -159,6 +185,7 @@ def health_check():
 # ─── CSV Analysis ─────────────────────────────────────────────────────────────
 
 @app.route("/api/analyse-csv", methods=["POST"])
+@require_auth
 def api_analyse_csv():
     """
     Analyse a CSV/XLSX file for QC anomalies.
@@ -232,6 +259,7 @@ def api_analyse_csv():
 # ─── Bioinformatics Endpoints ─────────────────────────────────────────────────
 
 @app.route("/api/bio/tb", methods=["POST"])
+@require_auth
 def api_tb_resistance():
     """Screen a DNA sequence for TB drug resistance mutations."""
     try:
@@ -259,6 +287,7 @@ def api_tb_resistance():
 
 
 @app.route("/api/bio/variant", methods=["POST"])
+@require_auth
 def api_variant():
     """Detect variants between reference and sample sequences."""
     try:
@@ -286,6 +315,7 @@ def api_variant():
 
 
 @app.route("/api/bio/ngs", methods=["POST"])
+@require_auth
 def api_ngs():
     """Compute NGS QC metrics from sequences or file."""
     try:
@@ -316,6 +346,7 @@ def api_ngs():
 
 
 @app.route("/api/bio/wgs", methods=["POST"])
+@require_auth
 def api_wgs():
     """Calculate WGS assembly metrics (N50, L50, etc.)."""
     try:
@@ -345,6 +376,7 @@ def api_wgs():
 
 
 @app.route("/api/bio/sequence", methods=["POST"])
+@require_auth
 def api_sequence():
     """Full sequence analysis: GC%, ORFs, Tm, MW, reverse complement."""
     try:
@@ -361,6 +393,7 @@ def api_sequence():
 
 
 @app.route("/api/bio/fasta", methods=["POST"])
+@require_auth
 def api_fasta():
     """Parse a FASTA/FASTQ file and return records."""
     try:
@@ -380,6 +413,7 @@ def api_fasta():
 # ─── Decision Cards ───────────────────────────────────────────────────────────
 
 @app.route("/api/cards", methods=["GET"])
+@require_auth
 def api_cards():
     """Return decision cards from DB or static data."""
     role = request.args.get("role", "")
@@ -410,6 +444,7 @@ def api_cards():
 
 
 @app.route("/api/cards/acknowledge", methods=["POST"])
+@require_auth
 def api_acknowledge():
     """Acknowledge a decision card."""
     try:
@@ -440,6 +475,7 @@ def api_acknowledge():
 # ─── Audit Log ────────────────────────────────────────────────────────────────
 
 @app.route("/api/audit", methods=["GET"])
+@require_auth
 def api_audit():
     """Return recent audit log entries."""
     db = get_db()
