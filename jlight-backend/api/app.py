@@ -200,6 +200,7 @@ def health_check():
 # ─── CSV Analysis ─────────────────────────────────────────────────────────────
 
 @app.route("/api/analyse-csv", methods=["POST"])
+@require_auth
 def api_analyse_csv():
     """
     Analyse a CSV/XLSX file for QC anomalies.
@@ -273,6 +274,7 @@ def api_analyse_csv():
 # ─── Bioinformatics Endpoints ─────────────────────────────────────────────────
 
 @app.route("/api/bio/tb", methods=["POST"])
+@require_auth
 def api_tb_resistance():
     """Screen a DNA sequence for TB drug resistance mutations."""
     try:
@@ -300,6 +302,7 @@ def api_tb_resistance():
 
 
 @app.route("/api/bio/variant", methods=["POST"])
+@require_auth
 def api_variant():
     """Detect variants between reference and sample sequences."""
     try:
@@ -327,6 +330,7 @@ def api_variant():
 
 
 @app.route("/api/bio/ngs", methods=["POST"])
+@require_auth
 def api_ngs():
     """Compute NGS QC metrics from sequences or file."""
     try:
@@ -357,6 +361,7 @@ def api_ngs():
 
 
 @app.route("/api/bio/wgs", methods=["POST"])
+@require_auth
 def api_wgs():
     """Calculate WGS assembly metrics (N50, L50, etc.)."""
     try:
@@ -403,6 +408,7 @@ def api_sequence():
 
 
 @app.route("/api/bio/fasta", methods=["POST"])
+@require_auth
 def api_fasta():
     """Parse a FASTA/FASTQ file and return records."""
     try:
@@ -422,6 +428,7 @@ def api_fasta():
 # ─── Decision Cards ───────────────────────────────────────────────────────────
 
 @app.route("/api/cards", methods=["GET"])
+@require_auth
 def api_cards():
     """Return decision cards from DB or static data."""
     role = request.args.get("role", "")
@@ -452,6 +459,7 @@ def api_cards():
 
 
 @app.route("/api/cards/acknowledge", methods=["POST"])
+@require_auth
 def api_acknowledge():
     """Acknowledge a decision card."""
     try:
