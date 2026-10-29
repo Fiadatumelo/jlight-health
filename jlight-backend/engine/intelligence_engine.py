@@ -1,0 +1,182 @@
+"""JLIGHT Intelligence Engine — evidence-first aggregation of existing analyses.
+
+This is deliberately a deterministic first layer, not a diagnostic model. It reuses
+structured outputs from the existing CSV/QC, bioinformatics and patient-journey
+checks. It does not read raw patient records, sequence payloads, free-text summaries,
+or clinical-trial data; it never invents a clinical conclusion.
+"""
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any, Mapping, Sequence
+import re
+
+ENGINE_VERSION = "0.1.0"
+ALLOWED_SOURCES = {"hospital", "laboratory", "bioinformatics", "interoperability"}
+ALLOWED_STATUSES = {"pass", "review", "fail", "unknown"}
+ALLOWED_SEVERITIES = {"info", "low", "medium", "high", "critical"}
+_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{1,63}$")
+
+
+def _bounded_int(value: Any, *, maximum: int = 1_000_000) -> int:
+    if isinstance(value, bool):
+        return 0
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+    return max(0, min(parsed, maximum))
+
+
+def _status(value: Any) -> str:
+    candidate = str(value or "").strip().lower()
+    return candidate if candidate in ALLOWED_STATUSES else "unknown"
+
+
+def _severity(value: Any) -> str:
+    candidate = str(value or "").strip().lower()
+    return candidate if candidate in ALLOWED_SEVERITIES else "medium"
+
+
+def _finding(
+    finding_id: str,
+    source: str,
+    rule_id: str,
+    severity: str,
+    status: str,
+    evidence: Mapping[str, Any],
+    action: str,
+) -> dict[str, Any]:
+    # Only structured, bounded metadata is returned. No arbitrary source text,
+    # patient identifiers, uploaded filenames, sequence data or model-generated text.
+    return {
+        "finding_id": finding_id,
+        "source": source,
+        "rule_id": rule_id,
+        "severity": severity,
+        "status": status,
+        "evidence": dict(evidence),
+        "requires_human_review": status in {"review", "fail"} or severity in {"high", "critical"},
+        "recommended_next_step": action,
+    }
+
+
+def build_intelligence_summary(
+    *,
+    csv_analysis: Mapping[str, Any] | None = None,
+    bioinformatics: Mapping[str, Any] | None = None,
+    journey_checks: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Build a traceable summary from existing JLIGHT engine outputs.
+
+    Inputs must be the already-computed structured results, not raw patient records.
+    Unknown or malformed fields are treated conservatively. The function intentionally
+    ignores free-text summaries, names, MRNs, filenames, raw sequences and trial data.
+    """
+    findings: list[dict[str, Any]] = []
+
+    if csv_analysis is not None:
+        status = "unknown"
+        severity = "medium"
+        raw_severity = str(csv_analysis.get("severity", "")).lower()
+        risk_score = _bounded_int(csv_analysis.get("riskScore"), maximum=100)
+        ml = csv_analysis.get("ml")
+        ml = ml if isinstance(ml, Mapping) else {}
+        anomaly_count = _bounded_int(ml.get("anomaly_count"))
+        westgard = ml.get("westgard_violations")
+        westgard_count = len(westgard) if isinstance(westgard, (list, tuple)) else 0
+
+        if raw_severity in {"crit", "critical"} or risk_score >= 70:
+            status, severity = "review", "high"
+        elif raw_severity in {"att", "attention"} or anomaly_count or westgard_count:
+            status, severity = "review", "medium"
+        elif raw_severity in {"stab", "stable", "pass"}:
+            status, severity = "pass", "info"
+
+        findings.append(_finding(
+            finding_id="csv_qc_001",
+            source="laboratory",
+            rule_id="existing_csv_qc_analysis",
+            severity=severity,
+            status=status,
+            evidence={
+                "risk_score": risk_score,
+                "anomaly_count": anomaly_count,
+                "westgard_violation_count": _bounded_int(westgard_count),
+            },
+            action="Review the source QC report and confirm any flagged issue with an authorised laboratory professional."
+            if status in {"review", "unknown"}
+            else "Retain the QC report and continue the approved quality-monitoring process.",
+        ))
+
+    if bioinformatics is not None:
+        # The pipeline's structured QC status is used; raw variant calls and free text
+        # are intentionally not copied into this cross-domain summary.
+        qc = _status(bioinformatics.get("qc_status"))
+        flags = bioinformatics.get("flags")
+        flag_count = len(flags) if isinstance(flags, (list, tuple)) else _bounded_int(bioinformatics.get("flag_count"))
+        if qc == "fail":
+            severity, status = "high", "review"
+        elif qc == "review" or flag_count:
+            severity, status = "medium", "review"
+        elif qc == "pass":
+            severity, status = "info", "pass"
+        else:
+            severity, status = "medium", "unknown"
+
+        findings.append(_finding(
+            finding_id="bio_qc_001",
+            source="bioinformatics",
+            rule_id="existing_bioinformatics_qc",
+            severity=severity,
+            status=status,
+            evidence={"qc_status": qc, "flag_count": _bounded_int(flag_count)},
+            action="Review the validated bioinformatics QC output and pipeline provenance before interpreting downstream findings."
+            if status != "pass"
+            else "Retain the QC result and pipeline provenance; QC pass is not clinical validation.",
+        ))
+
+    for item in journey_checks or ():
+        if not isinstance(item, Mapping):
+            continue
+        check_id = str(item.get("check_id", "")).strip().lower()
+        source = str(item.get("source", "")).strip().lower()
+        if not _ID_RE.fullmatch(check_id) or source not in ALLOWED_SOURCES:
+            continue
+        status = _status(item.get("status"))
+        severity = _severity(item.get("severity"))
+        evidence_count = _bounded_int(item.get("evidence_count"))
+        findings.append(_finding(
+            finding_id=f"journey_{check_id}",
+            source=source,
+            rule_id=check_id,
+            severity=severity,
+            status=status,
+            evidence={"evidence_count": evidence_count},
+            action="Review the cited source records and resolve or document the discrepancy."
+            if status in {"review", "fail", "unknown"} or severity in {"high", "critical"}
+            else "No additional action indicated by this check; retain source traceability.",
+        ))
+
+    counts = {key: 0 for key in ("pass", "review", "fail", "unknown")}
+    for finding in findings:
+        counts[finding["status"]] += 1
+
+    review_count = counts["review"] + counts["fail"] + counts["unknown"]
+    overall = "review_required" if review_count else "no_flags_from_supplied_checks"
+    return {
+        "engine": "JLIGHT Intelligence Engine",
+        "engine_version": ENGINE_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "overall_status": overall,
+        "finding_count": len(findings),
+        "status_counts": counts,
+        "human_review_required": review_count > 0,
+        "findings": findings,
+        "limitations": [
+            "This summary aggregates supplied structured outputs; it does not independently validate source systems.",
+            "A flag is a review prompt, not proof of contamination, error, disease or treatment resistance.",
+            "Missing inputs mean unknown, not normal or negative.",
+            "No direct patient identifiers, raw sequences, free-text source summaries or Clinical Trials data are included.",
+        ],
+    }
