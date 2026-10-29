@@ -31,6 +31,8 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 
 from engine.csv_engine import analyse_csv
+from api.security import verify_access_token
+
 from engine.bio_engine import (
     screen_tb_resistance,
     detect_variants,
@@ -131,23 +133,6 @@ def get_json_field(data: dict, field: str, required: bool = True):
 
 
 # ─── Bearer-token authentication ──────────────────────────────────────────────
-def verify_access_token(token: str) -> dict:
-    """Verify a Supabase HS256 access token; fail closed if server secret is absent."""
-    secret = os.environ.get("SUPABASE_JWT_SECRET") or os.environ.get("JWT_SECRET")
-    if not secret:
-        raise RuntimeError("JWT verification is not configured")
-    claims = jwt.decode(
-        token,
-        secret,
-        algorithms=["HS256"],
-        audience="authenticated",
-        options={"require": ["exp", "sub", "aud"]},
-    )
-    if not isinstance(claims.get("sub"), str) or not claims["sub"].strip():
-        raise jwt.InvalidTokenError("Missing subject")
-    return claims
-
-
 def require_auth(view):
     """Require a verified bearer token on routes that expose protected data."""
     @wraps(view)
