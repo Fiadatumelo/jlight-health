@@ -35,6 +35,7 @@ from agent.jc_agent import (
     JCForbidden, JCInvalidRequest,
 )
 import jwt
+from api.security import verify_access_token
 
 from engine.csv_engine import analyse_csv
 from engine.bio_engine import (
@@ -58,6 +59,39 @@ CORS(app, origins=[
 ])
 
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024  # 50MB max upload
+
+
+@app.before_request
+def require_verified_supabase_session():
+    """Fail closed for API routes; health remains public for deployment probes."""
+    if request.method == "OPTIONS" or request.path == "/api/health":
+        return None
+    header = request.headers.get("Authorization", "")
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    try:
+        claims = verify_access_token(token.strip())
+        if not isinstance(claims.get("sub"), str) or not claims["sub"].strip():
+            return jsonify({"success": False, "error": "Invalid session"}), 401
+        g.auth_claims = claims
+        g.auth_user_id = claims["sub"]
+        # Legacy global audit/cards tables have no demonstrated tenant-scoped
+        # permission contract. Keep them unavailable rather than leak cross-tenant data.
+        if request.path in {"/api/audit", "/api/cards", "/api/cards/acknowledge"}:
+            return jsonify({
+                "success": False,
+                "error": "This endpoint is unavailable until organisation-scoped permissions are configured."
+            }), 503
+    except RuntimeError:
+        app.logger.exception("Supabase JWT verification is not configured")
+        return jsonify({"success": False, "error": "Authentication service unavailable"}), 503
+    except jwt.PyJWTError:
+        return jsonify({"success": False, "error": "Invalid or expired session"}), 401
+    except Exception:
+        app.logger.exception("Unexpected token verification failure")
+        return jsonify({"success": False, "error": "Authentication service unavailable"}), 503
+    return None
 
 
 # ─── Database (optional) ─────────────────────────────────────────────────────
@@ -137,6 +171,26 @@ def get_json_field(data: dict, field: str, required: bool = True):
 
 
 
+:
+    return jsonify({"error": "Internal server error"}), 500
+
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def success(data: dict, status: int = 200):
+    return jsonify({"success": True, **data}), status
+
+def error(message: str, status: int = 400):
+    return jsonify({"success": False, "error": message}), status
+
+def get_json_field(data: dict, field: str, required: bool = True):
+    val = data.get(field)
+    if required and (val is None or val == ""):
+        raise ValueError(f"Missing required field: {field}")
+    return val
+
+
+
 # ─── Verified identity for the new AI/JC route ────────────────────────────────
 def verify_access_token(token: str) -> dict:
     """Verify a Supabase HS256 access token; fail closed if configuration is absent."""
@@ -192,9 +246,9 @@ def _write_jc_audit(event):
 @app.route("/api/intelligence/summary", methods=["POST"])
 def api_intelligence_summary():
     """Run the deterministic intelligence summary through JC under verified scope."""
-    claims, auth_error = _verified_claims()
-    if auth_error:
-        return auth_error
+    claims = getattr(g, "auth_claims", None)
+    if not isinstance(claims, dict):
+        return jsonify({"success": False, "error": "Authentication required"}), 401
 
     org_id = claims.get("organisation_id") or claims.get("org_id")
     permissions = claims.get("permissions", [])
