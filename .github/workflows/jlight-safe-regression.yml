@@ -32,11 +32,11 @@ jobs:
           python - <<'PY'
           import pathlib, re
           html = pathlib.Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\b([^>]*)>([\s\S]*?)</script\s*>", html, re.I)
-          inline = [body for attrs, body in scripts if not re.search(r"\bsrc\s*=", attrs, re.I) and body.strip()]
+          scripts = re.findall(r"<script\\b([^>]*)>([\\s\\S]*?)</script\\s*>", html, re.I)
+          inline = [body for attrs, body in scripts if not re.search(r"\\bsrc\\s*=", attrs, re.I) and body.strip()]
           if not inline:
               raise SystemExit("No inline application JavaScript found")
-          pathlib.Path("/tmp/jlight-inline.js").write_text("\n;\n".join(inline), encoding="utf-8")
+          pathlib.Path("/tmp/jlight-inline.js").write_text("\\n;\\n".join(inline), encoding="utf-8")
           print(f"Checking {len(inline)} inline script block(s)")
           PY
           node --check /tmp/jlight-inline.js
@@ -59,3 +59,6 @@ jobs:
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
+      - name: Run JLIGHT Intelligence Engine tests
+        working-directory: jlight-backend
+        run: python -m unittest tests.test_intelligence_engine
