@@ -158,6 +158,8 @@ def require_auth(view):
             return error("Authentication required", 401)
         try:
             claims = verify_access_token(token.strip())
+        except jwt.InvalidTokenError:
+            return error("Invalid or expired access token", 401)
         except Exception:
             app.logger.warning("Access token verification failed", exc_info=True)
             return error("Authentication verification unavailable", 503)
