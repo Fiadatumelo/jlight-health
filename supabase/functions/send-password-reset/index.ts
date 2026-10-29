@@ -65,21 +65,12 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Too many reset requests. Wait 15 minutes and try again." }, 429, origin);
   }
 
-  // Prefer the dedicated sender, but fall back to Supabase Auth SMTP if
-  // Resend secrets are not configured. This avoids making recovery depend on
-  // a second email provider when Auth SMTP is already correctly configured.
+  // Do not silently fall back to Supabase's built-in mailer: it may be
+  // restricted or unconfigured and can accept requests without delivering
+  // mail. Require the dedicated sender and report a configuration failure.
   if (!resendApiKey || !fromEmail || !serviceRoleKey) {
-    const authClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { error } = await authClient.auth.resetPasswordForEmail(email, {
-      redirectTo: origin + "/?type=recovery",
-    });
-    if (error) {
-      console.error("[send-password-reset] Supabase Auth SMTP fallback failed.");
-      return json({ error: "Password-reset email could not be requested. Check Supabase Auth SMTP settings or configure the dedicated email sender." }, 503, origin);
-    }
-    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+    console.error("[send-password-reset] Dedicated email sender is not fully configured.");
+    return json({ error: "Password recovery email is temporarily unavailable. Please try again later." }, 503, origin);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -92,9 +83,20 @@ Deno.serve(async (req: Request) => {
     email,
     options: { redirectTo: origin + "/?type=recovery" },
   });
-  if (error || !data?.properties?.action_link) {
-    console.warn("[send-password-reset] Recovery link unavailable; returning generic response.");
-    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+  if (error) {
+    // Keep unknown-account responses generic to prevent account enumeration,
+    // but surface genuine Auth/configuration failures instead of pretending
+    // the recovery request was processed.
+    const errorCode = (error as { code?: string }).code ?? "";
+    if (errorCode === "user_not_found") {
+      return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+    }
+    console.error("[send-password-reset] Recovery link generation failed", errorCode || "unclassified");
+    return json({ error: "Password recovery is temporarily unavailable. Please try again later." }, 503, origin);
+  }
+  if (!data?.properties?.action_link) {
+    console.error("[send-password-reset] Recovery link generation returned no action link.");
+    return json({ error: "Password recovery is temporarily unavailable. Please try again later." }, 503, origin);
   }
 
   const actionLink = data.properties.action_link;
@@ -113,9 +115,7 @@ Deno.serve(async (req: Request) => {
   if (!mail.ok) {
     const details = await mail.text();
     console.error("[send-password-reset] Email provider rejected message", mail.status, details.slice(0, 300));
-    // Keep the same public response for valid accounts, unknown accounts,
-    // and provider delivery failures to prevent account enumeration.
-    return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
+    return json({ error: "The reset email service could not send your message. Please try again later." }, 503, origin);
   }
   return json({ success: true, message: "If an account exists for that address, a reset email has been requested." }, 200, origin);
 });
