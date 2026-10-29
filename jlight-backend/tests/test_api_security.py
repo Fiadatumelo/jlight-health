@@ -17,12 +17,40 @@ def test_health_probe_is_public():
     assert response.status_code == 200
 
 
-def test_protected_route_rejects_missing_bearer_token():
+import pytest
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        ("post", "/api/analyse-csv", {"csvText": "value\\n1\\n2\\n3"}),
+        ("post", "/api/bio/tb", {"sequence": "ATCGATCGATCG"}),
+        ("post", "/api/bio/variant", {"reference": "ATCG", "sample": "ATCG"}),
+        ("post", "/api/bio/ngs", {"sequence": "ATCGATCGATCG"}),
+        ("post", "/api/bio/wgs", {"sequence": "ATCGATCGATCG"}),
+        ("post", "/api/bio/sequence", {"sequence": "ATCGATCGATCG"}),
+        ("post", "/api/bio/fasta", {"sequence": ">sample\\nATCGATCG"}),
+        ("get", "/api/cards", None),
+        ("post", "/api/cards/acknowledge", {"id": "test-card"}),
+        ("get", "/api/audit", None),
+    ],
+)
+def test_all_data_routes_reject_missing_bearer_token(method, path, payload):
     client = app.test_client()
-    response = client.post("/api/bio/sequence", json={"sequence": "ATCGATCGATCG"})
+    response = getattr(client, method)(path, json=payload)
     assert response.status_code == 401
     assert response.get_json()["error"] == "Authentication required"
 
+
+def test_protected_route_rejects_invalid_signed_token(monkeypatch):
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
+    client = app.test_client()
+    response = client.post(
+        "/api/bio/sequence",
+        headers={"Authorization": "Bearer definitely-not-a-valid-jwt"},
+        json={"sequence": "ATCGATCGATCG"},
+    )
+    assert response.status_code == 401
 
 def test_protected_route_returns_503_when_verifier_unavailable():
     client = app.test_client()
