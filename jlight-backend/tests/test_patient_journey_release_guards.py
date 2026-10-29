@@ -53,15 +53,23 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn("STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))", function)
         self.assertIn("patients.find(p => String(p.id) === String(STATE.currentPatientId))", function)
 
-    def test_patient_journey_uses_one_combined_report_download(self):
+    def test_patient_journey_generates_two_correlated_report_downloads(self):
         start = HTML.index("async function generatePatientJourneyReports()")
         end = HTML.index("\nasync function generateJourneyReport()", start)
         function = HTML[start:end]
-        self.assertIn("const combinedReport = {", function)
-        self.assertIn("journeySummary: journeyReport", function)
-        self.assertIn("dataQualityTraceability: qualityReport", function)
-        self.assertEqual(function.count("downloadJourneyJson("), 1)
+        self.assertIn("journeyReport.correlationId = correlationId", function)
+        self.assertIn("qualityReport.correlationId = correlationId", function)
+        self.assertIn("-journey-summary-", function)
+        self.assertIn("-data-quality-traceability-", function)
+        self.assertEqual(function.count("downloadJourneyJson("), 2)
+        self.assertIn("requestJlightIntelligenceSummary(patient, events)", function)
         self.assertIn("patient journey report", HTML.lower())
+
+    def test_legacy_direct_browser_anthropic_integration_is_removed(self):
+        self.assertNotIn("api.anthropic.com/v1/messages", HTML)
+        self.assertNotIn("anthropic-dangerous-direct-browser-access", HTML)
+        self.assertNotIn("promptForKey()", HTML)
+        self.assertIn("/api/intelligence/summary", HTML)
 
     def test_issue_resolution_is_not_inferred_from_recommendation(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
