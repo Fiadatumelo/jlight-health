@@ -1,5 +1,7 @@
 """API authentication regression tests. Run from jlight-backend with pytest."""
 import os
+import time
+import jwt
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -22,7 +24,7 @@ def test_protected_route_rejects_missing_bearer_token():
     assert response.get_json()["error"] == "Authentication required"
 
 
-def test_protected_route_rejects_invalid_token():
+def test_protected_route_returns_503_when_verifier_unavailable():
     client = app.test_client()
     with patch("api.app.verify_access_token", side_effect=Exception("bad token")):
         response = client.post(
@@ -33,15 +35,30 @@ def test_protected_route_rejects_invalid_token():
     assert response.status_code == 503
 
 
-def test_protected_route_accepts_verified_session():
+def test_protected_route_rejects_invalid_signed_token(monkeypatch):
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
     client = app.test_client()
-    claims = {"sub": "00000000-0000-4000-8000-000000000001", "aud": "authenticated"}
-    with patch("api.app.verify_access_token", return_value=claims):
-        response = client.post(
-            "/api/bio/sequence",
-            headers={"Authorization": "Bearer verified-test-token"},
-            json={"sequence": "ATCGATCGATCG"},
-        )
+    response = client.post(
+        "/api/bio/sequence",
+        headers={"Authorization": "Bearer definitely-not-a-valid-jwt"},
+        json={"sequence": "ATCGATCGATCG"},
+    )
+    assert response.status_code == 401
+
+
+def test_protected_route_accepts_verified_session(monkeypatch):
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
+    claims = {
+        "sub": "00000000-0000-4000-8000-000000000001",
+        "aud": "authenticated",
+        "exp": int(time.time()) + 60,
+    }
+    token = jwt.encode(claims, "test-only-secret", algorithm="HS256")
+    response = app.test_client().post(
+        "/api/bio/sequence",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"sequence": "ATCGATCGATCG"},
+    )
     assert response.status_code == 200
     assert response.get_json()["success"] is True
 
