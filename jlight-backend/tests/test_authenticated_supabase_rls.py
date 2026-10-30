@@ -544,6 +544,30 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT inactive_study_recruitment_approval_test")
         c.execute("RELEASE SAVEPOINT inactive_study_recruitment_approval_test")
 
+    def test_hospital_member_without_trial_read_cannot_create_recruitment_referral(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT referral_ct_read_permission_test")
+        c.execute(
+            """INSERT INTO public.jl_organisation_workspaces
+               (org_id, workspace_key, status, provisioning_source, approved_at)
+               VALUES (%s, 'clinical_trials', 'active', 'admin_approval', now())
+               ON CONFLICT (org_id, workspace_key) DO UPDATE SET status='active'""",
+            (self.org_a,),
+        )
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute(
+            "SELECT set_config('request.jwt.claim.sub', %s, true)",
+            (self.hospital_only,),
+        )
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                """SELECT public.jl_create_trial_recruitment_referral(
+                     %s, %s, %s, 'RLS-REFERRAL-NO-TRIAL-READ', '{}'::jsonb, 'ct-criteria-test-v1')""",
+                (self.org_a, str(uuid.uuid4()), self.patient_a),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT referral_ct_read_permission_test")
+        c.execute("RELEASE SAVEPOINT referral_ct_read_permission_test")
+
     def test_clinical_trials_records_are_not_visible_from_hospital_membership(self):
         c = self._as_user(self.b)
         c.execute("SELECT id FROM public.jl_trial_studies")
