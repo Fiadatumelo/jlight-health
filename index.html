@@ -1257,6 +1257,13 @@ function toggleSignupMode() {
   if (MODE.signupMode) {
     const joinType = document.getElementById('si-join-type')
     if (joinType) joinType.value = 'new'
+    sessionStorage.removeItem("jl_selected_paths")
+    sessionStorage.removeItem("jl_selected_path")
+    document.querySelectorAll(".path-choice").forEach(el => { el.classList.remove("selected"); el.setAttribute("aria-pressed","false") })
+    if (s) s.textContent = "Select one or more pathways for this organisation"
+  } else {
+    const first = (() => { try { return JSON.parse(sessionStorage.getItem("jl_selected_paths") || "[]")[0] } catch (_) { return null } })()
+    if (first) selectJlightPath(first)
   }
   if (t) t.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
   if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
@@ -1273,12 +1280,33 @@ function toggleSignupMode() {
 
 function selectJlightPath(role) {
   if (!Object.prototype.hasOwnProperty.call(ROLES, role)) return
-  sessionStorage.setItem("jl_selected_path", role)
-  document.querySelectorAll(".path-choice").forEach(el => { const on = el.dataset.path === role; el.classList.toggle("selected", on); el.setAttribute("aria-pressed", on ? "true" : "false") })
-  const chosen = document.querySelector(".path-choice.selected .path-choice-copy strong"), sub = document.getElementById("si-sub")
-  if (sub && !MODE.signupMode) sub.textContent = chosen ? "Selected: " + chosen.textContent + " · sign in to continue" : "Choose a path, then access your workspace"
+  let selected = []
+  try { selected = JSON.parse(sessionStorage.getItem("jl_selected_paths") || "[]") } catch (_) {}
+  if (MODE.signupMode && (document.getElementById("si-join-type") || {}).value !== "join") {
+    selected = selected.includes(role) ? selected.filter(x => x !== role) : [...selected, role]
+    sessionStorage.setItem("jl_selected_paths", JSON.stringify(selected))
+    sessionStorage.setItem("jl_selected_path", selected[0] || "")
+    document.querySelectorAll(".path-choice").forEach(el => {
+      const on = selected.includes(el.dataset.path)
+      el.classList.toggle("selected", on); el.setAttribute("aria-pressed", on ? "true" : "false")
+    })
+    const sub = document.getElementById("si-sub")
+    if (sub) sub.textContent = selected.length
+      ? selected.length + " pathway(s) selected for initial organisation registration"
+      : "Select one or more pathways for this organisation"
+  } else {
+    selected = [role]
+    sessionStorage.setItem("jl_selected_paths", JSON.stringify(selected))
+    sessionStorage.setItem("jl_selected_path", role)
+    document.querySelectorAll(".path-choice").forEach(el => {
+      const on = el.dataset.path === role
+      el.classList.toggle("selected", on); el.setAttribute("aria-pressed", on ? "true" : "false")
+    })
+    const chosen = document.querySelector(".path-choice.selected .path-choice-copy strong"), sub = document.getElementById("si-sub")
+    if (sub) sub.textContent = chosen ? "Selected: " + chosen.textContent + " · sign in to continue" : "Choose a path, then access your workspace"
+  }
   const next = document.getElementById("si-continue"); if (next) next.style.display = MODE.hasRestoredSession ? "flex" : "none"
-  const roleSelect = document.getElementById("si-role"); if (roleSelect) roleSelect.value = role
+  const roleSelect = document.getElementById("si-role"); if (roleSelect) roleSelect.value = selected[0] || role
 }
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
@@ -1295,13 +1323,20 @@ async function doSignIn(resend = false) {
     if (status) { status.textContent = message; status.className = "auth-status " + kind; }
   };
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus("Enter a valid email address."); return; }
-  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before signing in."); return; }
+  let selectedPaths = [];
+  try { selectedPaths = JSON.parse(sessionStorage.getItem("jl_selected_paths") || "[]"); } catch (_) {}
+  const isNewRegistration = !!MODE.signupMode && (document.getElementById("si-join-type") || {}).value !== "join";
+  if (isNewRegistration) {
+    if (!Array.isArray(selectedPaths) || selectedPaths.length < 1 || selectedPaths.some(x => !ROLES[x])) {
+      showStatus("Select at least one JLIGHT pathway for the new organisation."); return;
+    }
+  } else if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose an authorised JLIGHT workspace before signing in."); return; }
   if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
 
   let pending = null;
   try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
   if (!resend) {
-    pending = { email, signup: !!MODE.signupMode, role: selectedPath, createdAt: Date.now() };
+    pending = { email, signup: !!MODE.signupMode, role: selectedPath || selectedPaths[0], workspaceKeys: isNewRegistration ? selectedPaths.map(x => ({Laboratory:"laboratory",Hospital:"hospital",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[x]) : [], createdAt: Date.now() };
     if (MODE.signupMode) {
       pending.joinType = (document.getElementById("si-join-type") || {}).value || "new";
       pending.orgName = (document.getElementById("si-org") || {}).value?.trim() || "JLIGHT Health Intelligence Platform";
@@ -1453,9 +1488,12 @@ async function ensureJlightOrganisation(user, options = {}) {
 
   // Only accounts with no existing workspace and no join code reach creation.
   if (!orgName) throw new Error("Enter an organisation name before creating a workspace.");
-  const { data: created, error: createError } = await sb.rpc("jl_create_organisation", {
+  const workspaceKeys = (options.workspaceKeys && options.workspaceKeys.length)
+    ? options.workspaceKeys.map(x => String(x).toLowerCase())
+    : [{Laboratory:"laboratory",Hospital:"hospital",Bioinformatics:"bioinformatics",Trial:"clinical_trials"}[role]];
+  const { data: created, error: createError } = await sb.rpc("jl_register_organisation_multi", {
     p_name: orgName,
-    p_role: organisationRole
+    p_workspace_keys: workspaceKeys
   });
   if (createError) throw new Error("Workspace creation failed: " + createError.message);
   if (!created?.id || !created?.org_code) {
@@ -1474,31 +1512,29 @@ async function ensureJlightOrganisation(user, options = {}) {
 async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const sb = getSupabase();
   if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
-  const { data, error } = await sb.from("jl_organisations")
-    .select("id,name,org_code,role,type,active")
-    .eq("id", MODE.organisationId).maybeSingle();
-  if (error || !data) throw new Error("Could not verify the organisation's registered path. Access remains closed.");
-  if (data.active === false) throw new Error("This organisation is inactive. Contact JLIGHT support.");
-  const type = String(data.type || data.role || "").trim().toLowerCase();
-  const pathByType = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial", trial:"Trial", clinical_trial:"Trial" };
-  const verifiedPath = pathByType[type];
-  if (!verifiedPath || !ROLES[verifiedPath]) throw new Error("This organisation does not have a valid system-assigned JLIGHT path. Contact JLIGHT support.");
-  if (requestedPath && requestedPath !== verifiedPath) throw new Error("This organisation is registered for " + ROLES[verifiedPath].label + ". JLIGHT will not open " + ROLES[requestedPath].label + " for this organisation.");
-  const permissionDomain = type === "trial" || type === "clinical_trial" ? "clinical_trials" : type
+  const { data: organisations, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
+  if (error || !Array.isArray(organisations)) throw new Error("Could not securely discover your approved workspaces. Access remains closed.");
+  const organisation = organisations.find(x => String(x.organisation_id) === String(MODE.organisationId));
+  if (!organisation) throw new Error("No active organisation membership was found. Contact your organisation administrator.");
+  const pathByKey = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial" };
+  const permitted = (organisation.workspaces || []).map(x => pathByKey[x.key]).filter(Boolean);
+  if (!permitted.length) throw new Error("Your account has no active workspace permissions. Contact your organisation administrator.");
+  const requested = requestedPath || sessionStorage.getItem("jl_selected_path") || null;
+  const verifiedPath = requested && permitted.includes(requested) ? requested : (!requested && permitted.length === 1 ? permitted[0] : null);
+  if (!verifiedPath) throw new Error(requested
+    ? "Your organisation or member account is not authorised for the selected workspace."
+    : "Choose one of your approved workspaces to continue.");
+  const permissionDomain = ({Hospital:"hospital",Laboratory:"laboratory",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[verifiedPath];
   const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
-    p_organization_id: data.id,
-    p_domain: permissionDomain,
-    p_access: "read"
-  })
-  if (permissionError || canRead !== true) {
-    throw new Error("Your organisation membership is not yet authorised to read this workspace. Ask an administrator to approve and grant access.")
-  }
-  MODE.organisationId = data.id;
-  MODE.organisationName = data.name;
-  MODE.organisationCode = data.org_code || MODE.organisationCode || "";
+    p_organization_id: organisation.organisation_id, p_domain: permissionDomain, p_access: "read"
+  });
+  if (permissionError || canRead !== true) throw new Error("Workspace permission could not be verified. Access remains closed.");
+  MODE.organisationId = organisation.organisation_id;
+  MODE.organisationName = organisation.organisation_name;
+  MODE.organisationCode = organisation.organisation_code || MODE.organisationCode || "";
   MODE.organisationType = permissionDomain;
-  STATE.orgId = data.id;
-  STATE.orgName = data.name;
+  STATE.orgId = organisation.organisation_id;
+  STATE.orgName = organisation.organisation_name;
   STATE.role = verifiedPath;
   return verifiedPath;
 }
@@ -1517,8 +1553,12 @@ async function verifyLoginCode() {
   if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
   let pending = null;
   try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
-  if (!pending || pending.email !== email || pending.role !== selectedPath) {
+  if (!pending || pending.email !== email || (!pending.signup && pending.role !== selectedPath)) {
     showStatus("Your sign-in request has expired. Request a new email code."); return;
+  }
+  if (pending.signup && pending.joinType === "new" &&
+      (!Array.isArray(pending.workspaceKeys) || pending.workspaceKeys.length < 1)) {
+    showStatus("Your organisation pathway selection has expired. Start registration again."); return;
   }
   const sb = getSupabase();
   if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
@@ -1531,7 +1571,7 @@ async function verifyLoginCode() {
     const user = data.user;
     MODE.isOnline = true; STATE.user = user.email || email; STATE.role = selectedPath;
     const orgOptions = pending.signup
-      ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath, orgCode: pending.joinType === "join" ? pending.orgCode : "" }
+      ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath || pending.role, workspaceKeys: pending.workspaceKeys || [], orgCode: pending.joinType === "join" ? pending.orgCode : "" }
       : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
     await ensureJlightOrganisation(user, orgOptions);
     await loadVerifiedOrganisationPath(user, selectedPath);
