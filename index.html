@@ -617,6 +617,37 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.journey-patient-choice,.sb-link,.sb-link .sb-link-icon{transition:none;transform:none}}
 
+/* Navigation declutter: grouped, collapsible sections */
+.sb-nav { gap:6px; padding:12px 10px 16px; }
+.sb-nav-group { border:1px solid transparent; border-radius:10px; }
+.sb-nav-group[open] { background:rgba(255,255,255,.015); border-color:rgba(255,255,255,.035); }
+.sb-nav-group > summary { list-style:none; display:flex; align-items:center; justify-content:space-between; gap:8px; cursor:pointer; padding:10px 11px; border-radius:8px; color:var(--text-3); font-size:10px; font-weight:800; letter-spacing:1.1px; text-transform:uppercase; user-select:none; }
+.sb-nav-group > summary::-webkit-details-marker { display:none; }
+.sb-nav-group > summary::after { content:'+'; color:var(--text-4); font-size:15px; font-weight:500; }
+.sb-nav-group[open] > summary::after { content:'−'; }
+.sb-nav-group > summary:hover { background:var(--surface-3); color:var(--text); }
+.sb-nav-group .sb-link { margin:2px 4px; padding:9px 10px; }
+.sb-nav-group .sb-link.active::before { left:-5px; }
+.topbar { padding-inline:24px; }
+@media (max-width:900px) {
+  .layout { grid-template-columns:210px minmax(0,1fr); }
+  .content { padding:20px; }
+  .topbar { padding:0 18px; }
+}
+@media (max-width:680px) {
+  .layout { grid-template-columns:1fr; }
+  .sidebar { position:relative; height:auto; max-height:none; border-right:0; border-bottom:1px solid var(--border); }
+  .sb-brand { padding:12px 16px; }
+  .sb-role-banner { margin:8px 12px 4px; }
+  .sb-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); max-height:44vh; overflow-y:auto; }
+  .sb-nav-group { min-width:0; }
+  .sb-nav-group .sb-link { font-size:12px; }
+  .sb-foot { padding:10px 12px; }
+  .topbar { position:sticky; top:0; }
+  .tb-status { display:none; }
+  .content { padding:16px 12px; }
+  .page-title { font-size:22px; }
+}
 </style>
 </head>
 <body>
