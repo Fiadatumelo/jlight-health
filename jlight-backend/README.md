@@ -8,13 +8,14 @@ The Python service provides authenticated support for JLIGHT's health-intelligen
 |---|---|---|---|
 | GET | `/api/health` | Service health probe | Public |
 | POST | `/api/analyse-csv` | Optional, authenticated QC dataset analysis for trusted integrations | Protected |
+| POST | `/api/intelligence/summary` | JC summary of approved structured checks, with organisation scope and audit | Protected |
 | GET | `/api/cards` | Legacy global card listing | Disabled (503) until tenant-scoped access is implemented |
 | POST | `/api/cards/acknowledge` | Legacy global card update | Disabled (503) until tenant-scoped access is implemented |
 | GET | `/api/audit` | Legacy global audit listing | Disabled (503) until tenant-scoped access is implemented |
 
 Raw sequence endpoints (`/api/bio/*`) have been retired. The current Bioinformatics experience is for reviewing imported pipeline outputs and provenance; it does not accept raw sequences or issue clinical interpretations.
 
-The current browser application stores and reads tenant-scoped operational data through Supabase. The optional `/api/analyse-csv` endpoint is not the frontend's source-import path.
+The current browser application stores and reads tenant-scoped operational data through Supabase. The optional `/api/analyse-csv` endpoint is not the frontend's source-import path. The JC endpoint accepts only structured `csv_analysis`, `bioinformatics`, and `journey_checks` inputs; it rejects unsupported fields and excludes Clinical Trials scope.
 
 ## Authentication
 
@@ -29,10 +30,17 @@ Configure the backend verifier with:
 - `SUPABASE_URL` — Supabase project URL.
 - `SUPABASE_JWT_SECRET` — only when the project uses HS256 access tokens.
 - `SUPABASE_JWT_ISSUER` and `SUPABASE_JWKS_URL` — optional overrides.
-- `DATABASE_URL` — optional PostgreSQL connection for the backend's existing audit and QC persistence.
+- `DATABASE_URL` — PostgreSQL connection used by the mandatory metadata-only JC audit sink. If audit storage is unavailable, the JC summary endpoint fails closed with HTTP 503.
 - `PORT` — supplied by the hosting service.
 
 Keep signing secrets and database credentials in the hosting provider's secret environment. Never commit them to this repository.
+
+
+## JC intelligence scope
+
+The `/api/intelligence/summary` endpoint requires a verified signed access token with a server-issued organisation identifier, an explicit `intelligence:read` permission, and a non-Clinical-Trials workspace role. It does not trust user-editable `user_metadata`. Audit events contain metadata only; raw patient identifiers, filenames, sequences, and free text are not forwarded to the agent.
+
+The frontend may still use its staging API fallback. Do not switch the production frontend to the production backend until the signed-claim contract, audit database connection, and authenticated staging workflow have been verified with a real JLIGHT session.
 
 ## Local development
 
@@ -43,6 +51,7 @@ cp .env.example .env
 python -m pytest tests/test_api_security.py -q
 python -m unittest tests.test_interoperability
 python tests/test_all.py
+python -m pytest tests/test_intelligence_engine.py tests/test_jc_agent.py tests/test_intelligence_api.py -q
 python api/app.py
 ```
 
