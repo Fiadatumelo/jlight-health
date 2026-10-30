@@ -2072,12 +2072,6 @@ function buildPatientJourneyEvents(patient) {
   add('Bioinformatics','Quality-control event',STATE.bioQc||[],r=>'Quality metric / flag'+(r.metric?' · '+r.metric:'')+(r.status?' · status: '+r.status:'')+(r.notes?' · '+r.notes:''));
   add('Bioinformatics','Resistance finding',STATE.bioAmr||[],r=>'Source-reported resistance finding'+(r.organism?' · '+r.organism:'')+(r.drug?' · '+r.drug:'')+(r.resistancePattern?' · '+r.resistancePattern:'')+(r.status?' · status: '+r.status:''));
   add('JLIGHT Intelligence','Decision / issue',STATE.cards||[],r=>(r.title||r.headline||r.type||'Detected issue')+(r.severity?' · severity: '+r.severity:'')+(r.acknowledged?' · acknowledged':' · open')+(r.recommendation?' · recommended action: '+r.recommendation:'')+(r.resolution?' · recorded resolution: '+r.resolution:''));
-  // Trial details are included only inside the dedicated Clinical Trials workspace.
-  if(STATE.role==='Trial'){
-    add('Clinical Trials','Trial enrolment',STATE.participants||[],r=>'Authorised study enrolment'+(r.studyName?' · '+r.studyName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
-    add('Clinical Trials','Trial visit',STATE.visits||[],r=>'Study visit'+(r.visitName?' · '+r.visitName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
-    add('Clinical Trials','Trial safety / issue event',STATE.adverseEvents||[],r=>'Recorded trial safety event'+(r.eventType?' · '+r.eventType:'')+(r.status?' · status: '+r.status:''));
-  }
   events.sort((a,b)=>(b.when?b.when.getTime():0)-(a.when?a.when.getTime():0));
   return events;
 }
