@@ -26,6 +26,23 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             raise RuntimeError("Refusing RLS integration tests unless the database URL matches the verified staging project")
         cls.conn = psycopg2.connect(STAGING_DSN)
         cls.conn.autocommit = False
+        # Fixtures create disposable auth.users rows inside a rollback-only
+        # transaction. The CI secret must therefore be the staging database
+        # administrator connection, never an anon/authenticated application URL.
+        with cls.conn.cursor() as cursor:
+            cursor.execute(
+                """SELECT current_user, r.rolsuper,
+                          has_table_privilege(current_user, 'auth.users', 'INSERT')
+                   FROM pg_roles r WHERE r.rolname = current_user"""
+            )
+            db_user, is_superuser, can_seed_auth = cursor.fetchone()
+        if not is_superuser and not can_seed_auth:
+            cls.conn.close()
+            raise RuntimeError(
+                "JLIGHT_STAGING_DATABASE_URL must use a staging database administrator "
+                "that can create rollback-only synthetic auth.users fixtures; "
+                f"connected role {db_user!r} cannot seed auth.users. Do not weaken RLS."
+            )
         cls.a = str(uuid.uuid4())
         cls.b = str(uuid.uuid4())
         cls.platform_admin = str(uuid.uuid4())
@@ -527,8 +544,9 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         # from Hospital referral options.
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
         c.execute("SELECT public.jl_revoke_trial_recruitment(%s,'synthetic test revocation')", (study_id,))
-        c.execute("SELECT recruitment_enabled FROM public.jl_trial_studies WHERE id=%s", (study_id,))
-        self.assertFalse(c.fetchone()[0])
+        # The platform administrator's revocation RPC is authoritative. Do not
+        # bypass the study table's member-scoped RLS merely to inspect its row;
+        # verify the effective state through the Hospital discovery function below.
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
         c.execute("SELECT * FROM public.jl_list_recruitable_trial_studies(%s)", (self.org_a,))
         self.assertEqual(c.fetchall(), [])
