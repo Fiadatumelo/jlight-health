@@ -3765,7 +3765,7 @@ async function renderAdminCenter() {
       '<td><input type="checkbox" id="admin-read-' + esc(row.auth_subject) + '" ' + (row.can_read ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
       '<td><input type="checkbox" id="admin-write-' + esc(row.auth_subject) + '" ' + (row.can_write ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
       '<td><input type="checkbox" id="admin-report-' + esc(row.auth_subject) + '" ' + (row.can_report ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
-      '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\\'' + esc(row.auth_subject) + '\\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
+      '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\'' + esc(row.auth_subject) + '\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
   }).join('')
   const memberTableHead = isTrialPath
     ? '<tr><th>Member</th><th>Role</th><th>Membership status</th></tr>'
