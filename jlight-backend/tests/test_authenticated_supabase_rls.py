@@ -540,7 +540,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
         c.execute(
             "SELECT public.jl_invite_org_member(%s, 'bioinformatics')",
-            ("scoped-member-" + target[:8] + "@invalid.example",),
+            ("rls-invited-target@invalid.example",),
         )
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (target,))
         c.execute(
