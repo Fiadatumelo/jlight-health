@@ -2682,7 +2682,13 @@ async function commitTBProfilerJson() {
   const records=TB_PROFILER_IMPORT_PREVIEW
   const preview=document.getElementById('tb-profiler-preview')
   if(!records||!records.length){toast('Preview first','Validate a TBProfiler JSON file before importing.','warn');return}
-  if(!requirePermission('supervisor','Import TBProfiler result'))return
+  if (MODE.isOnline) {
+    const sb=getSupabase()
+    const {data:canWrite,error}=await sb.rpc('jlight_has_domain_permission',{
+      p_organization_id:MODE.organisationId,p_domain:'bioinformatics',p_access:'write'
+    })
+    if(error||canWrite!==true){toast('Import not authorised','Your verified Bioinformatics workspace does not grant write permission.','crit');return}
+  } else if(!requirePermission('supervisor','Import TBProfiler result')) return
   const current=STATE.bioRuns||[],existing=new Set(current.map(r=>String(r.id)))
   const imported=records.filter(r=>!existing.has(String(r.id))).map(r=>({...r,orgId:STATE.orgId,role:STATE.role,sourceFile:TB_PROFILER_IMPORT_NAME}))
   if(!imported.length){if(preview)preview.innerHTML='<div class="source-import-result error"><strong>No new profiles</strong><p>All sample IDs already exist in this workspace.</p></div>';return}
