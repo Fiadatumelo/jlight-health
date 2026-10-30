@@ -822,6 +822,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-cards" class="page"></div>
         <div id="page-detail" class="page"></div>
         <div id="page-register" class="page"></div>
+        <div id="page-tb" class="page"></div>
         <div id="page-predictive" class="page"></div>
         <div id="page-handover" class="page"></div>
         <div id="page-analytics" class="page"></div>
@@ -2371,12 +2372,13 @@ function renderDashboard() {
     `
   } else if (STATE.role === 'Bioinformatics') {
     const runs = STATE.bioRuns || []
+    const tbRuns = runs.filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler')
     const flagged = runs.filter(r => /fail|flag|review|error/i.test(String(r.status || r.qcStatus || r.qualityStatus || '')))
     const missingPatient = runs.filter(r => !r.patientId).length
     kpiHTML = `
-      <div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">${runs.length}</div><div class="kpi-trend">Source-system records</div></div>
-      <div class="kpi ${flagged.length ? 'warn' : 'good'}"><div class="kpi-label">Source Flags to Review</div><div class="kpi-value">${flagged.length}</div><div class="kpi-trend">Based on supplied status labels</div></div>
-      <div class="kpi ${missingPatient ? 'warn' : 'good'}"><div class="kpi-label">Missing Patient Links</div><div class="kpi-value">${missingPatient}</div><div class="kpi-trend">Review source mapping</div></div>
+      <div class="kpi"><div class="kpi-label">TB Profiles</div><div class="kpi-value">${tbRuns.length}</div><div class="kpi-trend">Imported TBProfiler outputs</div></div>
+      <div class="kpi"><div class="kpi-label">Resistance Variants</div><div class="kpi-value">${tbRuns.reduce((n,r)=>n+(r.tbProfiler?.drVariants?.length||0),0)}</div><div class="kpi-trend">As reported by TBProfiler</div></div>
+      <div class="kpi ${flagged.length ? 'warn' : 'good'}"><div class="kpi-label">Source Flags to Review</div><div class="kpi-value">${flagged.length}</div><div class="kpi-trend">Based on supplied QC/status labels</div></div>
       <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else {
@@ -2680,7 +2682,7 @@ async function commitTBProfilerJson() {
   const records=TB_PROFILER_IMPORT_PREVIEW
   const preview=document.getElementById('tb-profiler-preview')
   if(!records||!records.length){toast('Preview first','Validate a TBProfiler JSON file before importing.','warn');return}
-  if(!requirePermission('write','Import TBProfiler result'))return
+  if(!requirePermission('supervisor','Import TBProfiler result'))return
   const current=STATE.bioRuns||[],existing=new Set(current.map(r=>String(r.id)))
   const imported=records.filter(r=>!existing.has(String(r.id))).map(r=>({...r,orgId:STATE.orgId,role:STATE.role,sourceFile:TB_PROFILER_IMPORT_NAME}))
   if(!imported.length){if(preview)preview.innerHTML='<div class="source-import-result error"><strong>No new profiles</strong><p>All sample IDs already exist in this workspace.</p></div>';return}
@@ -2730,7 +2732,8 @@ function renderBioinformaticsTB() {
     const lineages=[...new Set(all.map(r=>r.mainLineage).filter(x=>x&&x!=='Not reported'))]
     body='<div class="tb-kpi-grid"><div class="kpi"><div class="kpi-label">TB profiles</div><div class="kpi-value">'+all.length+'</div><div class="kpi-trend">Imported source outputs</div></div><div class="kpi"><div class="kpi-label">Non-susceptible classes</div><div class="kpi-value">'+resistant.length+'</div><div class="kpi-trend">As reported by TBProfiler</div></div><div class="kpi"><div class="kpi-label">Resistance variants</div><div class="kpi-value">'+variantCount+'</div><div class="kpi-trend">Source annotations</div></div><div class="kpi"><div class="kpi-label">QC flags</div><div class="kpi-value">'+qcFlags.length+'</div><div class="kpi-trend">Source QC labels</div></div></div><div class="tb-panel-grid"><section class="form-card"><h3>Resistance classification</h3>'+(all.length?counts.map(c=>'<div class="tb-bar-row"><span>'+esc(c.label)+'</span><div class="tb-bar"><i style="width:'+Math.round(c.value/Math.max(all.length,1)*100)+'%"></i></div><b>'+c.value+'</b></div>').join(''):'<div class="empty">No TB profiles imported.</div>')+'</section><section class="form-card"><h3>Lineage coverage</h3><div class="tb-lineage-list">'+(lineages.length?lineages.map(x=>'<span class="tb-chip">'+esc(x)+'</span>').join(''):'<div class="empty">No lineage data supplied.</div>')+'</div><p class="form-help">Lineage is shown as reported by TBProfiler; JLIGHT does not independently call lineage.</p></section></div>'
   }else if(tab==='resistance'){
-    body='<div class="form-card"><h3>Drug-resistance classification</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Reported class</th><th>Resistance variants</th><th>Pipeline</th></tr></thead><tbody>'+all.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.drtype||'Not reported')+'</td><td>'+(r.tbProfiler?.drVariants?.length||0)+'</td><td>'+esc(r.pipelineVersion||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No resistance profiles available.</div>')+'</div>'
+    const drugRows=all.flatMap(r=>(r.tbProfiler?.resistanceEvidence||[]).map(e=>({sample:r.sampleId||r.id,...e})))
+    body='<div class="form-card"><h3>Reported drug-resistance classifications</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Reported class</th><th>Resistance variants</th><th>Pipeline</th></tr></thead><tbody>'+all.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.drtype||'Not reported')+'</td><td>'+(r.tbProfiler?.drVariants?.length||0)+'</td><td>'+esc(r.pipelineVersion||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No resistance profiles available.</div>')+'</div><div class="form-card"><h3>Drug-specific variant evidence · '+drugRows.length+'</h3>'+(drugRows.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Drug</th><th>Gene</th><th>Mutation</th><th>Confidence</th><th>Source</th></tr></thead><tbody>'+drugRows.slice(0,500).map(e=>'<tr><td>'+esc(e.sample)+'</td><td>'+esc(e.drug||'Unannotated')+'</td><td>'+esc(e.gene||'—')+'</td><td>'+esc(e.mutation||'—')+'</td><td>'+esc(e.confidence||'—')+'</td><td>'+esc(e.source||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No drug-specific annotations supplied by TBProfiler.</div>')+'</div>'
   }else if(tab==='lineage'){
     const groups=Object.entries(all.reduce((a,r)=>{const k=(r.mainLineage||'Not reported')+(r.subLineage&&r.subLineage!=='Not reported'?' · '+r.subLineage:'');a[k]=(a[k]||0)+1;return a},{}))
     body='<div class="form-card"><h3>Lineage and sub-lineage distribution</h3>'+(groups.length?groups.map(x=>'<div class="tb-bar-row"><span>'+esc(x[0])+'</span><div class="tb-bar"><i style="width:'+Math.round(x[1]/Math.max(all.length,1)*100)+'%"></i></div><b>'+x[1]+'</b></div>').join(''):'<div class="empty">No lineage assignments supplied.</div>')+'</div>'
