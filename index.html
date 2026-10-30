@@ -3675,9 +3675,9 @@ async function renderAdminCenter() {
       ['AMR analyses', (STATE.bioAmr || []).length]
     ],
     clinical_trials: [
-      ['Protocols', STATE.protocols.length], ['Participants', STATE.participants.length],
-      ['Visits', STATE.visits.length], ['Adverse events', STATE.adverseEvents.length],
-      ['Protocol deviations', (STATE.deviations || []).length]
+      ['Studies', (STATE.trialStudies || []).length], ['Study participants', (STATE.trialParticipants || []).length],
+      ['Timeline events', (STATE.trialTimelineEvents || []).length], ['Recruitment referrals', (STATE.trialReferrals || []).length],
+      ['Participants withdrawn', (STATE.trialParticipants || []).filter(p => p.status === 'withdrawn').length]
     ]
   }
   const counts = metricsByPath[MODE.organisationType] || []
