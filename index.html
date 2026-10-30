@@ -3665,9 +3665,10 @@ async function loadAdminDomainAccess() {
   if (!sb || !MODE.isOnline || !MODE.organisationId || STATE.userProfile?.workspace_role !== 'admin') {
     return { rows: [], error: 'Administrator access is required.' }
   }
-  const { data, error } = await sb.rpc('jlight_list_org_domain_access', {
-    p_organization_id: MODE.organisationId
-  })
+  const isTrial = MODE.organisationType === 'clinical_trials'
+  const { data, error } = isTrial
+    ? await sb.rpc('jl_list_trial_members', { p_org_id: MODE.organisationId })
+    : await sb.rpc('jlight_list_org_domain_access', { p_organization_id: MODE.organisationId })
   return { rows: Array.isArray(data) ? data : [], error: error?.message || null }
 }
 
@@ -3754,13 +3755,21 @@ async function renderAdminCenter() {
   access.rows.forEach(row => { if (!members.has(row.auth_subject)) members.set(row.auth_subject, row) })
   const domain = ({ hospital:'Hospital', laboratory:'Laboratory', bioinformatics:'Bioinformatics' })[MODE.organisationType] || 'Clinical Trials'
   const inviteRole = ({ hospital:'hospital', laboratory:'laboratory', bioinformatics:'bioinformatics', clinical_trials:'clinical_trial' })[MODE.organisationType]
-  const memberRows = Array.from(members.values()).map(row =>
-    '<tr><td><strong>' + esc(row.display_name || row.email || 'Member') + '</strong><div style="font-size:11px;color:var(--text-3)">' + esc(row.email || '') + ' · ' + esc(row.membership_role || '') + (row.membership_active ? '' : ' · inactive') + '</div></td>' +
-    '<td><input type="checkbox" id="admin-read-' + esc(row.auth_subject) + '" ' + (row.can_read ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
-    '<td><input type="checkbox" id="admin-write-' + esc(row.auth_subject) + '" ' + (row.can_write ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
-    '<td><input type="checkbox" id="admin-report-' + esc(row.auth_subject) + '" ' + (row.can_report ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
-    '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\'' + esc(row.auth_subject) + '\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
-  ).join('')
+  const isTrialPath = MODE.organisationType === 'clinical_trials'
+  const memberRows = Array.from(members.values()).map(row => {
+    const memberName = '<strong>' + esc(row.display_name || row.email || 'Member') + '</strong><div style="font-size:11px;color:var(--text-3)">' + esc(row.email || '') + '</div>'
+    if (isTrialPath) {
+      return '<tr><td>' + memberName + '</td><td>' + esc(row.membership_role || '') + '</td><td>' + (row.membership_active ? 'Approved' : 'Invitation pending / inactive') + '</td></tr>'
+    }
+    return '<tr><td>' + memberName + '<div style="font-size:11px;color:var(--text-3)">' + esc(row.membership_role || '') + (row.membership_active ? '' : ' · inactive') + '</div></td>' +
+      '<td><input type="checkbox" id="admin-read-' + esc(row.auth_subject) + '" ' + (row.can_read ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><input type="checkbox" id="admin-write-' + esc(row.auth_subject) + '" ' + (row.can_write ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><input type="checkbox" id="admin-report-' + esc(row.auth_subject) + '" ' + (row.can_report ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\\'' + esc(row.auth_subject) + '\\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
+  }).join('')
+  const memberTableHead = isTrialPath
+    ? '<tr><th>Member</th><th>Role</th><th>Membership status</th></tr>'
+    : '<tr><th>Member</th><th>Read</th><th>Write</th><th>Reports</th><th></th></tr>'
   page.innerHTML =
     '<div class="page-head"><div><div class="page-title">Admin Center</div><div class="page-sub">Organisation controls · storage · archives · member access</div></div><span class="permission-badge admin">Administrator</span></div>' +
     '<div class="kpis">' + counts.map(item => '<div class="kpi"><div class="kpi-label">' + esc(item[0]) + '</div><div class="kpi-value">' + item[1] + '</div></div>').join('') + '</div>' +
@@ -3768,7 +3777,7 @@ async function renderAdminCenter() {
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Invite a member</div><p class="form-help">Only an administrator can approve membership. The person must already have a verified JLIGHT email-code account; an organisation code alone does not grant access.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="form-input" id="admin-invite-email" type="email" placeholder="colleague@organisation.org" style="min-width:240px;flex:1"><select class="form-input" id="admin-invite-role"><option value="' + esc(inviteRole) + '">Standard ' + esc(domain) + ' member</option><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="org_admin">Organisation administrator</option></select><button class="btn btn-primary" onclick="inviteAdminMember()">Create invitation</button></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Member access · ' + esc(domain) + '</div><p class="form-help">Grant only the access each active member needs. Write and report permissions require read access.</p>' +
     (access.error ? '<div class="auth-status error">' + esc(access.error) + '</div>' : '') +
-    '<div style="overflow:auto"><table class="data-table"><thead><tr><th>Member</th><th>Read</th><th>Write</th><th>Reports</th><th></th></tr></thead><tbody>' + memberRows + '</tbody></table></div></div>' +
+    '<div style="overflow:auto"><table class="data-table"><thead>' + memberTableHead + '</thead><tbody>' + memberRows + '</tbody></table></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Storage & data management</div><p class="form-help">JLIGHT stores structured records in the organisation-scoped database and keeps a local browser cache. There is no separate object-storage bucket configured in this workspace.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportWorkspace()">Export workspace data</button><button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button><button class="btn" onclick="clearLocalWorkspaceCache()">Clear local cache</button></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Report archive</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" onclick="renderAdminCenter()">Refresh archive</button></div><div id="admin-report-archive">' + renderReportArchiveHtml() + '</div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Security & audit</div><p class="form-help">Access changes and report deletions are recorded in the workspace audit trail. Patient-level access remains restricted by organisation and domain policies in the database.</p><button class="btn" onclick="goPage(\'audit\')">Open audit trail</button></div>'
