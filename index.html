@@ -1284,6 +1284,9 @@ async function doSignIn(resend = false) {
       if (pending.joinType === "join" && !/^[A-Z0-9]{3}-[A-Z0-9]{4}$/.test(pending.orgCode)) {
         showStatus("Enter the 8-character organisation code in the format JLI-AB12."); return;
       }
+      if (pending.role === "Trial") {
+        showStatus("Clinical Trials workspaces require administrator-approved provisioning. Contact your JLIGHT administrator, then sign in with your email code."); return;
+      }
     } else {
       pending.joinType = "existing"; pending.orgName = ""; pending.orgCode = "";
     }
