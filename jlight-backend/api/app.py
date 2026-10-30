@@ -260,35 +260,25 @@ def _write_jc_audit(event):
 def api_intelligence_summary():
     """Run deterministic intelligence aggregation under verified tenant scope."""
     claims = getattr(g, "auth_claims", None)
-    app_metadata = claims.get("app_metadata") if isinstance(claims, dict) else {}
-    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-
-    org_id = (
-        claims.get("organisation_id") or claims.get("org_id")
-        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
+    if not isinstance(claims, dict):
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"hospital", "laboratory", "bioinformatics"}, access="read"
     )
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+    role = scope["organisation_type"]
+    trial_scope = False
+    app_metadata = claims.get("app_metadata")
+    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
     permissions = claims.get("permissions")
     if permissions is None:
         permissions = app_metadata.get("permissions", [])
-    token_role = str(claims.get("role", "")).strip().lower()
-    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
-    role = str(
-        claims.get("jlight_role") or claims.get("workspace_role")
-        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or custom_role or ""
-    ).strip().lower()
-    trial_scope = (
-        role in {"trial", "clinical_trials"}
-        or claims.get("clinical_trials_scope") is True
-        or app_metadata.get("clinical_trials_scope") is True
-    )
-
-    if not isinstance(org_id, str) or not org_id.strip():
-        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
     if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
         return jsonify({"success": False, "error": "Verified permissions required"}), 403
-    if trial_scope:
-        return jsonify({"success": False, "error": "JC intelligence is not enabled for Clinical Trials scope"}), 403
+    if "intelligence:read" not in permissions:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
 
     try:
         payload = request.get_json(silent=True)
@@ -340,31 +330,18 @@ def api_clinical_trials_intelligence_summary():
     claims = getattr(g, "auth_claims", None)
     if not isinstance(claims, dict):
         return jsonify({"success": False, "error": "Verified authentication required"}), 403
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"clinical_trials"}, access="read"
+    )
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+    role = "clinical_trials"
     app_metadata = claims.get("app_metadata")
     app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-    org_id = (
-        claims.get("organisation_id") or claims.get("org_id")
-        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
-    )
     permissions = claims.get("permissions")
     if permissions is None:
         permissions = app_metadata.get("permissions", [])
-    token_role = str(claims.get("role", "")).strip().lower()
-    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
-    role = str(
-        claims.get("jlight_role") or claims.get("workspace_role")
-        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or custom_role or ""
-    ).strip().lower()
-    trial_scope = (
-        role in {"trial", "clinical_trials"}
-        or claims.get("clinical_trials_scope") is True
-        or app_metadata.get("clinical_trials_scope") is True
-    )
-    if not isinstance(org_id, str) or not org_id.strip():
-        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
-    if not trial_scope:
-        return jsonify({"success": False, "error": "Clinical Trials workspace scope required"}), 403
     if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
         return jsonify({"success": False, "error": "Verified permissions required"}), 403
     if "intelligence:read" not in permissions:
@@ -475,14 +452,6 @@ def api_analyse_csv():
             return error("No file or CSV data provided")
 
         result = analyse_csv(content, filename, role=role)
-
-        # Log to audit trail
-        log_audit("csv_upload", role, {
-            "filename": filename,
-            "row_count": result.get("rowCount", 0),
-            "severity": result.get("severity", "unknown"),
-            "risk_score": result.get("riskScore", 0),
-        })
 
         # Keep uploaded CSV content out of the legacy global table. Analysis is
         # performed in-memory and only non-identifying metrics are logged.
@@ -665,64 +634,12 @@ def api_cards():
     """Fail closed until decision cards have tenant-scoped read permissions."""
     return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
 
-    # Legacy implementation intentionally disabled below.
-    role = request.args.get("role", "")
-    db = get_db()
-
-    if db:
-        try:
-            with db.cursor() as cur:
-                if role:
-                    category = "lab" if "lab" in role.lower() or "laboratory" in role.lower() else \
-                               "trial" if "trial" in role.lower() else \
-                               "hosp" if "hosp" in role.lower() else ""
-                    if category:
-                        cur.execute(
-                            "SELECT * FROM decision_cards WHERE (category=%s OR category='all') AND status!='archived' ORDER BY created_at DESC",
-                            (category,)
-                        )
-                    else:
-                        cur.execute("SELECT * FROM decision_cards WHERE status!='archived' ORDER BY created_at DESC")
-                else:
-                    cur.execute("SELECT * FROM decision_cards WHERE status!='archived' ORDER BY created_at DESC")
-                cards = cur.fetchall()
-                return success({"cards": [dict(c) for c in cards], "source": "database"})
-        except Exception:
-            pass
-
-    return success({"cards": [], "source": "static", "note": "Database unavailable"})
-
 
 @app.route("/api/cards/acknowledge", methods=["POST"])
 @require_auth
 def api_acknowledge():
     """Fail closed until decision-card writes have tenant-scoped permissions."""
     return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
-
-    # Legacy implementation intentionally disabled below.
-    try:
-        data = request.get_json()
-        card_number = get_json_field(data, "card_number")
-        role = data.get("role", "")
-
-        db = get_db()
-        if db:
-            with db.cursor() as cur:
-                cur.execute(
-                    "UPDATE decision_cards SET status='resolved', updated_at=%s WHERE card_number=%s",
-                    (datetime.now(timezone.utc), card_number)
-                )
-            db.commit()
-
-        log_audit("card_acknowledged", role, {
-            "card_number": card_number,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-
-        return success({"card_number": card_number, "status": "resolved"})
-
-    except Exception as e:
-        return error(str(e), 500)
 
 
 # ─── Audit Log ────────────────────────────────────────────────────────────────
@@ -732,20 +649,6 @@ def api_acknowledge():
 def api_audit():
     """Fail closed until audit-log reads have tenant-scoped permissions."""
     return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
-
-    # Legacy implementation intentionally disabled below.
-    db = get_db()
-    if not db:
-        return success({"entries": [], "note": "Database unavailable"})
-    try:
-        with db.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 100"
-            )
-            entries = cur.fetchall()
-        return success({"entries": [dict(e) for e in entries]})
-    except Exception as e:
-        return error(str(e), 500)
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────
