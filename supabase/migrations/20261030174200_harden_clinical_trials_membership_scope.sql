@@ -60,32 +60,60 @@ BEGIN
  WITH member_orgs AS (
   SELECT DISTINCT o.id,o.name,o.org_code,o.type,o.role
   FROM public.jl_organisations o
-  WHERE coalesce(o.active,true)=true AND (p_org_id IS NULL OR o.id=p_org_id)
-   AND (EXISTS(SELECT 1 FROM public.jlight_organization_memberships m WHERE m.organization_id=o.id AND m.auth_subject=v_uid AND m.active=true)
-    OR EXISTS(SELECT 1 FROM public.jl_org_memberships m WHERE m.organisation_id=o.id AND m.user_id=v_uid AND m.status='active'))
- )
- SELECT coalesce(jsonb_agg(jsonb_build_object('organisation_id',o.id,'organisation_name',o.name,'organisation_code',o.org_code,
-  'workspaces',(SELECT coalesce(jsonb_agg(jsonb_build_object('key',w.workspace_key,'label',
-   CASE w.workspace_key WHEN 'hospital' THEN 'Hospital' WHEN 'laboratory' THEN 'Laboratory'
-    WHEN 'bioinformatics' THEN 'Bioinformatics' ELSE 'Clinical Trials' END) ORDER BY w.workspace_key),'[]'::jsonb)
-   FROM public.jl_organisation_workspaces w WHERE w.org_id=o.id AND w.status='active'
+  WHERE coalesce(o.active,true)=true
+    AND (p_org_id IS NULL OR o.id=p_org_id)
     AND (
-     (w.workspace_key='clinical_trials' AND EXISTS(
-      SELECT 1 FROM public.jl_org_memberships tm
-      WHERE tm.organisation_id=o.id AND tm.user_id=v_uid AND tm.status='active'
-       AND (tm.access_role IN ('owner','org_admin','clinical_trial')
-        OR (tm.access_role IN ('reviewer','read_only')
-         AND lower(coalesce(nullif(o.type,'multi'),o.role)) IN ('clinical_trials','trial','clinical_trial')))
-     ))
-     OR (w.workspace_key<>'clinical_trials' AND EXISTS(
-      SELECT 1 FROM public.jlight_organization_memberships mm
-      JOIN public.jlight_membership_domain_permissions dp
-       ON dp.organization_id=mm.organization_id AND dp.auth_subject=mm.auth_subject
-      WHERE mm.organization_id=o.id AND mm.auth_subject=v_uid AND mm.active=true
-       AND dp.domain=w.workspace_key AND dp.can_read=true
-     ))
+      EXISTS(SELECT 1 FROM public.jlight_organization_memberships m
+       WHERE m.organization_id=o.id AND m.auth_subject=v_uid AND m.active=true)
+      OR EXISTS(SELECT 1 FROM public.jl_org_memberships m
+       WHERE m.organisation_id=o.id AND m.user_id=v_uid AND m.status='active')
     )
-  ) ORDER BY o.name),'[]'::jsonb) INTO v_result FROM member_orgs o;
+ )
+ SELECT COALESCE(
+  jsonb_agg(
+   jsonb_build_object(
+    'organisation_id',o.id,
+    'organisation_name',o.name,
+    'organisation_code',o.org_code,
+    'workspaces',(
+     SELECT COALESCE(
+      jsonb_agg(
+       jsonb_build_object(
+        'key',w.workspace_key,
+        'label',CASE w.workspace_key
+         WHEN 'hospital' THEN 'Hospital'
+         WHEN 'laboratory' THEN 'Laboratory'
+         WHEN 'bioinformatics' THEN 'Bioinformatics'
+         ELSE 'Clinical Trials' END
+       ) ORDER BY w.workspace_key
+      ),'[]'::jsonb
+     )
+     FROM public.jl_organisation_workspaces w
+     WHERE w.org_id=o.id AND w.status='active'
+      AND (
+       (w.workspace_key='clinical_trials' AND EXISTS(
+        SELECT 1 FROM public.jl_org_memberships tm
+        WHERE tm.organisation_id=o.id AND tm.user_id=v_uid AND tm.status='active'
+         AND (
+          tm.access_role IN ('owner','org_admin','clinical_trial')
+          OR (tm.access_role IN ('reviewer','read_only')
+           AND lower(coalesce(nullif(o.type,'multi'),o.role)) IN ('clinical_trials','trial','clinical_trial'))
+         )
+       ))
+       OR
+       (w.workspace_key<>'clinical_trials' AND EXISTS(
+        SELECT 1 FROM public.jlight_organization_memberships mm
+        JOIN public.jlight_membership_domain_permissions dp
+         ON dp.organization_id=mm.organization_id AND dp.auth_subject=mm.auth_subject
+        WHERE mm.organization_id=o.id AND mm.auth_subject=v_uid AND mm.active=true
+         AND dp.domain=w.workspace_key AND dp.can_read=true
+       ))
+      )
+    )
+   ) ORDER BY o.name
+  ),'[]'::jsonb
+ ) INTO v_result
+ FROM member_orgs o;
  RETURN v_result;
 END;
 $function$;
