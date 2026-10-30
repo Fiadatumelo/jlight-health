@@ -41,9 +41,9 @@ The staging catalogue inspection confirmed that all 14 have a pinned search_path
 
 ### Mandatory follow-up from multi-workspace design
 
-The existing permission helper `jlight_has_domain_permission` currently compares the requested domain against the legacy singular organisation type (with a special platform-admin path). That is incompatible with the approved multi-workspace model.
+The permission helper has now been replaced on staging with an entitlement-aware implementation. It requires an active organisation, an active entitlement for the requested workspace, and the caller's active membership plus member-level permission. Clinical Trials uses its separate `jl_org_memberships` roles. Platform-admin status alone no longer grants patient-data access.
 
-Before multi-workspace application rollout, replace this single-type check with an active entitlement lookup in `jl_organisation_workspaces`, and still require the user's own active membership and per-workspace permission. Platform-admin status must never silently confer ordinary organisation-member access or cross-tenant patient data access. Platform admin review actions must use a separate explicit platform-admin authorization path.
+The application/API still contains single-path resolution and must be migrated before multi-workspace registration is enabled. Platform-admin review actions must use a separate explicit platform-admin authorisation path.
 
 Also review `jl_invite_org_member`, `jl_link_user_to_organisation`, `jl_list_trial_members`, and `jlight_set_member_domain_permission` against the new entitlement relation before enabling multi-path registration.
 
@@ -75,10 +75,43 @@ Observed staging result:
 
 Supabase advisor reports RLS-enabled/no-policy INFO notices for these two tables and `jl_platform_admins`. This is intentional until secure RPC-mediated access is implemented. Do not add permissive direct policies merely to silence the advisor.
 
+## Latest staging hardening — 30 October 2026, 17:02 UTC
+
+### Entitlement-aware permission function
+
+Migration: `20261030172000_entitlement_aware_domain_authorization`  
+Git source: `supabase/migrations/20261030192000_entitlement_aware_domain_authorization.sql`  
+Git commit: `02e872179a0e93b8603417accba632ea499bc8b8`
+
+The helper now fails closed unless the organisation is active, the requested workspace has an active row in `jl_organisation_workspaces`, and the caller has an active membership plus the required member permission. Clinical Trials remains checked through its separate membership roles. The former platform-admin patient-data bypass was removed.
+
+Staging checks:
+- Existing organisation owner + existing Laboratory entitlement: Laboratory read = true.
+- Hospital without an entitlement: false.
+- Bioinformatics without an entitlement: false.
+- Clinical Trials without an entitlement: false.
+- Synthetic unauthorised user with a forged subject context: false.
+- PostgreSQL privilege audit across all 19 public SECURITY DEFINER functions: 0 executable by anon; 14 executable by authenticated.
+
+These checks prove the tested permission boundary only. They do not prove all authenticated RPCs, all RLS policies, all API routes, or browser flows are secure.
+
+### PR #69 release blocker
+
+A review comment was added to [PR #69](https://github.com/Fiadatumelo/jlight-health/pull/69). A formal REQUEST_CHANGES review cannot be submitted by the PR author, so the blocking findings were recorded as a PR conversation comment.
+
+The current PR still states that each organisation has one registered path and its frontend/API resolve a single `jl_organisations.type`. It does not yet implement the approved multi-path registration, entitlement discovery, or platform-admin additional-path decision workflow. The separate authenticated Supabase RLS workflow has no run recorded for the current staging hardening commit. The safe-regression workflow success is not a substitute for authenticated database tests.
+
+### Current advisor interpretation
+
+- Anonymous SECURITY DEFINER warning: resolved; zero anon-callable functions across the 19 inspected public SECURITY DEFINER functions.
+- Authenticated SECURITY DEFINER warning: 14 remain; intended app RPCs/helpers, but individual adversarial testing is still required.
+- RLS enabled without policy: 3 INFO notices (`jl_platform_admins`, `jl_organisation_workspaces`, `jl_workspace_access_requests`). These are intentionally non-client-accessible and have no anon/authenticated table grants. Do not add broad policies.
+- Leaked-password protection: advisor warning remains. JLIGHT uses passwordless email-code authentication; do not introduce passwords to clear an unrelated password-protection lint.
+
 ## Remaining release blockers
 
 1. Complete semantic and adversarial tests for all 14 authenticated SECURITY DEFINER functions, including cross-tenant IDOR, forged metadata/header, inactive membership, revoked membership, invalid role, and Clinical Trials boundary tests.
-2. Replace the singular-domain permission helper with entitlement-aware logic before enabling multiple workspaces.
+2. Replace the single-path frontend/API scope resolver with entitlement-aware workspace discovery and per-request workspace validation.
 3. Add and test secure RPCs for initial multi-path registration, workspace discovery, additional-path request submission, and platform-admin-only review/approval.
 4. Test the platform-admin registry cannot be read or modified by anon/authenticated direct table access; test the helper cannot be forged by user metadata.
 5. Re-run Supabase security advisors. Expected residual INFO notices for intentionally policy-less, non-client-accessible tables must be explicitly documented. Any anonymous SECURITY DEFINER finding is a release blocker.
