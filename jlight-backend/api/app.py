@@ -161,6 +161,72 @@ def require_auth(view):
     return wrapped
 
 
+def resolve_verified_workspace_scope(allowed_domains, access="read"):
+    """Resolve organisation path and permissions from trusted database records."""
+    claims = getattr(g, "auth_claims", None)
+    user_id = claims.get("sub") if isinstance(claims, dict) else None
+    if not user_id:
+        return None, (jsonify({"success": False, "error": "Verified authentication required"}), 401)
+    db = get_db()
+    if db is None:
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
+            cur.execute(
+                """SELECT p.org_id::text AS organisation_id,
+                          lower(coalesce(nullif(o.type, 'multi'), o.role)) AS organisation_type
+                   FROM public.jl_user_profiles p
+                   JOIN public.jl_organisations o ON o.id = p.org_id
+                   WHERE p.user_id = %s
+                     AND coalesce(p.active, true) = true
+                     AND coalesce(o.active, true) = true
+                   LIMIT 1""",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
+            org_id = row["organisation_id"]
+            org_type = row["organisation_type"]
+            if org_type not in set(allowed_domains):
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "This organisation is not authorised for the requested workspace"}), 403)
+            cur.execute(
+                "SELECT public.jlight_has_domain_permission(%s::uuid, %s, %s) AS allowed",
+                (org_id, org_type, access),
+            )
+            permission_row = cur.fetchone()
+            allowed = bool(permission_row and permission_row["allowed"])
+        db.rollback()
+        if not allowed:
+            return None, (jsonify({"success": False, "error": "Workspace permission denied"}), 403)
+        return {"organisation_id": org_id, "organisation_type": org_type, "user_id": user_id}, None
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        app.logger.exception("Organisation path authorization failed")
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+
+
+def require_domain_auth(allowed_domains, access="write"):
+    """Require both a verified bearer token and an active path-specific grant."""
+    def decorator(view):
+        @wraps(view)
+        @require_auth
+        def wrapped(*args, **kwargs):
+            scope, scope_error = resolve_verified_workspace_scope(allowed_domains, access)
+            if scope_error:
+                return scope_error
+            g.jlight_scope = scope
+            return view(*args, **kwargs)
+        return wrapped
+    return decorator
+
+
 
 # ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
 
