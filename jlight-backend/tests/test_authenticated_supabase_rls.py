@@ -28,6 +28,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.conn.autocommit = False
         cls.a = str(uuid.uuid4())
         cls.b = str(uuid.uuid4())
+        cls.platform_admin = str(uuid.uuid4())
         cls.org_a = str(uuid.uuid4())
         cls.org_b = str(uuid.uuid4())
         cls.trial_org = str(uuid.uuid4())
@@ -47,7 +48,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     def _seed_transactional_fixtures(cls):
         c = cls.conn.cursor()
         # Database URL is pinned to the verified staging project before connecting.
-        for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example")):
+        for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example"),
+                          (cls.platform_admin, "rls-platform-admin@invalid.example")):
             c.execute(
                 """INSERT INTO auth.users
                    (id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -56,6 +58,11 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                            '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())""",
                 (uid, email),
             )
+        c.execute(
+            """INSERT INTO public.jl_platform_admins (user_id, admin_role, active, created_by)
+               VALUES (%s, 'platform_super_admin', true, %s)""",
+            (cls.platform_admin, cls.platform_admin),
+        )
         # Owner-membership seed triggers create the corresponding membership records.
         for org_id, name, email, uid, role, workspace_type in (
             (cls.org_a, "RLS synthetic hospital A", "rls-a@invalid.example", cls.a, "Hospital", "hospital"),
@@ -221,6 +228,109 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         self.assertEqual(c.fetchall(), [])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_workspace_entitlements_and_clinical_trials_membership_are_separate(self):
+        c = self._as_user(self.a)
+        c.execute(
+            """SELECT
+                 public.jlight_has_domain_permission(%s, 'hospital', 'read'),
+                 public.jlight_has_domain_permission(%s, 'clinical_trials', 'read'),
+                 public.jlight_has_domain_permission(%s, 'clinical_trials', 'read')""",
+            (self.org_a, self.org_a, self.trial_org),
+        )
+        self.assertEqual(c.fetchone(), (True, False, True))
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_platform_admin_approval_is_required_for_additional_workspace(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT workspace_approval_test")
+        owner = str(uuid.uuid4())
+        c.execute(
+            """INSERT INTO auth.users
+               (id, aud, role, email, encrypted_password, email_confirmed_at,
+                raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+               VALUES (%s, 'authenticated', 'authenticated', %s, '', now(),
+                       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())""",
+            (owner, "multi-path-owner-" + owner[:8] + "@invalid.example"),
+        )
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (owner,))
+        c.execute(
+            "SELECT public.jl_register_organisation_multi(%s, %s)",
+            ("Synthetic multi-path RLS test", ["hospital", "bioinformatics", "clinical_trials"]),
+        )
+        organisation = c.fetchone()[0]
+        org_id = organisation["id"]
+        c.execute(
+            """SELECT public.jl_request_additional_workspace(
+                 %s, 'laboratory', %s, '2026-10-v1')""",
+            (org_id, "secure://synthetic-evidence/" + owner),
+        )
+        request_id = c.fetchone()[0]
+        c.execute(
+            "SELECT public.jlight_has_domain_permission(%s, 'laboratory', 'read')",
+            (org_id,),
+        )
+        self.assertFalse(c.fetchone()[0])
+
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
+        c.execute("SELECT public.jl_is_platform_super_admin()")
+        self.assertTrue(c.fetchone()[0])
+        c.execute(
+            """SELECT public.jl_review_workspace_access_request(
+                 %s, 'approved', 'Synthetic eligibility criteria verified')""",
+            (request_id,),
+        )
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (owner,))
+        c.execute(
+            "SELECT public.jlight_has_domain_permission(%s, 'laboratory', 'read')",
+            (org_id,),
+        )
+        self.assertTrue(c.fetchone()[0])
+        c.execute("ROLLBACK TO SAVEPOINT workspace_approval_test")
+        c.execute("RELEASE SAVEPOINT workspace_approval_test")
+
+    def test_scoped_invitation_grants_only_the_invited_workspace(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT scoped_invitation_test")
+        target = str(uuid.uuid4())
+        c.execute(
+            """INSERT INTO auth.users
+               (id, aud, role, email, encrypted_password, email_confirmed_at,
+                raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+               VALUES (%s, 'authenticated', 'authenticated', %s, '', now(),
+                       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())""",
+            (target, "scoped-member-" + target[:8] + "@invalid.example"),
+        )
+        c.execute("SELECT org_code FROM public.jl_organisations WHERE id = %s", (self.org_a,))
+        org_code = c.fetchone()[0]
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute(
+            "SELECT public.jl_invite_org_member(%s, 'bioinformatics')",
+            ("scoped-member-" + target[:8] + "@invalid.example",),
+        )
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (target,))
+        c.execute(
+            "SELECT public.jl_accept_organisation_invitation(%s, %s)",
+            (self.org_a, org_code),
+        )
+        self.assertTrue(c.fetchone()[0])
+        c.execute(
+            "SELECT public.jl_link_user_to_organisation(%s, %s, NULL, 'operator')",
+            (self.org_a, org_code),
+        )
+        c.execute(
+            """SELECT
+                 public.jlight_has_domain_permission(%s, 'bioinformatics', 'read'),
+                 public.jlight_has_domain_permission(%s, 'hospital', 'read'),
+                 public.jlight_has_domain_permission(%s, 'clinical_trials', 'read')""",
+            (self.org_a, self.org_a, self.org_a),
+        )
+        self.assertEqual(c.fetchone(), (True, False, False))
+        c.execute("ROLLBACK TO SAVEPOINT scoped_invitation_test")
+        c.execute("RELEASE SAVEPOINT scoped_invitation_test")
 
     @classmethod
     def tearDownClass(cls):
