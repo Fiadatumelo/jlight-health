@@ -3594,6 +3594,8 @@ async function renderPlatformAdminCenter() {
   const requests = Array.isArray(data) ? data : [];
   const { data: trialQueueData, error: trialQueueError } = await sb.rpc('jl_list_trial_recruitment_approval_queue');
   const trialQueue = trialQueueError ? [] : (Array.isArray(trialQueueData) ? trialQueueData : []);
+  const { data: trialActiveData, error: trialActiveError } = await sb.rpc('jl_list_active_trial_recruitment_authorisations');
+  const trialActive = trialActiveError ? [] : (Array.isArray(trialActiveData) ? trialActiveData : []);
   page.innerHTML =
     '<div class="page-head"><div><div class="page-title">Platform Administration</div><div class="page-sub">Review organisation requests for additional JLIGHT pathways. Approval creates an entitlement; it does not automatically grant every member access.</div></div><span class="permission-badge admin">Platform Administrator</span></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Pending workspace requests · ' + requests.length + '</div>' +
@@ -3617,6 +3619,28 @@ async function renderPlatformAdminCenter() {
         `<button class="btn btn-primary" style="margin-top:10px" onclick="approveTrialRecruitment('${esc(s.study_id)}')">Approve ethics and recruitment</button></article>`
       ).join('') : '<div class="empty">No active studies are awaiting recruitment approval.</div>')) +
     '</div>';
+  page.innerHTML +=
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Active Clinical Trials recruitment authorisations · ' + trialActive.length + '</div>' +
+    (trialActiveError ? '<div class="auth-status error">' + esc(trialActiveError.message) + '</div>' :
+      (trialActive.length ? trialActive.map(s =>
+        '<article style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">' +
+        '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' + esc(s.study_code) + ' · ' + esc(s.title) + '</strong><span class="permission-badge">' + esc(s.organisation_name) + '</span></div>' +
+        '<div class="form-help">Ethics approval date: ' + esc(s.ethics_approval_date || '') + ' · Criteria: ' + esc(s.criteria_version || '') + ' · Authorised: ' + esc(s.authorised_at || '') + '</div>' +
+        `<button class="btn btn-danger" style="margin-top:10px" onclick="revokeTrialRecruitment('${esc(s.study_id)}')">Revoke recruitment approval</button></article>`
+      ).join('') : '<div class="empty">No active recruitment authorisations.</div>')) +
+    '</div>';
+}
+
+async function revokeTrialRecruitment(studyId) {
+  if(!MODE.isPlatformAdmin){toast('Not authorised','Platform Administrator access is required.','crit');return;}
+  const reason=window.prompt('Enter the reason for revoking recruitment authorisation:');
+  if(!reason||!reason.trim())return;
+  if(!window.confirm('Revoke recruitment now? New referrals and screening creation for this study will be blocked.'))return;
+  const sb=getSupabase();
+  const {error}=await sb.rpc('jl_revoke_trial_recruitment',{p_study_id:studyId,p_reason:reason.trim()});
+  if(error){toast('Recruitment approval not revoked',error.message,'crit');return;}
+  toast('Recruitment approval revoked','New recruitment and screening hand-offs are now blocked for this study.','good');
+  await renderPlatformAdminCenter();
 }
 
 async function approveTrialRecruitment(studyId) {
