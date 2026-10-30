@@ -12,6 +12,8 @@ This is a **separate validation environment**, not a JLIGHT runtime dependency. 
 - The subset deliberately includes one higher-coverage and one lower-coverage run to exercise QC reporting. The public TB-Profiler results page for `ERR10610083` warns that median coverage is below 30x; low coverage can cause mutations to be missed.
 - No patient identifiers, clinical narratives, or raw FASTQ files are imported into JLIGHT.
 
+The raw-read validation environment pins TBProfiler **6.7.0** and the separate TBDB `who_v2+` mutation library to commit `fbd11a9065212bb576b729b80fd7a3feccaad8ff`. The workflow verifies the checked-out database commit before processing reads; it does not silently use a moving `latest` database branch.
+
 ## Published reference outputs already available
 
 The public TBProfiler result pages for the two ENA runs are also captured as a small JLIGHT import fixture at `validation/tbprofiler/fixtures/public_tbprofiler_bioruns.csv`. This is a structured summary of the published result pages, **not a raw TBProfiler JSON download and not a fresh re-run of the pipeline**. It provides a quick integration check while the separate raw-read workflow downloads and re-runs the two FASTQ pairs.
