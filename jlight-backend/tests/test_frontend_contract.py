@@ -93,10 +93,10 @@ removed_legacy_handlers = (
     "releaseResult", "generateResultReceivedCard",
 )
 for name in removed_legacy_handlers:
-    require(not re.search(r"(?:async\\s+)?function\\s+" + re.escape(name) + r"\\s*\\(", html),
+    require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
             f"Unreferenced legacy handler returned: {name}")
 
-declarations = re.findall(r"(?:async\\s+)?function\\s+([A-Za-z_$][\\w$]*)\\s*\\(", html)
+declarations = re.findall(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html)
 duplicates = sorted({name for name in declarations if declarations.count(name) > 1})
 require(not duplicates, "Duplicate frontend function declarations: " + ", ".join(duplicates))
 require("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
