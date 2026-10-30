@@ -113,8 +113,8 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
         "coverage_median", "coverage",
     )))
     mapping_rate = number(first_value(qc, (
-        "percentage_reads_mapped", "percent_reads_mapped", "pct_mapped",
-        "mapping_rate", "mapped_percent",
+        "percentage_reads_mapped", "percent_reads_mapped", "pct_reads_mapped",
+        "pct_mapped", "mapping_rate", "mapped_percent",
     )))
     read_count = number(first_value(qc, (
         "num_reads", "number_of_reads", "total_reads", "reads",
