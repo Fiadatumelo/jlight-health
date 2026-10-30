@@ -219,5 +219,13 @@ require("p_domain:'bioinformatics',p_access:'write'" in html and
 require("function hydrateTBProfilerRecord(" in html and
         "JLIGHT-normalized TBProfiler CSV" in html,
         "TB compartments must support the public validation workflow's normalized CSV output")
+require("summary.resistanceAssociatedVariants" in html and
+        "summary.drugResistanceCall" in html and
+        "summary.percentReadsMapped" in html and
+        "summary.numberOfReads" in html,
+        "TB importer must remain compatible with the existing public TBProfiler fixture schema")
+require("function classifyTBResistanceType(" in html and
+        "if(v.includes('pre-mdr'))return 'Pre-MDR-TB'" in html,
+        "TB resistance classes must distinguish Pre-MDR, MDR, Pre-XDR and XDR")
 
 print("JLIGHT frontend contract checks passed.")
