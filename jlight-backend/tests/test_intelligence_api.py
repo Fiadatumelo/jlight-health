@@ -84,7 +84,9 @@ def test_user_metadata_cannot_authorise_an_organisation():
     assert response.status_code == 403
 
 
-def test_intelligence_permission_is_required():
+def test_database_workspace_permission_is_authoritative_over_jwt_permission_claims():
+    # JWT permission claims are not the authority. The server-side database
+    # resolver has verified active organisation membership and domain read access.
     claims = verified_claims(permissions=["system:read"])
     with patch("api.app.verify_access_token", return_value=claims), \
          patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])), \
@@ -94,7 +96,8 @@ def test_intelligence_permission_is_required():
             headers={"Authorization": "Bearer verified-test-token"},
             json={"journey_checks": []},
         )
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.get_json()["organisation_id"] == "org-db-verified"
 
 
 def test_raw_or_unknown_payload_fields_are_rejected():
