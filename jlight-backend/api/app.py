@@ -33,7 +33,7 @@ from flask_cors import CORS
 from engine.csv_engine import analyse_csv
 from api.security import verify_access_token
 
-from engine.intelligence_engine import build_intelligence_summary
+from engine.intelligence_engine import build_intelligence_summary, build_clinical_trials_intelligence_summary
 from agent.jc_agent import (
     JCContext, JCAgent, JCTool, JCError, JCApprovalRequired,
     JCForbidden, JCInvalidRequest,
@@ -264,6 +264,88 @@ def api_intelligence_summary():
     except Exception:
         app.logger.exception("Intelligence summary failed")
         return jsonify({"success": False, "error": "Intelligence summary unavailable"}), 503
+
+
+
+@app.route("/api/intelligence/clinical-trials-summary", methods=["POST"])
+@require_auth
+def api_clinical_trials_intelligence_summary():
+    """Run the isolated Clinical Trials JC tool using verified trial scope."""
+    claims = getattr(g, "auth_claims", None)
+    if not isinstance(claims, dict):
+        return jsonify({"success": False, "error": "Verified authentication required"}), 403
+    app_metadata = claims.get("app_metadata")
+    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
+    org_id = (
+        claims.get("organisation_id") or claims.get("org_id")
+        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
+    )
+    permissions = claims.get("permissions")
+    if permissions is None:
+        permissions = app_metadata.get("permissions", [])
+    token_role = str(claims.get("role", "")).strip().lower()
+    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
+    role = str(
+        claims.get("jlight_role") or claims.get("workspace_role")
+        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
+        or app_metadata.get("role") or custom_role or ""
+    ).strip().lower()
+    trial_scope = (
+        role in {"trial", "clinical_trials"}
+        or claims.get("clinical_trials_scope") is True
+        or app_metadata.get("clinical_trials_scope") is True
+    )
+    if not isinstance(org_id, str) or not org_id.strip():
+        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
+    if not trial_scope:
+        return jsonify({"success": False, "error": "Clinical Trials workspace scope required"}), 403
+    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
+        return jsonify({"success": False, "error": "Verified permissions required"}), 403
+    if "intelligence:read" not in permissions:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
+
+    try:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {"clinical_trials_checks"}:
+            return jsonify({"success": False, "error": "Only clinical_trials_checks is accepted"}), 400
+        checks = payload.get("clinical_trials_checks")
+        if not isinstance(checks, list) or len(checks) > 20:
+            return jsonify({"success": False, "error": "A bounded list of trial checks is required"}), 400
+        allowed_fields = {"check_id", "status", "severity", "evidence_count"}
+        if any(not isinstance(item, dict) or set(item) - allowed_fields for item in checks):
+            return jsonify({"success": False, "error": "Trial checks contain unsupported fields"}), 400
+
+        context = JCContext(
+            user_id=claims["sub"],
+            organisation_id=org_id,
+            permissions=frozenset(permissions),
+            role=role,
+            clinical_trials_scope=True,
+        )
+        agent = JCAgent(context=context, audit=_write_jc_audit)
+        agent.register(JCTool(
+            name="clinical_trials_summary",
+            description="Aggregate de-identified Clinical Trials workflow checks only.",
+            handler=lambda _ctx, args: build_clinical_trials_intelligence_summary(
+                clinical_trials_checks=args.get("clinical_trials_checks"),
+            ),
+            required_permissions=frozenset({"intelligence:read"}),
+            allowed_arguments=frozenset({"clinical_trials_checks"}),
+            allowed_scopes=frozenset({"clinical_trials"}),
+        ))
+        result = agent.execute("clinical_trials_summary", payload)
+        return jsonify({"success": True, "organisation_id": org_id, **result}), 200
+    except JCApprovalRequired:
+        return jsonify({"success": False, "error": "Explicit approval required"}), 409
+    except JCForbidden:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
+    except JCInvalidRequest:
+        return jsonify({"success": False, "error": "Invalid intelligence request"}), 400
+    except JCError:
+        return jsonify({"success": False, "error": "JC execution unavailable; check audit service"}), 503
+    except Exception:
+        app.logger.exception("Clinical Trials intelligence failed")
+        return jsonify({"success": False, "error": "Clinical Trials intelligence unavailable"}), 503
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
