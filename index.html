@@ -2758,6 +2758,16 @@ function hydrateTBProfilerRecord(record) {
   }
 }
 
+function classifyTBResistanceType(value) {
+  const v=String(value||'').toLowerCase().replace(/[_ ]+/g,'-')
+  if(v.includes('pre-xdr'))return 'Pre-XDR-TB'
+  if(v.includes('xdr'))return 'XDR-TB'
+  if(v.includes('mdr'))return 'MDR-TB'
+  if(v.includes('rr-tb')||v==='rr')return 'RR-TB'
+  if(v.includes('sensitive')||v.includes('susceptible'))return 'Sensitive'
+  return 'Other / unclassified'
+}
+
 function renderBioinformaticsTB() {
   const page=document.getElementById('page-tb')
   if(!page)return
@@ -2771,7 +2781,7 @@ function renderBioinformaticsTB() {
   let body=''
   if(tab==='overview'){
     const classes=['Sensitive','RR-TB','MDR-TB','Pre-XDR-TB','XDR-TB','Other / unclassified']
-    const counts=classes.map(c=>({label:c,value:all.filter(r=>c==='Other / unclassified'?!classes.slice(0,-1).some(x=>(r.drtype||'').toLowerCase().includes(x.toLowerCase())):(r.drtype||'').toLowerCase().includes(c.toLowerCase())).length}))
+    const counts=classes.map(c=>({label:c,value:all.filter(r=>classifyTBResistanceType(r.drtype)===c).length}))
     const lineages=[...new Set(all.map(r=>r.mainLineage).filter(x=>x&&x!=='Not reported'))]
     body='<div class="tb-kpi-grid"><div class="kpi"><div class="kpi-label">TB profiles</div><div class="kpi-value">'+all.length+'</div><div class="kpi-trend">Imported source outputs</div></div><div class="kpi"><div class="kpi-label">Non-susceptible classes</div><div class="kpi-value">'+resistant.length+'</div><div class="kpi-trend">As reported by TBProfiler</div></div><div class="kpi"><div class="kpi-label">Resistance variants</div><div class="kpi-value">'+variantCount+'</div><div class="kpi-trend">Source annotations</div></div><div class="kpi"><div class="kpi-label">QC flags</div><div class="kpi-value">'+qcFlags.length+'</div><div class="kpi-trend">Source QC labels</div></div></div><div class="tb-panel-grid"><section class="form-card"><h3>Resistance classification</h3>'+(all.length?counts.map(c=>'<div class="tb-bar-row"><span>'+esc(c.label)+'</span><div class="tb-bar"><i style="width:'+Math.round(c.value/Math.max(all.length,1)*100)+'%"></i></div><b>'+c.value+'</b></div>').join(''):'<div class="empty">No TB profiles imported.</div>')+'</section><section class="form-card"><h3>Lineage coverage</h3><div class="tb-lineage-list">'+(lineages.length?lineages.map(x=>'<span class="tb-chip">'+esc(x)+'</span>').join(''):'<div class="empty">No lineage data supplied.</div>')+'</div><p class="form-help">Lineage is shown as reported by TBProfiler; JLIGHT does not independently call lineage.</p></section></div>'
   }else if(tab==='resistance'){
