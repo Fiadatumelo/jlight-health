@@ -4972,6 +4972,7 @@ function copyOrgCode() {
 
 
 function renderReportArchiveHtml() {
+  const canDelete = MODE.isOnline && STATE.userProfile?.workspace_role === 'admin'
   const reports = (Array.isArray(STATE.reportArchive) ? STATE.reportArchive : [])
     .filter(r => !MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId))
     .slice().sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
