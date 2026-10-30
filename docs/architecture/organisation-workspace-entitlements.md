@@ -20,15 +20,30 @@
 8. JLIGHT resolves the organisation and authorised workspaces from trusted database records. Browser selections, user-editable metadata, local storage, and request headers are never authoritative.
 9. Clinical Trials remains a separately permissioned and data-isolated workspace even when selected alongside other pathways.
 
+## 1.1 JLIGHT Business Workspace Model (approved)
+
+Use the ChatGPT Business workspace model as the product and lifecycle reference: an organisation creates one workspace, an accountable organisation owner is established, and that owner/admin manages members within the organisation's approved capabilities. JLIGHT adopts this workspace-and-membership pattern while retaining its own health-sector eligibility, privacy, and regulatory controls.
+
+The following distinctions are mandatory:
+
+- **Workspace creation is separate from pathway activation.** A valid organisation registration may create its organisation workspace even when one or more selected pathways still require review. A pending pathway must remain inaccessible until its eligibility checks and required approval are complete.
+- **Initial selection is self-service, not unrestricted activation.** The registering owner may select one or multiple pathways in the initial registration. JLIGHT applies the documented eligibility checks for each selected pathway; only pathways that pass those checks are activated. Where a pathway requires manual review, record it as pending and do not grant access while pending.
+- **Additional pathways are controlled changes.** After initial registration, only JLIGHT Platform Administration may approve or reject an additional-pathway request. Organisation owners/admins may submit requests and evidence but cannot grant the entitlement themselves.
+- **Organisation ownership is not universal data access.** The owner can administer the organisation workspace and manage members, but members receive only explicit permissions within active, approved pathways. Clinical Trials access requires its own specific authorisation and remains isolated.
+- **Authentication and organisation discovery are separate controls.** Passwordless email-code verification proves control of an email address. It does not create membership, approve pathways, or grant data permissions. Organisation codes are identifiers, not credentials.
+
+JLIGHT may use role concepts analogous to Business Owner, Admin, and Member, but must enforce workspace-specific permissions and the separate Platform Administrator authority. Do not copy a generic role's implied privileges without explicit JLIGHT policy.
+
 ## 2. Registration flow
 
 1. User enters organisation details and verified contact email.
 2. User selects one or more pathways in the initial registration form.
-3. JLIGHT validates the selection and runs the applicable organisation/path eligibility checks.
-4. JLIGHT creates the organisation record and one entitlement record per approved initial pathway in a single transaction.
-5. JLIGHT creates the organisation code and the initial organisation-administrator membership/invitation using the existing secure, passwordless email-code flow.
-6. After email-code verification and invitation/membership validation, the user is shown only the organisation's active, approved pathways.
-7. The user selects a workspace to enter. The server rechecks active membership, entitlement, workspace permission, and organisation status before returning data.
+3. JLIGHT validates the organisation details and each selected pathway against its applicable eligibility checks.
+4. JLIGHT creates the organisation workspace and owner membership. Workspace creation must not depend on every selected pathway being immediately approved.
+5. For each selected pathway, JLIGHT records an explicit outcome: activate an entitlement only when the applicable checks pass; otherwise retain the pathway as pending review with no access. Pathway provisioning must be atomic per approved decision and must not grant unselected paths.
+6. JLIGHT creates the organisation code and establishes the initial organisation-owner membership using the existing secure, passwordless email-code flow.
+7. After email-code verification and membership validation, the owner sees only active, approved pathways for which the owner has permission. Pending pathways are clearly identified as awaiting review and cannot be opened.
+8. The user selects an available workspace to enter. The server rechecks active membership, entitlement, workspace permission, and organisation status before returning data.
 
 Registration must fail closed: partial organisation creation or partial entitlement provisioning must not leave an organisation with an ambiguous or unintended set of workspaces.
 
