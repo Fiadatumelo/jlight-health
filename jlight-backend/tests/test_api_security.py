@@ -191,7 +191,11 @@ def test_clinical_trials_intelligence_uses_server_derived_database_checks():
         )
 
     assert response.status_code == 200
-    assert response.get_json()["result"]["status"] == "succeeded"
+    body = response.get_json()
+    assert body["status"] == "succeeded"
+    assert body["result"]["overall_status"] == "review_required"
+    assert body["result"]["human_review_required"] is True
+    assert body["result"]["finding_count"] == 1
     assert any("jl_build_trial_intelligence_checks" in statement for statement, _ in fake_db.cursor_instance.statements)
     assert fake_db.rollbacks >= 1
 
