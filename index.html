@@ -1331,7 +1331,7 @@ async function doSignIn(resend = false) {
     if (!Array.isArray(selectedPaths) || selectedPaths.length < 1 || selectedPaths.some(x => !ROLES[x])) {
       showStatus("Select at least one JLIGHT pathway for the new organisation."); return;
     }
-  } else if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose an authorised JLIGHT workspace before signing in."); return; }
+  } else if (selectedPath && !ROLES[selectedPath]) { showStatus("Choose a valid JLIGHT workspace."); return; }
   if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
 
   let pending = null;
@@ -1548,7 +1548,6 @@ async function verifyLoginCode() {
   };
   if (!email) { showStatus("Enter the same email address used to request the code."); return; }
   if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
-  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
   let pending = null;
   try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
   if (!pending || pending.email !== email || (!pending.signup && pending.role !== selectedPath)) {
@@ -1567,7 +1566,15 @@ async function verifyLoginCode() {
     if (error) throw error;
     if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
     const user = data.user;
-    MODE.isOnline = true; STATE.user = user.email || email; STATE.role = selectedPath;
+    MODE.isOnline = true; STATE.user = user.email || email;
+    await refreshPlatformAdminStatus();
+    if (MODE.isPlatformAdmin && !user.user_metadata?.org_id) {
+      sessionStorage.removeItem("jl_pending_auth");
+      showStatus("JLIGHT Platform Administration access verified.", "success");
+      setTimeout(() => enterPlatformAdminApp(user), 300);
+      return;
+    }
+    if (selectedPath && !ROLES[selectedPath]) throw new Error("Choose a valid JLIGHT workspace.");
     const orgOptions = pending.signup
       ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath || pending.role, workspaceKeys: pending.workspaceKeys || [], orgCode: pending.joinType === "join" ? pending.orgCode : "" }
       : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
@@ -1779,6 +1786,10 @@ function buildNav() {
   const cfg = ROLES[STATE.role]
   const nav = $('sb-nav')
   const openCards = STATE.cards.filter(c => !c.acknowledged).length
+  if (MODE.isPlatformAdmin && !MODE.organisationId) {
+    nav.innerHTML = '<div class="sb-nav-pinned sb-nav-admin"><div class="sb-link active" role="button" tabindex="0" onclick="goPage(\\'platform-admin\\')"><span class="sb-link-icon">◆</span><span>Platform Administration</span></div></div>'
+    return
+  }
   const groups = [
     { label: 'Overview', keys: ['dashboard'] },
     { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
@@ -3802,6 +3813,76 @@ function renderAdminArchivedPatientsHtml() {
     '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedPatient(\'' + esc(patient.id) + '\')">Permanently delete</button>' +
     '</div>'
   ).join('') + '</div>'
+}
+
+async function refreshPlatformAdminStatus() {
+  const sb = getSupabase();
+  if (!sb) { MODE.isPlatformAdmin = false; return false; }
+  try {
+    const { data, error } = await sb.rpc("jl_is_platform_super_admin");
+    MODE.isPlatformAdmin = !error && data === true;
+  } catch (_) { MODE.isPlatformAdmin = false; }
+  return MODE.isPlatformAdmin;
+}
+
+function enterPlatformAdminApp(user) {
+  MODE.isOnline = true;
+  MODE.organisationId = null;
+  MODE.organisationName = "JLIGHT Platform Administration";
+  MODE.organisationCode = "";
+  MODE.organisationType = null;
+  STATE.user = user?.email || "";
+  STATE.role = "Laboratory"; // Shell layout only; no organisation data is loaded.
+  STATE.orgId = null;
+  STATE.orgName = MODE.organisationName;
+  STATE.userProfile = { full_name: user?.email || "Platform Administrator", workspace_role: "platform_admin" };
+  showScreen("app");
+  buildNav();
+  goPage("platform-admin");
+}
+
+async function renderPlatformAdminCenter() {
+  const page = $("page-platform-admin");
+  if (!page) return;
+  if (!MODE.isOnline || !MODE.isPlatformAdmin) {
+    page.innerHTML = renderEmpty("Platform administrator access required", "This area is restricted to authorised JLIGHT Platform Administrators.", "dashboard", "← Dashboard");
+    return;
+  }
+  const sb = getSupabase();
+  if (!sb) { page.innerHTML = renderEmpty("Administration service unavailable", "Sign in again to verify platform administrator access."); return; }
+  const { data, error } = await sb.rpc("jl_list_pending_workspace_requests");
+  if (error) {
+    page.innerHTML = '<div class="page-head"><div><div class="page-title">Platform Administration</div><div class="page-sub">Additional workspace eligibility reviews</div></div></div><div class="auth-status error">' + esc(error.message) + '</div>';
+    return;
+  }
+  const requests = Array.isArray(data) ? data : [];
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">Platform Administration</div><div class="page-sub">Review organisation requests for additional JLIGHT pathways. Approval creates an entitlement; it does not automatically grant every member access.</div></div><span class="permission-badge admin">Platform Administrator</span></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Pending workspace requests · ' + requests.length + '</div>' +
+    (requests.length ? requests.map(r =>
+      '<article style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">' +
+      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' + esc(r.organisation_name || "Organisation") + '</strong><span class="permission-badge">' + esc(r.workspace || "") + '</span></div>' +
+      '<div class="form-help">Submitted: ' + esc(r.submitted_at || "") + ' · Criteria: ' + esc(r.criteria_version || "") + '</div>' +
+      '<div class="form-help">Evidence reference: ' + esc(r.evidence_reference || "Not supplied") + '</div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
+      '<button class="btn btn-primary" onclick="decideWorkspaceRequest(\\'' + esc(r.request_id) + '\\',\\'approved\\')">Approve pathway</button>' +
+      '<button class="btn" onclick="decideWorkspaceRequest(\\'' + esc(r.request_id) + '\\',\\'rejected\\')">Reject request</button></div></article>'
+    ).join("") : '<div class="empty">No additional workspace requests are awaiting review.</div>') +
+    '</div>';
+}
+
+async function decideWorkspaceRequest(requestId, decision) {
+  if (!MODE.isPlatformAdmin) { toast("Not authorised", "Platform Administrator access is required.", "crit"); return; }
+  const reason = window.prompt("Enter the eligibility decision rationale (required):");
+  if (!reason || !reason.trim()) return;
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.rpc("jl_review_workspace_access_request", {
+    p_request_id: requestId, p_decision: decision, p_reason: reason.trim()
+  });
+  if (error) { toast("Decision not saved", error.message, "crit"); return; }
+  toast("Workspace request " + decision, "The decision and audit event were recorded.", "good");
+  await renderPlatformAdminCenter();
 }
 
 async function renderAdminCenter() {
