@@ -151,6 +151,7 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
         "otherVariantCount": len(other_variants),
         "qcWarnings": warnings,
         "sourceResultFile": path.name,
+        "sourceUrl": f"https://tbdr.lshtm.ac.uk/results/{run_id}",
         "sourceDate": jsonable_text(source_date),
         "interpretationLimit": (
             "External genotypic prediction only; not phenotypic DST or a clinical diagnosis."
