@@ -24,7 +24,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
 
     def test_clinical_trials_uses_separate_participant_timeline(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\\nfunction selectJourneyPatient", start)
+        end = HTML.index("\nfunction selectJourneyPatient", start)
         function = HTML[start:end]
         self.assertNotIn("STATE.role==='Trial'", function)
         self.assertNotIn("STATE.participants", function)
