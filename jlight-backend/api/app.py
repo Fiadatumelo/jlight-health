@@ -265,15 +265,20 @@ def require_domain_auth(allowed_domains, access="read"):
 
     def decorate(view):
         @wraps(view)
-        def wrapped(*args, **kwargs):
-            claims = getattr(g, "auth_claims", None)
-            if not isinstance(claims, dict) or not claims.get("sub"):
-                return jsonify({"success": False, "error": "Verified authentication required"}), 401
+        def scoped_view(*args, **kwargs):
             scope, scope_error = resolve_verified_workspace_scope(allowed, access=access)
             if scope_error:
                 return scope_error
             g.jlight_scope = scope
             return view(*args, **kwargs)
+
+        # Authentication must run before workspace resolution. Never rely on
+        # client-supplied identity, role headers, or stale JWT workspace claims.
+        authenticated_view = require_auth(scoped_view)
+
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            return authenticated_view(*args, **kwargs)
         return wrapped
     return decorate
 
