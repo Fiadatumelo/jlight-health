@@ -1120,11 +1120,7 @@ let _supa = null
 
 
 // ─── Cryptographic audit hash ───
-async function sha256(text) {
-  const d = new TextEncoder().encode(text)
-  const b = await crypto.subtle.digest('SHA-256', d)
-  return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')
-}
+
 
 
 // ─── Permissions ───
@@ -4493,150 +4489,19 @@ async function loadFromBackend() {
 // ── CONFLICT RESOLUTION — timestamp-wins merge ──
 // Algorithm: for each record ID, the version with the later .ts field wins.
 // Applied when reconnecting after offline use.
-async function syncWithConflictResolution() {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) return
-  try {
-    const sess = await sb.auth.getSession()
-    if (!sess.data.session) return
-    const uid = sess.data.session.user.id
-    let conflicts = 0
-    for (const table of ['samples', 'entries', 'cards']) {
-      const { data: remote } = await sb
-        .from('jl_' + table)
-        .select('payload,ts')
-        .eq('user_id', uid)
-        .eq('role', STATE.role)
-        .order('ts', { ascending: false })
-        .limit(500)
-      if (!remote) continue
-      const remoteItems = remote.map(r => r.payload).filter(Boolean)
-      const localItems = table === 'samples' ? STATE.samples
-                       : table === 'entries' ? STATE.entries : STATE.cards
-      const merged = {}
-      for (const item of [...remoteItems, ...localItems]) {
-        if (!item || !item.id) continue
-        if (!merged[item.id] || (item.ts || 0) > (merged[item.id].ts || 0)) {
-          if (merged[item.id]) conflicts++
-          merged[item.id] = item
-        }
-      }
-      const arr = Object.values(merged).filter(x => !x.role || x.role === STATE.role)
-      if (table === 'samples') STATE.samples = arr
-      else if (table === 'entries') STATE.entries = arr
-      else STATE.cards = arr
-      STORAGE.saveSamples && (table === 'samples' ? STORAGE.saveSamples(STATE.role, arr) : null)
-      STORAGE.saveEntries && (table === 'entries' ? STORAGE.saveEntries(STATE.role, arr) : null)
-      STORAGE.saveCards   && (table === 'cards'   ? STORAGE.saveCards(STATE.role, arr)   : null)
-    }
-    if (conflicts > 0) {
-      await audit('Sync conflict resolution', conflicts + ' conflicts resolved — newest timestamp wins')
-    }
-  } catch (e) { console.warn('[JLIGHT] conflict resolution failed:', e.message) }
-}
+
 
 // ── REALTIME — cross-workspace notifications ──
 // Uses Supabase Realtime Postgres changes subscription
-async function subscribeToRealtime() {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) return
-  if (_realtimeChannel) { try { await sb.removeChannel(_realtimeChannel) } catch {} _realtimeChannel = null }
-  try {
-    _realtimeChannel = sb.channel('jl-requests-' + STATE.role)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jl_requests' }, handleRealtimeRequest)
-      .subscribe()
-  } catch (e) { console.warn('[JLIGHT] realtime subscribe failed:', e.message) }
-}
 
-function handleRealtimeRequest(payload) {
-  const req = payload.new
-  if (!req) return
-  // Lab receives new incoming request
-  if (STATE.role === 'Laboratory' && req.target_workspace === 'Laboratory' && payload.eventType === 'INSERT') {
-    loadAllDomainData()
-  updateRequestBadge()
-  startAutoEngines()
-  STATE.orgId = MODE.organisationId || localStorage.getItem('jl_org_id') || 'default'
-    toast('New sample request', (req.from_workspace || '') + ' · ' + (req.test_requested || ''), 'warn')
-    if (STATE.currentPage === 'requests') renderRequests()
-  }
-  // Requester receives result released
-  if (req.from_workspace === STATE.role && req.status === 'released') {
-    syncRequestFromRemote(req)
-    toast('Lab result received', (req.test_requested || '') + ': ' + (req.released_result || '—'), 'good')
-    if (STATE.currentPage === 'requests') renderRequests()
-  }
-}
 
-function syncRequestFromRemote(row) {
-  if (!row || !row.jl_id) return
-  const all = loadAllRequests()
-  const local = {
-    id: row.jl_id, ts: row.ts ? new Date(row.ts).getTime() : Date.now(),
-    fromWorkspace: row.from_workspace, targetWorkspace: row.target_workspace,
-    localRef: row.local_ref, pseudonymousRef: row.pseudonymous_ref,
-    testRequested: row.test_requested, sampleType: row.sample_type,
-    priority: row.priority, consentRef: row.consent_ref,
-    notes: row.notes, status: row.status,
-    releasedResult: row.released_result, releasedUnit: row.released_unit,
-    releasedInterpretation: row.released_interpretation,
-    releasedReferenceRange: row.released_reference_range,
-    releasedAt: row.released_at ? new Date(row.released_at).getTime() : null,
-    cardGenerated: row.card_generated,
-  }
-  const idx = all.findIndex(r => r.id === local.id)
-  if (idx >= 0) all[idx] = Object.assign(all[idx], local)
-  else all.push(local)
-  saveAllRequests(all)
-}
 
-async function pushRequestToSupabase(req) {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) return
-  try {
-    const sess = await sb.auth.getSession()
-    if (!sess.data.session) return
-    await sb.from('jl_requests').upsert({
-      jl_id: req.id,
-      from_workspace: req.fromWorkspace,
-      target_workspace: req.targetWorkspace,
-      from_user_id: sess.data.session.user.id,
-      from_org_id: MODE.organisationId,
-      target_org_id: req.targetOrgId,
-      pseudonymous_ref: req.pseudonymousRef,
-      local_ref: req.localRef,
-      test_requested: req.testRequested,
-      sample_type: req.sampleType,
-      priority: req.priority,
-      consent_ref: req.consentRef,
-      notes: req.notes || null,
-      status: req.status,
-      accepted_at: req.acceptedAt ? new Date(req.acceptedAt).toISOString() : null,
-      rejected_at: req.rejectedAt ? new Date(req.rejectedAt).toISOString() : null,
-      rejection_reason: req.rejectionReason || null,
-      released_at: req.releasedAt ? new Date(req.releasedAt).toISOString() : null,
-      released_result: req.releasedResult || null,
-      released_unit: req.releasedUnit || null,
-      released_interpretation: req.releasedInterpretation || null,
-      released_reference_range: req.releasedReferenceRange || null,
-      card_generated: req.cardGenerated || false,
-      ts: new Date(req.ts || Date.now()).toISOString(),
-    }, { onConflict: 'jl_id' })
-  } catch (e) { console.warn('[JLIGHT] push request failed:', e.message) }
-}
 
-async function loadRequestsFromSupabase() {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) return
-  try {
-    const { data } = await sb.from('jl_requests')
-      .select('*')
-            .order('ts', { ascending: false })
-      .limit(200)
-    if (!data) return
-    data.forEach(row => syncRequestFromRemote(row))
-  } catch (e) { console.warn('[JLIGHT] load requests failed:', e.message) }
-}
+
+
+
+
+
 
 function updateRequestBadge() {
   const all = loadAllRequests()
@@ -4671,18 +4536,7 @@ async function computeAuditHash(prevHash, entry) {
   return await sha256hex(payload)
 }
 
-async function verifyAuditChain() {
-  let prev = null
-  for (let i = 0; i < STATE.audit.length; i++) {
-    const e = STATE.audit[i]
-    const expected = await computeAuditHash(prev, e)
-    if (e.hash && e.hash !== expected) {
-      return { valid: false, brokenAt: i, count: STATE.audit.length, entry: e }
-    }
-    prev = e.hash || null
-  }
-  return { valid: true, brokenAt: null, count: STATE.audit.length }
-}
+
 
 // ── USER PROFILE + PERMISSIONS ──
 // Permission levels: viewer < operator < supervisor < admin
@@ -5080,10 +4934,7 @@ function resetThresholds() {
 // Same analysis pipeline as manual entry — no shortcuts.
 // The former CSV importer generated simulated specimen/result records and ran analyser-like rules.
 // Keep the legacy entry points safe until a proposal-aligned source-data adapter is configured.
-function renderImport() {
-  toast('Import adapter not configured', 'Use Data Sources to review supported integration requirements. JLIGHT does not create specimens or laboratory measurements.', 'warn')
-  goPage('connectors')
-}
+
 
 
 
@@ -5110,35 +4961,7 @@ const NGS_REF_RANGES = {
 
 
 
-function submitBioEntry() {
-  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
-  const analysisType = get('bf-type'), sampleId = get('bf-sid')
-  if (!analysisType) { toast('Required', 'Analysis type required', 'crit'); return }
-  if (!sampleId)     { toast('Required', 'Sample/Run ID required', 'crit'); return }
-  const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
-  const e = {
-    id: uid(), ts: Date.now(), role: STATE.role, user: getDisplayName(),
-    analysisType, sampleId, pipelineStage: 'queued',
-    platform: get('bf-platform'), reference: get('bf-ref'),
-    coverage: parseFloat(get('bf-cov')), mappingRate: parseFloat(get('bf-map')),
-    qscore: parseFloat(get('bf-q')), dupRate: parseFloat(get('bf-dup')),
-    gcContent: parseFloat(get('bf-gc')), contamination: parseFloat(get('bf-contam')),
-    variantCount: parseInt(get('bf-vars'), 10) || 0,
-    pipeline: get('bf-pipe'), operator: get('bf-op'), notes: get('bf-notes'),
-  }
-  STATE.entries.push(e)
-  STORAGE.saveEntries(STATE.role, STATE.entries)
-  audit('Bio analysis submitted', analysisType + ' · ' + sampleId + ' by ' + getDisplayName())
-  const cards = analyseBioEntry(e)
-  if (cards.length > 0) {
-    cards.forEach(c => STATE.cards.push(c))
-    STORAGE.saveCards(STATE.role, STATE.cards)
-    toast(cards.length + ' QC issue' + (cards.length > 1 ? 's' : '') + ' detected', cards[0].title, cards[0].severity)
-  } else {
-    toast('Analysis recorded', 'All QC metrics within range', 'good')
-  }
-  goPage('bio-pipeline')
-}
+
 
 // ── BIOINFORMATICS FULL REPORT GENERATOR ──
 
@@ -5147,68 +4970,7 @@ function submitBioEntry() {
 // ── OFFLINE-TO-ONLINE MIGRATION ──
 // When user has offline data and signs in online for the first time,
 // offer to migrate all localStorage data to Supabase.
-async function offerOfflineMigration() {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline || !STATE.role) return
 
-  // Check if there is any offline data for this role
-  const offlineSamples = STORAGE.loadSamples(STATE.role)
-  const offlineEntries = STORAGE.loadEntries(STATE.role)
-  const offlineCards   = STORAGE.loadCards(STATE.role)
-  const offlineAudit   = STORAGE.loadAudit(STATE.role)
-  const totalItems = offlineSamples.length + offlineEntries.length + offlineCards.length
-
-  if (totalItems === 0) return // Nothing to migrate
-
-  // Check if already migrated (flag in localStorage)
-  const migrationKey = 'jl_migrated_' + STATE.role + '_' + STATE.user
-  if (localStorage.getItem(migrationKey)) return // Already done
-
-  // Show migration offer
-  const msg = 'JLIGHT found ' + totalItems + ' items from offline use. Migrate to online workspace?'
-  const confirmed = confirm(msg)
-
-  if (!confirmed) {
-    // User declined — mark as skipped so we don't ask again this session
-    sessionStorage.setItem(migrationKey + '_skip', '1')
-    return
-  }
-
-  toast('Migrating offline data', 'Please wait...', 'good')
-
-  try {
-    // Merge offline data into STATE (conflict resolution applies)
-    const allSamples  = mergeByTimestamp(STATE.samples, offlineSamples)
-    const allEntries  = mergeByTimestamp(STATE.entries, offlineEntries)
-    const allCards    = mergeByTimestamp(STATE.cards, offlineCards)
-
-    STATE.samples = allSamples.filter(x => !x.role || x.role === STATE.role)
-    STATE.entries = allEntries.filter(x => !x.role || x.role === STATE.role)
-    STATE.cards   = allCards.filter(x => !x.role || x.role === STATE.role)
-
-    // Sync merged data to backend
-    await syncToBackend('samples', STATE.samples)
-    await syncToBackend('entries', STATE.entries)
-    await syncToBackend('cards',   STATE.cards)
-
-    // Save merged locally
-    STORAGE.saveSamples(STATE.role, STATE.samples)
-    STORAGE.saveEntries(STATE.role, STATE.entries)
-    STORAGE.saveCards(STATE.role, STATE.cards)
-
-    // Mark as migrated
-    localStorage.setItem(migrationKey, new Date().toISOString())
-
-    await audit('Offline data migrated', totalItems + ' items synced to online workspace')
-    toast('Migration complete', totalItems + ' items now in your online workspace', 'good')
-
-    // Refresh current page to show merged data
-    goPage(STATE.currentPage || 'dashboard')
-  } catch (e) {
-    console.warn('[JLIGHT] migration failed:', e.message)
-    toast('Migration failed', 'Data kept locally. Try again from Settings.', 'warn')
-  }
-}
 
 // Helper: merge two arrays by ID, keeping newer timestamp
 function mergeByTimestamp(arr1, arr2) {
@@ -5278,63 +5040,11 @@ function detectOfflineData() {
 
 
 
-async function migrateOfflineData() {
-  if (!MODE.isOnline) { toast('Sign in first', 'You must be signed into an online account to migrate data', 'crit'); return }
-  const offline = detectOfflineData()
-  if (offline.length === 0) { toast('Nothing to migrate', 'No offline data found', 'good'); return }
-  let total = 0, errors = 0
-  for (const d of offline) {
-    const role = d.role
-    const key = r => 'jl_' + r + '_'
-    try {
-      const samples = JSON.parse(localStorage.getItem(key(role) + 'samples') || '[]')
-      const entries = JSON.parse(localStorage.getItem(key(role) + 'entries') || '[]')
-      const cards   = JSON.parse(localStorage.getItem(key(role) + 'cards')   || '[]')
-      const audit   = JSON.parse(localStorage.getItem(key(role) + 'audit')   || '[]')
-      // Tag each item with current online user's role scope
-      const tag = items => items.map(x => ({ ...x, role, migrated: true, migratedAt: Date.now() }))
-      if (samples.length > 0) { await syncToBackend('samples', tag(samples)); total += samples.length }
-      if (entries.length > 0) { await syncToBackend('entries', tag(entries)); total += entries.length }
-      if (cards.length > 0)   { await syncToBackend('cards',   tag(cards));   total += cards.length }
-      if (audit.length > 0)   { await syncToBackend('audit',   tag(audit));   total += audit.length }
-    } catch (e) { errors++; console.warn('[JLIGHT] migrate failed for', role, e.message) }
-  }
-  await audit('Offline data migrated', total + ' records from offline mode → online account')
-  toast('Migration complete', total + ' records synced to online account', 'good')
-  if (errors > 0) toast('Some errors', errors + ' roles had sync issues — check console', 'warn')
-  renderSettings()
-}
 
-function exportOfflineDataBundle() {
-  const offline = detectOfflineData()
-  const bundle = { exported: new Date().toISOString(), source: 'JLIGHT offline mode migration', roles: {} }
-  for (const d of offline) {
-    const key = r => 'jl_' + r + '_'
-    bundle.roles[d.role] = {
-      samples: JSON.parse(localStorage.getItem(key(d.role) + 'samples') || '[]'),
-      entries: JSON.parse(localStorage.getItem(key(d.role) + 'entries') || '[]'),
-      cards:   JSON.parse(localStorage.getItem(key(d.role) + 'cards')   || '[]'),
-      audit:   JSON.parse(localStorage.getItem(key(d.role) + 'audit')   || '[]'),
-    }
-  }
-  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = 'jlight-offline-backup-' + Date.now() + '.json'; a.click()
-  URL.revokeObjectURL(url)
-  toast('Backup exported', 'Keep this file safe — use Import to restore if needed', 'good')
-}
 
-function clearOfflineDataConfirm() {
-  if (!confirm('Discard all offline data? This cannot be undone. Export a backup first if you want to keep it.')) return
-  for (const role of ['Laboratory', 'Trial', 'Hospital', 'Bioinformatics']) {
-    for (const k of ['samples', 'entries', 'cards', 'audit']) {
-      localStorage.removeItem('jl_' + role + '_' + k)
-    }
-  }
-  toast('Offline data cleared', '', 'good')
-  renderSettings()
-}
+
+
+
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -6650,55 +6360,7 @@ function runJourneyGapEngine() {
 
 
 
-function submitEnrolment(patientId) {
-  const protoId = document.getElementById('en-proto') ? document.getElementById('en-proto').value : ''
-  const icf     = document.getElementById('en-icf') ? document.getElementById('en-icf').value.trim() : ''
-  if (!protoId) { toast('Required', 'Select a protocol', 'crit'); return }
-  const cv = validateConsentRef(icf)
-  if (!cv.valid) { toast('Invalid consent reference', cv.error, 'crit'); return }
-  const proto = STATE.protocols.find(x => x.id === protoId)
-  let pid = document.getElementById('en-pid') ? document.getElementById('en-pid').value.trim() : ''
-  if (!pid) pid = (proto ? proto.protocolNumber.slice(0,3).toUpperCase() : 'PTX') + '-' + Date.now().toString(36).toUpperCase().slice(-4)
-  const enrolDate = document.getElementById('en-date') ? document.getElementById('en-date').value : new Date().toISOString().slice(0,10)
-  const dist = parseFloat(document.getElementById('en-dist') ? document.getElementById('en-dist').value : '0') || 0
-  const p = STATE.patients.find(x => x.id === patientId)
-  const participant = {
-    id: uid(), orgId: STATE.orgId, patientId, protocolId: protoId,
-    participantId: pid, status: 'active',
-    enrolmentDate: enrolDate, consentVersion: icf, consentedAt: Date.now(),
-    distanceKm: dist, ltfuRiskScore: computeLTFURisk({ distanceKm: dist, missRate: 0 }),
-    ts: Date.now()
-  }
-  STATE.participants.push(participant)
-  // Record consent
-  STATE.consents = STATE.consents || []
-  STATE.consents.push({ id: uid(), orgId: STATE.orgId, participantId: participant.id, icfVersion: icf, consentedAt: Date.now(), consentedBy: getDisplayName(), valid: true, ts: Date.now() })
-  lsSet(PARTIC_KEY, STATE.participants)
-  // Generate scheduled visits from protocol
-  if (proto && proto.visitSchedule) {
-    const schedule = typeof proto.visitSchedule === 'string' ? JSON.parse(proto.visitSchedule) : proto.visitSchedule
-    schedule.forEach(vs => {
-      const base = new Date(enrolDate)
-      base.setDate(base.getDate() + (vs.day || 0))
-      const scheduled = base.toISOString().slice(0,10)
-      const open  = new Date(base); open.setDate(open.getDate() - (vs.window_before || 7))
-      const close = new Date(base); close.setDate(close.getDate() + (vs.window_after || 7))
-      STATE.visits.push({
-        id: uid(), orgId: STATE.orgId, participantId: participant.id, protocolId: protoId,
-        visitName: vs.name, scheduledDate: scheduled,
-        windowOpen: open.toISOString().slice(0,10),
-        windowClose: close.toISOString().slice(0,10),
-        status: 'scheduled', ts: Date.now()
-      })
-    })
-    lsSet(VISITS_KEY, STATE.visits)
-  }
-  audit('Participant enrolled', (p?p.fullName:'') + ' · ' + pid + ' · ' + (proto?proto.protocolNumber:''))
-  toast('Enrolled', (p?p.fullName:'') + ' · ' + pid, 'good')
-  document.getElementById('enrol-overlay')?.remove()
-  runTrialIntelligence(participant)
-  if (STATE.currentPatientId === patientId) renderPatientProfile()
-}
+
 
 // ── TRIAL INTELLIGENCE ENGINE ──
 // Runs on every participant event — SAE clock, visit window, consent currency, LTFU
