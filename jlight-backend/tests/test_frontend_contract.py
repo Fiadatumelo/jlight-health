@@ -48,7 +48,7 @@ trial_nav_end = role_block.index("Hospital:", trial_nav_start)
 trial_nav = role_block[trial_nav_start:trial_nav_end]
 require("key: 'trial-timeline'" in trial_nav and "key: 'journey'" not in trial_nav,
         "Clinical Trials must use a separate participant timeline navigation")
-require('id="page-trial-timeline"' in html and "function renderTrialTimeline()" in html,
+require('id="page-trial-timeline"' in html and "async function renderTrialTimeline()" in html,
         "Dedicated Clinical Trial Participant Timeline is missing")
 require("jl_trial_participant_events" in html and "selectTrialParticipant" in html,
         "Participant timeline must read canonical study-scoped event records")
