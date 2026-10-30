@@ -45,6 +45,17 @@ class PublishedTBProfilerReferenceTests(unittest.TestCase):
         self.assertEqual(summary["resistanceAssociatedVariantCount"], 0)
         self.assertTrue(any("below the recommended 30x" in x for x in summary["qcWarnings"]))
 
+    def test_validation_workflow_pins_tool_and_mutation_database(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github" / "workflows" /
+                    "tbprofiler-public-data-validation.yml").read_text(encoding="utf-8")
+        environment = (Path(__file__).resolve().parents[1] / "tbprofiler" /
+                       "environment.yml").read_text(encoding="utf-8")
+        self.assertIn("python=3.10", environment)
+        self.assertIn("tb-profiler=6.7.0", environment)
+        self.assertIn("--branch who_v2+", workflow)
+        self.assertIn("fbd11a9065212bb576b729b80fd7a3feccaad8ff", workflow)
+        self.assertIn('test "$DB_REV" = "$TBPROFILER_DB_COMMIT"', workflow)
+
     def test_source_provenance_is_retained_and_patient_identity_is_absent(self):
         for run_id, row in self.by_run.items():
             summary = json.loads(row["summary"])
