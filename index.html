@@ -4918,7 +4918,7 @@ function downloadArchivedReport(id) {
   audit('Archived report downloaded', report.id)
 }
 async function deleteArchivedReport(id) {
-  if (!requirePermission('supervisor', 'Delete archived report')) return
+  if (!requirePermission('admin', 'Delete archived report')) return
   const report = findArchivedReport(id)
   if (!report) { toast('Report not found', 'Refresh the archive and try again.', 'warn'); return }
   if (!confirm('Delete this archived report? This cannot be undone. Download a copy first if it must be retained.')) return
@@ -5060,7 +5060,8 @@ const JLIGHT_ORG_SCOPED_KEYS = new Set([
   'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
   'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
   'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
-  'jl_v10_bio_runs','jl_v10_samples','jl_v10_report_archive'
+  'jl_v10_bio_runs','jl_v10_bio_accessions','jl_v10_bio_qc','jl_v10_bio_amr',
+  'jl_v10_consents','jl_v10_deviations','jl_v10_samples','jl_v10_report_archive'
 ])
 function jlightStorageKey(key) {
   if (JLIGHT_ORG_SCOPED_KEYS.has(key) && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
@@ -5090,7 +5091,10 @@ function lsSet(key, val) {
     [QC_KEY]: 'qcRuns', [PROTOCOL_KEY]: 'protocols', [PARTIC_KEY]: 'participants',
     [VISITS_KEY]: 'visits', [AE_KEY]: 'adverseEvents', [ADMIT_KEY]: 'admissions',
     [WARD_KEY]: 'wards', [CORD_KEY]: 'clinicalOrders', [INF_KEY]: 'infections',
-    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
+    [BIORUN_KEY]: 'bioRuns', 'jl_v10_bio_accessions': 'bioAccessions',
+    'jl_v10_bio_qc': 'bioQc', 'jl_v10_bio_amr': 'bioAmr',
+    'jl_v10_consents': 'consents', 'jl_v10_deviations': 'deviations',
+    'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
   }
   const domain = domainByKey[key]
   if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function'
@@ -5113,6 +5117,11 @@ function loadAllDomainData() {
   STATE.clinicalOrders = lsGet(CORD_KEY)
   STATE.infections    = lsGet(INF_KEY)
   STATE.bioRuns       = lsGet(BIORUN_KEY)
+  STATE.bioAccessions = lsGet('jl_v10_bio_accessions')
+  STATE.bioQc         = lsGet('jl_v10_bio_qc')
+  STATE.bioAmr        = lsGet('jl_v10_bio_amr')
+  STATE.consents      = lsGet('jl_v10_consents')
+  STATE.deviations    = lsGet('jl_v10_deviations')
   STATE.reportArchive = lsGet(REPORT_KEY)
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
@@ -5466,19 +5475,30 @@ async function loadDomainDataFromBackend() {
     if (sessionError) throw sessionError
     if (!session) return { ok: false, reason: 'unauthenticated' }
     if (!STATE.orgId || STATE.orgId === 'default') return { ok: false, reason: 'no_workspace' }
+    const allowedDomainsByPath = {
+      hospital: ['patients', 'admissions', 'wards', 'clinicalOrders', 'infections', 'reports'],
+      laboratory: ['patients', 'labOrders', 'results', 'qcRuns', 'samples', 'reports'],
+      bioinformatics: ['patients', 'bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
+      clinical_trials: ['protocols', 'participants', 'visits', 'adverseEvents', 'consents', 'deviations', 'reports']
+    }
+    const allowedDomains = allowedDomainsByPath[MODE.organisationType]
+    if (!allowedDomains) throw new Error('No verified organisation path is available for data loading.')
     const { data, error } = await sb.from('jl_entries')
       .select('jl_id, domain, payload, ts')
       .eq('org_id', STATE.orgId)
-      .not('domain', 'is', null)
+      .in('domain', allowedDomains)
       .order('ts', { ascending: false })
-      .limit(5000)
+      .limit(1500)
     if (error) throw error
     const keys = {
       patients: PATIENT_KEY, labOrders: ORDERS_KEY, results: RESULTS_KEY,
       qcRuns: QC_KEY, protocols: PROTOCOL_KEY, participants: PARTIC_KEY,
       visits: VISITS_KEY, adverseEvents: AE_KEY, admissions: ADMIT_KEY,
       wards: WARD_KEY, clinicalOrders: CORD_KEY, infections: INF_KEY,
-      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples', reports: REPORT_KEY
+      bioRuns: BIORUN_KEY, bioAccessions: 'jl_v10_bio_accessions',
+      bioQc: 'jl_v10_bio_qc', bioAmr: 'jl_v10_bio_amr',
+      consents: 'jl_v10_consents', deviations: 'jl_v10_deviations',
+      samples: 'jl_v10_samples', reports: REPORT_KEY
     }
     const merged = {}
     for (const [domain, key] of Object.entries(keys)) {
@@ -5501,6 +5521,8 @@ async function loadDomainDataFromBackend() {
         protocols:'protocols', participants:'participants', visits:'visits',
         adverseEvents:'adverseEvents', admissions:'admissions', wards:'wards',
         clinicalOrders:'clinicalOrders', infections:'infections', bioRuns:'bioRuns',
+        bioAccessions:'bioAccessions', bioQc:'bioQc', bioAmr:'bioAmr',
+        consents:'consents', deviations:'deviations',
         samples:'samples', reports:'reportArchive'
       })[domain]
       if (stateKey) STATE[stateKey] = records
