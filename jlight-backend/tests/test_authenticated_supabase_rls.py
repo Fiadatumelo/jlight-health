@@ -220,6 +220,23 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
+    def test_laboratory_code_resolution_requires_entitlement_and_member_permission(self):
+        c = self.conn.cursor()
+        c.execute("SELECT org_code FROM public.jl_organisations WHERE id = %s", (self.org_a,))
+        org_code = c.fetchone()[0]
+        c.execute("SAVEPOINT lab_code_resolution_test")
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.b,))
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute("SELECT public.jl_resolve_lab_org(%s)", (org_code,))
+        c.execute("ROLLBACK TO SAVEPOINT lab_code_resolution_test")
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute("SELECT public.jl_resolve_lab_org(%s)", (org_code,))
+        self.assertEqual(str(c.fetchone()[0]), self.org_a)
+        c.execute("ROLLBACK TO SAVEPOINT lab_code_resolution_test")
+        c.execute("RELEASE SAVEPOINT lab_code_resolution_test")
+
     def test_clinical_trials_records_are_not_visible_from_hospital_membership(self):
         c = self._as_user(self.b)
         c.execute("SELECT id FROM public.jl_trial_studies")
