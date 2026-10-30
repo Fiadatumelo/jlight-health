@@ -2633,7 +2633,7 @@ function normaliseTBProfilerResult(source) {
   if (medianDepth != null && Number(medianDepth) < 30 && !qcNotes.some(note => /below.*30x|30x.*below/i.test(note))) {
     qcNotes.push('Median coverage is below the 30x review threshold; some mutations may not be detected.')
   }
-  const qcStatus = String(qc.status || qc.qc_status || (medianDepth != null && Number(medianDepth) < 30 ? 'review_required_low_coverage' : ''))
+  const qcStatus = medianDepth != null && Number(medianDepth) < 30 ? 'review_required_low_coverage' : String(qc.status || qc.qc_status || '')
   const timestamp = String(source.timestamp || source.created_at || new Date().toISOString())
   return {
     id:'tbprofiler:'+sampleId, sourceRecordId:sampleId, sampleId,
