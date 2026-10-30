@@ -3,7 +3,7 @@ name: JLIGHT authenticated Supabase RLS release gates
 on:
   workflow_dispatch:
   push:
-    branches: [feat/visible-jc-agent, release/jlight-staging-unified-20261029]
+    branches: [release/jlight-staging-unified-20261029]
     paths:
       - "jlight-backend/tests/test_authenticated_supabase_rls.py"
       - ".github/workflows/jlight-authenticated-rls.yml"
