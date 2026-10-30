@@ -60,13 +60,13 @@ require("jl_create_trial_recruitment_referral" in html and
         "jl_create_trial_participant_from_referral" in html,
         "Recruitment hand-off and screening creation must use governed database functions")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
-journey_end = html.index("\\nfunction selectJourneyPatient", journey_start)
+journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
 require("STATE.participants" not in journey and "STATE.visits" not in journey and
         "STATE.adverseEvents" not in journey and "STATE.role==='Trial'" not in journey,
         "Routine Patient Journey must not include Clinical Trials records")
 report_start = html.index("async function generatePatientJourneyReports()")
-report_end = html.index("\\nfunction ", report_start + 10)
+report_end = html.index("\nfunction ", report_start + 10)
 journey_reports = html[report_start:report_end]
 require("trialPatientIds" not in journey_reports and "STATE.role === 'Trial'" not in journey_reports,
         "Routine Patient Journey reports must not include Clinical Trials participant identities")
