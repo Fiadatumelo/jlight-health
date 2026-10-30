@@ -71,9 +71,9 @@ def test_protected_route_fails_closed_without_database_path_authorization(monkey
     token = jwt.encode(claims, "test-only-secret", algorithm="HS256")
     with patch("api.app.get_db", return_value=None):
         response = app.test_client().post(
-            "/api/bio/sequence",
+            "/api/analyse-csv",
             headers={"Authorization": f"Bearer {token}"},
-            json={"sequence": "ATCGATCGATCG"},
+            json={"csvText": "sample,result\\nS1,positive"},
         )
     assert response.status_code == 503
     assert response.get_json()["error"] == "Organisation authorization service unavailable"
