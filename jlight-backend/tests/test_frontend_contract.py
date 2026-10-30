@@ -10,6 +10,13 @@ def require(condition, message):
     if not condition:
         raise AssertionError(message)
 
+bio_schema_start = html.index("bioRuns: {")
+bio_schema_end = html.index("\n}", bio_schema_start)
+bio_schema = html[bio_schema_start:bio_schema_end]
+for field in ("analysisType", "outputType", "status", "qualityStatus",
+              "summary", "createdAt", "sourceSystem", "sourceRecordId"):
+    require(field in bio_schema, f"JLIGHT bioRuns import contract is missing {field}")
+
 api_source = (ROOT / "jlight-backend/api/app.py").read_text(encoding="utf-8")
 require("from engine.bio_engine import" not in api_source,
         "The legacy raw-sequence analyser must not be loaded by the JLIGHT API")
