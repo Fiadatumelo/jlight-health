@@ -2255,10 +2255,9 @@ function renderClinicalTrialsJCAgent(page) {
     const evidence=item.evidence||{};
     const refs=Array.isArray(evidence.evidence_refs)?evidence.evidence_refs:[];
     const refsMarkup=refs.length
-      ? '<div class="journey-footnote" style="margin-top:10px">Source event references: '+refs.map(ref=>
-          '<button class="btn btn-sm" style="margin:3px" onclick="openTrialEventSource(\\''+esc(ref.source_record_id)+'\\')">'+
-          esc(ref.event_type||'timeline event')+' · '+esc(String(ref.source_record_id||'').slice(0,8))+'</button>'
-        ).join('')+'</div>'
+      ? `<div class="journey-footnote" style="margin-top:10px">Source event references: ${refs.map(ref=>
+          `<button class="btn btn-sm" style="margin:3px" onclick="openTrialEventSource('${esc(ref.source_record_id)}')">${esc(ref.event_type||'timeline event')} · ${esc(String(ref.source_record_id||'').slice(0,8))}</button>`
+        ).join('')}</div>`
       : '<div class="journey-footnote" style="margin-top:10px">No individual source-event reference is available for this aggregate signal.</div>';
     return '<article class="form-card" style="margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>'+
       esc(String(item.rule_id||item.finding_id||'Trial intelligence finding').replace(/_/g,' '))+
