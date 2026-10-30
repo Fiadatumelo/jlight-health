@@ -53,5 +53,28 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn("r.recommendation?' · recommended action: '+r.recommendation", function)
 
 
+    def test_patient_journey_ui_exposes_two_report_action_and_status(self):
+        start = HTML.index("function renderJourney() {")
+        end = HTML.index("\\nfunction downloadJourneyJson", start)
+        function = HTML[start:end]
+        self.assertIn('onclick="generatePatientJourneyReports()"', function)
+        self.assertIn('id="patient-journey-report-status"', function)
+
+    def test_two_separate_patient_reports_share_correlation_id(self):
+        start = HTML.index("async function generatePatientJourneyReports()")
+        end = HTML.index("\\nfunction renderDashboard()", start)
+        function = HTML[start:end]
+        self.assertIn("patient-journey-summary", function)
+        self.assertIn("patient-data-quality-traceability", function)
+        self.assertIn("journeyReport.correlationId = correlationId", function)
+        self.assertIn("qualityReport.correlationId = correlationId", function)
+        self.assertEqual(function.count("downloadJourneyJson("), 2)
+
+    def test_obsolete_aggregate_traceability_export_is_removed(self):
+        self.assertNotIn("function buildJourneyReport()", HTML)
+        self.assertNotIn("async function generateJourneyReport()", HTML)
+        self.assertNotIn("jlight-traceability-report-", HTML)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
