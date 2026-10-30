@@ -2731,9 +2731,9 @@ function hydrateTBProfilerRecord(record) {
   if (!summary || typeof summary !== 'object') return record
   const variants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants.map(v => ({
     gene_name:v.gene||v.locus_tag||'', pos:v.position??null,
-    protein_change:v.mutation||'', type:v.type||'',
-    freq:v.frequency??null,
-    annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:String(drug)})))
+    protein_change:v.proteinChange||v.mutation||'', nucleotide_change:v.nucleotideChange||'', type:v.type||'',
+    freq:v.frequency??null, depth:v.depth??null,
+    annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:typeof drug==='string'?drug:(drug.drug||drug.name||JSON.stringify(drug))})))
   })) : []
   const qcNotes = Array.isArray(summary.qcWarnings) ? summary.qcWarnings : []
   return {
@@ -2742,7 +2742,9 @@ function hydrateTBProfilerRecord(record) {
     analysisType:'TBProfiler',
     sampleId:String(summary.runAccession||record.sourceRecordId||record.id||''),
     drtype:String(summary.drugResistanceType||'Not reported'),
-    mainLineage:typeof summary.lineage==='string'?summary.lineage:JSON.stringify(summary.lineage||'Not reported'),
+    mainLineage:String(summary.mainLineage|| (typeof summary.lineage==='string'?summary.lineage:JSON.stringify(summary.lineage||'Not reported'))),
+    subLineage:String(summary.subLineage||'Not reported'),
+    spoligotype:String(summary.spoligotype||''),
     pipelineVersion:String(summary.pipelineVersion||record.pipelineVersion||'Not supplied'),
     databaseVersion:String(summary.databaseVersion||'Not supplied'),
     tbProfiler:{
