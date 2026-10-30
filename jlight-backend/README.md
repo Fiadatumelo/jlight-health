@@ -1,166 +1,78 @@
-# JLIGHT v4 — Python Backend
+# JLIGHT Health Intelligence API
 
-Health Intelligence System · Team Fiada Mothapo · Hackathon 2026
+The Python service provides authenticated support for JLIGHT's health-intelligence workflows. It is not a wet-lab system, sequencing service, diagnostic engine, or raw-sequence analyser.
 
-## What This Is
+## Current API
 
-A production Python backend for JLIGHT — replacing the browser-based JavaScript
-implementation with a proper server-side stack:
+| Method | Endpoint | Purpose | Availability |
+|---|---|---|---|
+| GET | `/api/health` | Service health probe | Public |
+| POST | `/api/analyse-csv` | Optional, authenticated QC dataset analysis for trusted integrations | Protected |
+| POST | `/api/intelligence/summary` | JC summary of approved structured checks, with organisation scope and audit | Protected |
+| GET | `/api/cards` | Legacy global card listing | Disabled (503) until tenant-scoped access is implemented |
+| POST | `/api/cards/acknowledge` | Legacy global card update | Disabled (503) until tenant-scoped access is implemented |
+| GET | `/api/audit` | Legacy global audit listing | Disabled (503) until tenant-scoped access is implemented |
 
-- **Flask** REST API (all endpoints)
-- **scikit-learn + SciPy** ML engine (regression, Z-score, Westgard, risk stratification)
-- **BioPython** bioinformatics (TB resistance, variant analysis, NGS QC, WGS metrics)
-- **pandas + NumPy** data ingestion and CSV analysis
-- **PostgreSQL** persistent storage (audit trail, cards, uploads)
-- **Docker** containerised deployment
+Raw sequence endpoints (`/api/bio/*`) have been retired. The current Bioinformatics experience is for reviewing imported pipeline outputs and provenance; it does not accept raw sequences or issue clinical interpretations.
 
-## Structure
+The current browser application stores and reads tenant-scoped operational data through Supabase. The optional `/api/analyse-csv` endpoint is not the frontend's source-import path. The JC endpoint accepts only structured `csv_analysis`, `bioinformatics`, and `journey_checks` inputs; it rejects unsupported fields and excludes Clinical Trials scope.
 
-```
-jlight-backend/
-├── api/
-│   └── app.py              Flask REST API (all endpoints)
-├── engine/
-│   ├── ml_engine.py        ML pipeline (regression, Z-score, Westgard, risk)
-│   ├── csv_engine.py       CSV/XLSX analysis → Decision Card
-│   └── bio_engine.py       TB resistance, variant, NGS, WGS, sequence
-├── tests/
-│   └── test_all.py         26 tests — all passing
-├── Dockerfile
-├── requirements.txt
-└── .env.example
+## Authentication
+
+Protected endpoints require:
+
+```http
+Authorization: Bearer <Supabase access token>
 ```
 
-## Quick Start (Local)
+Configure the backend verifier with:
+
+- `SUPABASE_URL` — Supabase project URL.
+- `SUPABASE_JWT_SECRET` — only when the project uses HS256 access tokens.
+- `SUPABASE_JWT_ISSUER` and `SUPABASE_JWKS_URL` — optional overrides.
+- `DATABASE_URL` — PostgreSQL connection used by the mandatory metadata-only JC audit sink. If audit storage is unavailable, the JC summary endpoint fails closed with HTTP 503.
+- `PORT` — supplied by the hosting service.
+
+Keep signing secrets and database credentials in the hosting provider's secret environment. Never commit them to this repository.
+
+
+## JC intelligence scope
+
+The `/api/intelligence/summary` endpoint requires a verified signed access token with a server-issued organisation identifier, an explicit `intelligence:read` permission, and a non-Clinical-Trials workspace role. It does not trust user-editable `user_metadata`. Audit events contain metadata only; raw patient identifiers, filenames, sequences, and free text are not forwarded to the agent.
+
+The frontend may still use its staging API fallback. Do not switch the production frontend to the production backend until the signed-claim contract, audit database connection, and authenticated staging workflow have been verified with a real JLIGHT session.
+
+## Local development
 
 ```bash
-# 1. Clone and enter directory
 cd jlight-backend
-
-# 2. Install dependencies
-pip install -r requirements.txt
-
-# 3. Copy and configure environment
+python -m pip install -r requirements.txt
 cp .env.example .env
-# Edit .env with your DATABASE_URL (optional — runs without DB in stateless mode)
-
-# 4. Run tests
-python3 tests/test_all.py
-
-# 5. Start server
-python3 api/app.py
-
-# Server runs at http://localhost:5000
+python -m pytest tests/test_api_security.py -q
+python -m unittest tests.test_interoperability
+python tests/test_all.py
+python -m pytest tests/test_intelligence_engine.py tests/test_jc_agent.py tests/test_intelligence_api.py -q
+python api/app.py
 ```
 
-## API Endpoints
+The health probe is available at `http://localhost:5000/api/health`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /api/health | System health check |
-| POST | /api/analyse-csv | CSV/XLSX QC analysis |
-| POST | /api/bio/tb | TB drug resistance screening |
-| POST | /api/bio/variant | SNV/INDEL variant detection |
-| POST | /api/bio/ngs | NGS QC metrics |
-| POST | /api/bio/wgs | WGS assembly metrics (N50) |
-| POST | /api/bio/sequence | Full sequence analysis |
-| POST | /api/bio/fasta | Parse FASTA/FASTQ file |
-| GET | /api/cards | Decision cards from DB |
-| POST | /api/cards/acknowledge | Acknowledge a card |
-| GET | /api/audit | Audit log entries |
+## Render deployment
 
-## Example: CSV Analysis
+Use the repository's configured Render service, with:
 
-```bash
-curl -X POST http://localhost:5000/api/analyse-csv \
-  -H "Content-Type: application/json" \
-  -d '{"csvText": "cv\n2.1\n2.3\n2.8\n3.5\n4.2\n5.1", "fileName": "qc_data.csv"}'
-```
+- Build command: `pip install -r requirements.txt`
+- Start command: `gunicorn --bind 0.0.0.0:$PORT api.app:app`
 
-## Example: TB Resistance
+Do not use the retired manual PowerShell deployment script. Changes should flow through reviewed pull requests and the configured service branch.
 
-```bash
-curl -X POST http://localhost:5000/api/bio/tb \
-  -H "Content-Type: application/json" \
-  -d '{"sequence": "TTGGCAGATTCCCGCCAGAGCAAAACAGCCGCTAGTCCTAGTCCGAGTCGCCCGCAAAGTTTCCGACATCACCCAGAACCGTCGGCACGGTCGTGGCGAGAAGATCACCCCTGACGAAGCGCCAGCTGCTG"}'
-```
+## Release and integration notes
 
-## Deploy with Docker
-
-```bash
-# Build
-docker build -t jlight-backend .
-
-# Run (without DB — stateless mode)
-docker run -p 5000:5000 jlight-backend
-
-# Run (with PostgreSQL)
-docker run -p 5000:5000 \
-  -e DATABASE_URL=postgresql://user:password@host:5432/jlight \
-  -e SECRET_KEY=your-secret-key \
-  jlight-backend
-```
-
-## Deploy to Render.com (Free Tier)
-
-1. Push this folder to a GitHub repo
-2. Go to render.com → New Web Service
-3. Connect your GitHub repo
-4. Build command: `pip install -r requirements.txt`
-5. Start command: `gunicorn --bind 0.0.0.0:$PORT api.app:app`
-6. Add environment variables in Render dashboard
-7. Done — free tier gives you 512MB RAM, 0.1 CPU
-
-## Connecting to the JLIGHT Frontend
-
-The frontend (`index.html`) already calls these exact endpoints:
-- `/api/analyse-csv` — when a CSV is uploaded
-- `/api/bio/*` — when bioinformatics functions run
-- `/api/health` — system monitor page
-
-Change the base URL in the frontend from relative paths to your backend URL:
-
-```javascript
-const API_BASE = 'https://your-backend.render.com'
-// Then: fetch(`${API_BASE}/api/analyse-csv`, ...)
-```
-
-## ML Algorithms
-
-| Algorithm | Library | Purpose |
-|-----------|---------|---------|
-| Linear Regression | scikit-learn | QC trend analysis, R², p-value |
-| Z-Score (rolling baseline) | SciPy + NumPy | Anomaly detection per window |
-| Westgard Multi-Rules | Pure Python | 1₃s, 2₂s, R₄s, 4₁s, 10ₓ |
-| Logistic Breach Model | NumPy | 48h breach probability |
-| Risk Stratification | Composite | CRITICAL / ATTENTION / STABLE |
-| N50/L50 Calculation | NumPy | WGS assembly quality |
-
-## Bioinformatics
-
-| Tool | Library | Purpose |
-|------|---------|---------|
-| TB Resistance | BioPython + custom | 16 WHO-endorsed mutations |
-| Variant Detection | Pure Python | SNV, INDEL, MNV calling |
-| NGS QC | Pure Python + BioPython | GC%, Q30, duplication |
-| WGS Metrics | NumPy | N50, L50, N90, assembly quality |
-| Sequence Analysis | Pure Python | ORFs, Tm, MW, rev-comp |
-| FASTA/FASTQ Parser | BioPython | File parsing |
+- The browser's optional JC summary request currently targets the staging API base unless an explicit `JLIGHT_CONFIG.apiBaseUrl` or `JLIGHT_API_BASE_URL` is supplied.
+- The production backend branch must not be selected for that request until the authenticated `/api/intelligence/summary` contract, organisation claims, Clinical Trials exclusion, and mandatory audit persistence have been ported and validated there.
+- The raw-sequence routes are intentionally absent. TBProfiler research/benchmark work must remain a separately validated worker pipeline, not a user-facing raw-sequence analyser API.
+- The global card and audit endpoints remain fail-closed until organisation-scoped permissions are proven.
 
 ## Tests
 
-```bash
-python3 tests/test_all.py
-# Results: 26/26 tests passed
-```
-
-## Standards Compliance
-
-- ISO 15189 — QC CV% threshold (3.0%), Westgard implementation
-- NICD NGS Guidelines 2024 — GC content thresholds for MTBC WGS
-- WHO TB Drug Resistance 2022 — mutation catalogue (16 targets)
-- ACMG/AMP 2015 — variant classification framework
-- POPIA — no patient-identifiable data stored; read-only integration model
-
----
-Team JLIGHT · Fiada Mothapo · Gauteng, South Africa · 2026
+The regression workflow checks frontend syntax and contracts, patient-journey privacy, source import parsing, backend authentication, interoperability, and analytical-engine behaviour. Run the commands above when changing this service.
