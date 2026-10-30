@@ -63,6 +63,13 @@ require("key: 'trial-referrals'" in role_block and "function createHospitalTrial
 require("jl_create_trial_recruitment_referral" in html and
         "jl_create_trial_participant_from_referral" in html,
         "Recruitment hand-off and screening creation must use governed database functions")
+require("function submitTrialEntry()" not in html and "function analyseTrialEvent(e)" not in html,
+        "Legacy local-storage Clinical Trials event entry and analysis must be removed")
+trial_jc_start = html.index("function buildClinicalTrialsJCChecks()")
+trial_jc_end = html.index("async function requestJlightClinicalTrialsSummary", trial_jc_start)
+trial_jc = html[trial_jc_start:trial_jc_end]
+require("STATE.trialParticipants" in trial_jc and "STATE.trialTimelineEvents" in trial_jc,
+        "Clinical Trials JC must use canonical study participants and timeline events")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
 journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
