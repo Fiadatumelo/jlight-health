@@ -13,6 +13,7 @@ The staging implementation now supports initial multi-path organisation registra
 
 - An organisation registers once and selects one or more of Hospital, Laboratory, Bioinformatics, and Clinical Trials.
 - The initial selection creates only those organisation-level entitlements.
+- **Eligibility policy gap:** the current staging RPC verifies the email, organisation name, allow-listed path keys, duplicate selections, and registration uniqueness, but it does not yet validate role-specific eligibility evidence. The required criteria/evidence for each pathway have not been formally supplied, so this must be agreed and implemented before production release.
 - A later pathway request remains pending and grants no access.
 - Only an independent JLIGHT Platform Administrator may approve or reject the request.
 - A platform administrator cannot review a request they submitted or one from an organisation where they hold active membership.
@@ -69,6 +70,7 @@ All fixtures used synthetic accounts and were rolled back; no real patient or pa
 9. Confirmed a Bioinformatics-only member in an organisation that also has Clinical Trials sees Bioinformatics only, cannot read Clinical Trials, and is not included in the Clinical Trials member listing.
 10. Confirmed an organisation with the legacy Laboratory role placeholder but no active Laboratory entitlement cannot be resolved as a Laboratory organisation.
 11. Hardened the legacy one-argument member-list RPC: it now fails closed when multiple standard pathways are active and requires an explicit workspace domain.
+12. Confirmed Platform Administrator status alone does not grant organisation workspace discovery or patient-data access.
 
 These are targeted database tests. They do not establish that every RLS policy, API route, browser interaction, or authenticated SECURITY DEFINER function is secure.
 
@@ -82,18 +84,19 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
 - Frontend inline JavaScript syntax check: passed.
 - GitHub `regression` and `authenticated-rls` workflows: queued/pending at the time of this review.
-- Netlify deploy preview: the latest deploy check failed before a preview was confirmed. Netlify's check points to https://app.netlify.com/projects/jlight-health/deploys/6ae4d6d97d870227ffc38e14; the deployment log is not accessible through the repository connection, so the cause is not yet established.
+- Netlify: the previous deploy's redirect/header/page checks completed as neutral (no redirect/header rules configured; one asset changed). The latest PR commit is still processing at https://app.netlify.com/projects/jlight-health/deploys/6ae4d89d1d9f507745d754c9.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
 
 ## Remaining release gates
 
-1. Wait for and pass the GitHub regression workflow.
-2. Pass the authenticated Supabase RLS integration workflow using the pinned staging database secret.
-3. Complete browser end-to-end tests for one-path and multi-path registration, email-code sign-in, invitation acceptance, path switching, member permissions, Platform Admin approvals, and organisation isolation.
-4. Complete adversarial tests for the twenty authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
-5. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
-6. Re-run the Supabase security advisor and document any remaining intentional INFO notices.
-7. Make a separate explicit production release decision only after all gates pass.
+1. Define and implement the eligibility criteria/evidence requirements for each initial-registration pathway; the current staging RPC does not yet enforce them.
+2. Wait for and pass the GitHub regression workflow.
+3. Pass the authenticated Supabase RLS integration workflow using the pinned staging database secret.
+4. Complete browser end-to-end tests for one-path and multi-path registration, email-code sign-in, invitation acceptance, path switching, member permissions, Platform Admin approvals, and organisation isolation.
+5. Complete adversarial tests for the twenty authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
+6. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
+7. Re-run the Supabase security advisor and document any remaining intentional INFO notices.
+8. Make a separate explicit production release decision only after all gates pass.
 
 ## Explicitly not done
 
