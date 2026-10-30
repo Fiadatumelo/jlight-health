@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 from unittest.mock import patch, Mock
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.app import app
@@ -98,16 +99,14 @@ def test_unsupported_workspace_selector_is_rejected_before_database_access():
     assert response.status_code == 403
 
 
-def test_bioinformatics_endpoint_requires_bioinformatics_entitlement():
-    db = FakeDatabase({"laboratory": True, "bioinformatics": False})
-    with patch("api.app.verify_access_token", return_value=claims()), \
-         patch("api.app.get_db", return_value=db):
-        response = app.test_client().post(
-            "/api/bio/sequence",
-            headers={"Authorization": "Bearer verified-test-token"},
-            json={"sequence": "ATCGATCGATCG"},
-        )
-    assert response.status_code == 403
+@pytest.mark.parametrize("path", [
+    "/api/bio/tb", "/api/bio/variant", "/api/bio/ngs",
+    "/api/bio/wgs", "/api/bio/sequence", "/api/bio/fasta",
+])
+def test_raw_sequence_analysis_endpoints_are_not_part_of_jlight(path):
+    response = app.test_client().post(path, json={"sequence": "ATCGATCGATCG"})
+    assert response.status_code == 404
+
 
 
 def test_workspace_api_fails_closed_when_database_is_unavailable():
