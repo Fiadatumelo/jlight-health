@@ -767,8 +767,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
       <div id="si-org-code-row" style="display:none" class="form-row">
         <label class="form-label">Organisation Code</label>
-        <input class="form-input" id="si-org-code" type="text" placeholder="e.g. JLI-AB12" style="text-transform:uppercase"/>
-        <div class="form-help">Enter the 8-character code supplied by your organisation administrator (for example, JLI-AB12)</div>
+        <input class="form-input" id="si-org-code" type="text" placeholder="e.g. JLI-1234ABCD5678EF" style="text-transform:uppercase"/>
+        <div class="form-help">Enter the organisation code supplied by your administrator (for example, JLI-1234ABCD5678EF)</div>
       </div>
       <div id="si-role-row" style="display:none" class="form-row">
         <label class="form-label">Workspace Role <span style="color:var(--amber);font-size:10px">(permanent — one account per role)</span></label>
@@ -5182,10 +5182,19 @@ function toggleJoinType() {
   const isNew = !t || t.value === 'new'
   const nr = document.getElementById('si-org-name-row')
   const cr = document.getElementById('si-org-code-row')
-  const rr = document.getElementById('si-role-row')
+  const sub = document.getElementById('si-sub')
   if (nr) nr.style.display = isNew ? 'flex' : 'none'
   if (cr) cr.style.display = isNew ? 'none' : 'flex'
-  if (rr) rr.style.display = isNew ? 'flex' : 'none'
+  const rr = document.getElementById('si-role-row')
+  if (rr) rr.style.display = 'none'
+  if (!isNew) {
+    sessionStorage.removeItem("jl_selected_paths")
+    sessionStorage.removeItem("jl_selected_path")
+    document.querySelectorAll(".path-choice").forEach(el => { el.classList.remove("selected"); el.setAttribute("aria-pressed","false") })
+    if (sub) sub.textContent = "Choose the pathway your organisation administrator has approved for your account."
+  } else if (sub) {
+    sub.textContent = "Select one or more pathways for initial organisation registration."
+  }
 }
 
 
