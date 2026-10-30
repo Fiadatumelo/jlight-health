@@ -165,3 +165,69 @@ def build_intelligence_summary(
             "No direct patient identifiers, raw sequences, free-text source summaries or Clinical Trials data are included.",
         ],
     }
+
+
+# Clinical Trials has a deliberately separate allow-list and summary builder.
+ALLOWED_CLINICAL_TRIAL_CHECKS = {
+    "overdue_visit", "protocol_deviation", "incomplete_trial_record",
+    "consent_record_incomplete", "adverse_event_followup", "retention_risk",
+}
+
+
+def build_clinical_trials_intelligence_summary(
+    *, clinical_trials_checks: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Aggregate bounded, de-identified trial workflow checks only.
+
+    No participant identifiers, consent text, adverse-event narratives, medical
+    details, or general patient-journey data are accepted or returned.
+    """
+    findings: list[dict[str, Any]] = []
+    for item in clinical_trials_checks or ():
+        if not isinstance(item, Mapping):
+            continue
+        check_id = str(item.get("check_id", "")).strip().lower()
+        if check_id not in ALLOWED_CLINICAL_TRIAL_CHECKS:
+            continue
+        status = _status(item.get("status"))
+        severity = _severity(item.get("severity"))
+        evidence_count = _bounded_int(item.get("evidence_count"))
+        findings.append(_finding(
+            finding_id=f"trial_{check_id}",
+            source="clinical_trials",
+            rule_id=check_id,
+            severity=severity,
+            status=status,
+            evidence={"evidence_count": evidence_count},
+            action=(
+                "Review the relevant study records with the authorised investigator or study team; JC does not make clinical or protocol decisions."
+                if status in {"review", "fail", "unknown"} or severity in {"high", "critical"}
+                else "Retain the study record and continue the approved oversight process."
+            ),
+        ))
+
+    counts = {key: 0 for key in ("pass", "review", "fail", "unknown")}
+    for finding in findings:
+        counts[finding["status"]] += 1
+    review_required = any(item["requires_human_review"] for item in findings)
+    overall = (
+        "insufficient_input" if not findings else
+        "review_required" if review_required else
+        "no_flags_from_supplied_checks"
+    )
+    return {
+        "engine": "JLIGHT Clinical Trials Intelligence",
+        "engine_version": ENGINE_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "overall_status": overall,
+        "finding_count": len(findings),
+        "status_counts": counts,
+        "human_review_required": review_required,
+        "findings": findings,
+        "limitations": [
+            "This is an aggregate workflow review, not clinical, safety, eligibility or protocol adjudication.",
+            "Only allow-listed trial check identifiers, statuses, severity and bounded counts are evaluated.",
+            "No participant identifiers, consent text, adverse-event narratives or medical details are included.",
+            "Missing inputs mean unknown, not normal or complete.",
+        ],
+    }
