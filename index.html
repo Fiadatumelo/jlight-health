@@ -5029,7 +5029,7 @@ function renderReportArchiveHtml() {
     '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
     '<button class="btn btn-sm" onclick="openArchivedReport(\'' + esc(r.id) + '\')">Open</button>' +
     '<button class="btn btn-sm" onclick="downloadArchivedReport(\'' + esc(r.id) + '\')">Download</button>' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' +
+    (canDelete ? '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' : '') +
     '</div></div>'
   ).join('') + '</div>'
 }
