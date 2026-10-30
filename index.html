@@ -4503,29 +4503,9 @@ async function loadFromBackend() {
 
 
 
-function updateRequestBadge() {
-  const all = loadAllRequests()
-  let count = STATE.role === 'Laboratory'
-    ? all.filter(r => r.targetWorkspace === 'Laboratory' && r.status === 'pending').length
-    : all.filter(r => r.fromWorkspace === STATE.role && r.status === 'released' && !r.cardGenerated).length
-  document.querySelectorAll('.sb-link').forEach(link => {
-    if (link.textContent.includes('Request')) {
-      let badge = link.querySelector('.sb-link-badge')
-      if (count > 0) {
-        if (!badge) { badge = document.createElement('span'); badge.className = 'sb-link-badge'; link.appendChild(badge) }
-        badge.textContent = String(count)
-      } else if (badge) badge.remove()
-    }
-  })
-}
 
-// loadAllRequests / saveAllRequests defined above
 
-// ── CRYPTOGRAPHIC AUDIT CHAIN ──
-// Algorithm: SHA-256 hash chain.
-// Each entry: hash = SHA256(prevHash || ts || action || detail || user)
-// Stored as hex string. prevHash of first entry is "0" * 64.
-// Tamper detection: any modification breaks the chain.
+
 
 
 
