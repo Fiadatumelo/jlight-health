@@ -162,10 +162,11 @@ def require_auth(view):
 
 
 def resolve_verified_workspace_scope(allowed_domains, access="read"):
-    """Resolve one requested workspace from active DB entitlements and member grants.
+    """Resolve a selected organisation and workspace from verified memberships.
 
-    X-JLIGHT-Workspace is an untrusted selector, never an authorization claim.
-    Every selected value is re-checked against the database for this user.
+    X-JLIGHT-Organisation and X-JLIGHT-Workspace are untrusted context selectors,
+    never authorization claims. Both are re-checked against current database
+    membership, active pathway entitlement and member-level permission.
     """
     claims = getattr(g, "auth_claims", None)
     user_id = claims.get("sub") if isinstance(claims, dict) else None
@@ -176,29 +177,48 @@ def resolve_verified_workspace_scope(allowed_domains, access="read"):
         return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
     allowed = set(allowed_domains)
     requested = request.headers.get("X-JLIGHT-Workspace", "").strip().lower() or None
+    requested_org = request.headers.get("X-JLIGHT-Organisation", "").strip() or None
     if requested and requested not in allowed:
         return None, (jsonify({"success": False, "error": "Requested workspace is not supported by this endpoint"}), 403)
     try:
         with db.cursor() as cur:
             cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
-            cur.execute(
-                """SELECT p.org_id::text AS organisation_id
-                   FROM public.jl_user_profiles p
-                   JOIN public.jl_organisations o ON o.id = p.org_id
-                   WHERE p.user_id = %s
-                     AND coalesce(p.active, true) = true
-                     AND coalesce(o.active, true) = true
-                   LIMIT 1""",
-                (user_id,),
-            )
+            if requested_org:
+                cur.execute(
+                    """SELECT o.id::text AS organisation_id
+                       FROM public.jl_organisations o
+                       WHERE o.id::text = %s
+                         AND coalesce(o.active, true) = true
+                         AND (
+                           EXISTS (
+                             SELECT 1 FROM public.jlight_organization_memberships m
+                             WHERE m.organization_id=o.id AND m.auth_subject=%s AND m.active=true
+                           )
+                           OR EXISTS (
+                             SELECT 1 FROM public.jl_org_memberships m
+                             WHERE m.organisation_id=o.id AND m.user_id=%s AND m.status='active'
+                           )
+                         )
+                       LIMIT 1""",
+                    (requested_org, user_id, user_id),
+                )
+            else:
+                cur.execute(
+                    """SELECT p.org_id::text AS organisation_id
+                       FROM public.jl_user_profiles p
+                       JOIN public.jl_organisations o ON o.id = p.org_id
+                       WHERE p.user_id = %s
+                         AND coalesce(p.active, true) = true
+                         AND coalesce(o.active, true) = true
+                       LIMIT 1""",
+                    (user_id,),
+                )
             row = cur.fetchone()
             if not row:
                 db.rollback()
                 return None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
             org_id = row["organisation_id"]
 
-            # A selector cannot create access: build the candidate list only
-            # from active entitlements and the database permission helper.
             permitted = []
             for domain in sorted(allowed):
                 cur.execute(
@@ -232,22 +252,6 @@ def resolve_verified_workspace_scope(allowed_domains, access="read"):
             pass
         app.logger.exception("Organisation path authorization failed")
         return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
-
-
-def require_domain_auth(allowed_domains, access="write"):
-    """Require both a verified bearer token and an active path-specific grant."""
-    def decorator(view):
-        @wraps(view)
-        @require_auth
-        def wrapped(*args, **kwargs):
-            scope, scope_error = resolve_verified_workspace_scope(allowed_domains, access)
-            if scope_error:
-                return scope_error
-            g.jlight_scope = scope
-            return view(*args, **kwargs)
-        return wrapped
-    return decorator
-
 
 
 # ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
