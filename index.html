@@ -3575,6 +3575,8 @@ async function renderPlatformAdminCenter() {
     return;
   }
   const requests = Array.isArray(data) ? data : [];
+  const { data: trialQueueData, error: trialQueueError } = await sb.rpc('jl_list_trial_recruitment_approval_queue');
+  const trialQueue = trialQueueError ? [] : (Array.isArray(trialQueueData) ? trialQueueData : []);
   page.innerHTML =
     '<div class="page-head"><div><div class="page-title">Platform Administration</div><div class="page-sub">Review organisation requests for additional JLIGHT pathways. Approval creates an entitlement; it does not automatically grant every member access.</div></div><span class="permission-badge admin">Platform Administrator</span></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Pending workspace requests · ' + requests.length + '</div>' +
@@ -3588,6 +3590,34 @@ async function renderPlatformAdminCenter() {
       `<button class="btn" onclick="decideWorkspaceRequest('${esc(r.request_id)}','rejected')">Reject request</button></div></article>`
     ).join("") : '<div class="empty">No additional workspace requests are awaiting review.</div>') +
     '</div>';
+  page.innerHTML +=
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Clinical Trials recruitment approvals · ' + trialQueue.length + '</div>' +
+    (trialQueueError ? '<div class="auth-status error">' + esc(trialQueueError.message) + '</div>' :
+      (trialQueue.length ? trialQueue.map(s =>
+        '<article style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">' +
+        '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' + esc(s.study_code) + ' · ' + esc(s.title) + '</strong><span class="permission-badge">' + esc(s.organisation_name) + '</span></div>' +
+        '<div class="form-help">Status: ' + esc(s.status) + ' · Created: ' + esc(s.created_at || '') + '</div>' +
+        '<button class="btn btn-primary" style="margin-top:10px" onclick="approveTrialRecruitment(\\'' + esc(s.study_id) + '\\')">Approve ethics and recruitment</button></article>'
+      ).join('') : '<div class="empty">No active studies are awaiting recruitment approval.</div>')) +
+    '</div>';
+}
+
+async function approveTrialRecruitment(studyId) {
+  if(!MODE.isPlatformAdmin){toast('Not authorised','Platform Administrator access is required.','crit');return;}
+  const ethicsReference=window.prompt('Enter the verified ethics / REC approval reference:');
+  if(!ethicsReference||!ethicsReference.trim())return;
+  const ethicsDate=window.prompt('Enter the ethics approval date (YYYY-MM-DD):');
+  if(!ethicsDate||!/^\\d{4}-\\d{2}-\\d{2}$/.test(ethicsDate)) {toast('Invalid approval date','Use YYYY-MM-DD.','warn');return;}
+  const criteriaVersion=window.prompt('Enter the protocol eligibility criteria version (e.g. criteria-v1):');
+  if(!criteriaVersion||!criteriaVersion.trim())return;
+  const sb=getSupabase();
+  const {error}=await sb.rpc('jl_authorise_trial_recruitment',{
+    p_study_id:studyId,p_ethics_approval_reference:ethicsReference.trim(),
+    p_ethics_approval_date:ethicsDate,p_criteria_version:criteriaVersion.trim()
+  });
+  if(error){toast('Recruitment approval not saved',error.message,'crit');return;}
+  toast('Recruitment authorised','The study can now appear in Hospital referral options.','good');
+  await renderPlatformAdminCenter();
 }
 
 async function decideWorkspaceRequest(requestId, decision) {
