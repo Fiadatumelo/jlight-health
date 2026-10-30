@@ -3644,6 +3644,98 @@ function renderSettings() {
     </div>
   `
 }
+async function loadAdminDomainAccess() {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline || !MODE.organisationId || STATE.userProfile?.workspace_role !== 'admin') {
+    return { rows: [], error: 'Administrator access is required.' }
+  }
+  const { data, error } = await sb.rpc('jlight_list_org_domain_access', {
+    p_organization_id: MODE.organisationId
+  })
+  return { rows: Array.isArray(data) ? data : [], error: error?.message || null }
+}
+
+async function saveAdminDomainAccess(userId) {
+  if (!requirePermission('admin', 'Manage member access')) return
+  const domain = ({ hospital:'hospital', laboratory:'laboratory', bioinformatics:'bioinformatics' })[MODE.organisationType]
+  if (!domain) { toast('Access managed separately', 'Clinical Trials membership requires approved provisioning.', 'warn'); return }
+  const read = !!document.getElementById('admin-read-' + userId)?.checked
+  const write = !!document.getElementById('admin-write-' + userId)?.checked
+  const report = !!document.getElementById('admin-report-' + userId)?.checked
+  if ((write || report) && !read) {
+    toast('Invalid permissions', 'Read access is required before write or report access.', 'warn')
+    return
+  }
+  const sb = getSupabase()
+  if (!sb) return
+  const { error } = await sb.rpc('jlight_set_member_domain_permission', {
+    p_organization_id: MODE.organisationId,
+    p_auth_subject: userId,
+    p_domain: domain,
+    p_can_read: read,
+    p_can_write: write,
+    p_can_report: report
+  })
+  if (error) { toast('Access update failed', error.message, 'crit'); return }
+  await audit('Member domain permissions updated', domain + ' access changed for ' + userId)
+  toast('Access updated', 'Member permissions were saved.', 'good')
+  renderAdminCenter()
+}
+
+async function clearLocalWorkspaceCache() {
+  if (!requirePermission('admin', 'Clear local workspace cache')) return
+  if (!confirm('Clear this browser\'s cached copy of the current organisation data? Cloud records will not be deleted and will be downloaded again.')) return
+  const keys = [
+    'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
+    'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
+    'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
+    'jl_v10_bio_runs','jl_v10_bio_accessions','jl_v10_bio_qc','jl_v10_bio_amr',
+    'jl_v10_consents','jl_v10_deviations','jl_v10_samples','jl_v10_report_archive'
+  ]
+  keys.forEach(key => localStorage.removeItem(jlightStorageKey(key)))
+  loadAllDomainData()
+  await loadDomainDataFromBackend()
+  await audit('Local workspace cache cleared', 'Cloud records retained; browser cache rehydrated from authorised domain records.')
+  toast('Local cache refreshed', 'Cloud records were retained.', 'good')
+  goPage('admin')
+}
+
+async function renderAdminCenter() {
+  const page = $('page-admin')
+  if (!page) return
+  if (!MODE.isOnline || STATE.userProfile?.workspace_role !== 'admin') {
+    page.innerHTML = renderEmpty('Administrator access required', 'This area is restricted to your organisation administrator.', 'dashboard', '← Dashboard')
+    return
+  }
+  const counts = [
+    ['Patients', STATE.patients.length], ['Lab orders', STATE.labOrders.length],
+    ['Results', STATE.results.length], ['Samples', STATE.samples.length],
+    ['Admissions', STATE.admissions.length], ['Bioinformatics runs', STATE.bioRuns.length],
+    ['Trial participants', STATE.participants.length], ['Archived reports', (STATE.reportArchive || []).length]
+  ]
+  const access = await loadAdminDomainAccess()
+  const members = new Map()
+  access.rows.forEach(row => { if (!members.has(row.auth_subject)) members.set(row.auth_subject, row) })
+  const domain = ({ hospital:'Hospital', laboratory:'Laboratory', bioinformatics:'Bioinformatics' })[MODE.organisationType] || 'Clinical Trials'
+  const memberRows = Array.from(members.values()).map(row =>
+    '<tr><td><strong>' + esc(row.display_name || row.email || 'Member') + '</strong><div style="font-size:11px;color:var(--text-3)">' + esc(row.email || '') + ' · ' + esc(row.membership_role || '') + (row.membership_active ? '' : ' · inactive') + '</div></td>' +
+    '<td><input type="checkbox" id="admin-read-' + esc(row.auth_subject) + '" ' + (row.can_read ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+    '<td><input type="checkbox" id="admin-write-' + esc(row.auth_subject) + '" ' + (row.can_write ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+    '<td><input type="checkbox" id="admin-report-' + esc(row.auth_subject) + '" ' + (row.can_report ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+    '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\'' + esc(row.auth_subject) + '\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
+  ).join('')
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">Admin Center</div><div class="page-sub">Organisation controls · storage · archives · member access</div></div><span class="permission-badge admin">Administrator</span></div>' +
+    '<div class="kpis">' + counts.map(item => '<div class="kpi"><div class="kpi-label">' + esc(item[0]) + '</div><div class="kpi-value">' + item[1] + '</div></div>').join('') + '</div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation path</div><div class="detail-row"><span class="detail-row-label">Organisation</span><span class="detail-row-value">' + esc(MODE.organisationName || '') + '</span></div><div class="detail-row"><span class="detail-row-label">System-assigned path</span><span class="detail-row-value">' + esc(domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Organisation code</span><span class="detail-row-value">' + esc(MODE.organisationCode || '—') + '</span></div><p class="form-help">This path is assigned during organisation provisioning. Members cannot enable another workspace from their profile.</p></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Member access · ' + esc(domain) + '</div><p class="form-help">Grant only the access each active member needs. Write and report permissions require read access.</p>' +
+    (access.error ? '<div class="auth-status error">' + esc(access.error) + '</div>' : '') +
+    '<div style="overflow:auto"><table class="data-table"><thead><tr><th>Member</th><th>Read</th><th>Write</th><th>Reports</th><th></th></tr></thead><tbody>' + memberRows + '</tbody></table></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Storage & data management</div><p class="form-help">JLIGHT stores structured records in the organisation-scoped database and keeps a local browser cache. There is no separate object-storage bucket configured in this workspace.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportWorkspace()">Export workspace data</button><button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button><button class="btn" onclick="clearLocalWorkspaceCache()">Clear local cache</button></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Report archive</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" onclick="renderAdminCenter()">Refresh archive</button></div><div id="admin-report-archive">' + renderReportArchiveHtml() + '</div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Security & audit</div><p class="form-help">Access changes and report deletions are recorded in the workspace audit trail. Patient-level access remains restricted by organisation and domain policies in the database.</p><button class="btn" onclick="goPage(\'audit\')">Open audit trail</button></div>'
+}
+
 function exportWorkspace() {
   const data = { workspace: STATE.role, user: STATE.user, exported: new Date().toISOString(), samples: STATE.samples, entries: STATE.entries, cards: STATE.cards, audit: STATE.audit }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
