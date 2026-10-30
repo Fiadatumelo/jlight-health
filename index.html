@@ -1794,7 +1794,7 @@ function buildNav() {
   const nav = $('sb-nav')
   const openCards = STATE.cards.filter(c => !c.acknowledged).length
   if (MODE.isPlatformAdmin && !MODE.organisationId) {
-    nav.innerHTML = '<div class="sb-nav-pinned sb-nav-admin"><div class="sb-link active" role="button" tabindex="0" onclick="goPage(\\'platform-admin\\')"><span class="sb-link-icon">◆</span><span>Platform Administration</span></div></div>'
+    nav.innerHTML = '<div class="sb-nav-pinned sb-nav-admin"><div class="sb-link active" role="button" tabindex="0" onclick="goPage(\'platform-admin\')"><span class="sb-link-icon">◆</span><span>Platform Administration</span></div></div>'
     return
   }
   const groups = [
@@ -3872,8 +3872,8 @@ async function renderPlatformAdminCenter() {
       '<div class="form-help">Submitted: ' + esc(r.submitted_at || "") + ' · Criteria: ' + esc(r.criteria_version || "") + '</div>' +
       '<div class="form-help">Evidence reference: ' + esc(r.evidence_reference || "Not supplied") + '</div>' +
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">' +
-      '<button class="btn btn-primary" onclick="decideWorkspaceRequest(\\'' + esc(r.request_id) + '\\',\\'approved\\')">Approve pathway</button>' +
-      '<button class="btn" onclick="decideWorkspaceRequest(\\'' + esc(r.request_id) + '\\',\\'rejected\\')">Reject request</button></div></article>'
+      `<button class="btn btn-primary" onclick="decideWorkspaceRequest('${esc(r.request_id)}','approved')">Approve pathway</button>` +
+      `<button class="btn" onclick="decideWorkspaceRequest('${esc(r.request_id)}','rejected')">Reject request</button></div></article>`
     ).join("") : '<div class="empty">No additional workspace requests are awaiting review.</div>') +
     '</div>';
 }
