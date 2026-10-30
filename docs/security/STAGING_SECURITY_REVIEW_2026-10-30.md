@@ -36,8 +36,8 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030173252` | Scope organisation-admin permission management to a requested domain |
 | `20261030173402` | Reject legacy invitations without explicit workspace scope |
 | `20261030173550` | Serialize first-time registration to prevent concurrent duplicate organisations |
-| `20261030173600` | Pin trigger search paths and require verified auth in the legacy registration wrapper |
-| `20261030173800` | Prevent Platform Admin self-review and own-organisation review |
+| `20261030173917` | Pin trigger search paths and require verified auth in the legacy registration wrapper |
+| `20261030173943` | Prevent Platform Admin self-review and own-organisation review |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
