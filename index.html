@@ -3744,12 +3744,29 @@ async function renderAdminCenter() {
     page.innerHTML = renderEmpty('Administrator access required', 'This area is restricted to your organisation administrator.', 'dashboard', '← Dashboard')
     return
   }
-  const counts = [
-    ['Patients', STATE.patients.length], ['Lab orders', STATE.labOrders.length],
-    ['Results', STATE.results.length], ['Samples', STATE.samples.length],
-    ['Admissions', STATE.admissions.length], ['Bioinformatics runs', STATE.bioRuns.length],
-    ['Trial participants', STATE.participants.length], ['Archived reports', (STATE.reportArchive || []).length]
-  ]
+  const metricsByPath = {
+    hospital: [
+      ['Patient records', STATE.patients.length], ['Admissions', STATE.admissions.length],
+      ['Clinical orders', STATE.clinicalOrders.length], ['Infection flags', STATE.infections.length],
+      ['Wards', STATE.wards.length]
+    ],
+    laboratory: [
+      ['Patient records', STATE.patients.length], ['Lab orders', STATE.labOrders.length],
+      ['Results', STATE.results.length], ['Samples', STATE.samples.length],
+      ['QC runs', STATE.qcRuns.length]
+    ],
+    bioinformatics: [
+      ['Patient records', STATE.patients.length], ['Analysis runs', STATE.bioRuns.length],
+      ['Accessions', (STATE.bioAccessions || []).length], ['QC checks', (STATE.bioQc || []).length],
+      ['AMR analyses', (STATE.bioAmr || []).length]
+    ],
+    clinical_trials: [
+      ['Protocols', STATE.protocols.length], ['Participants', STATE.participants.length],
+      ['Visits', STATE.visits.length], ['Adverse events', STATE.adverseEvents.length],
+      ['Protocol deviations', (STATE.deviations || []).length]
+    ]
+  }
+  const counts = metricsByPath[MODE.organisationType] || []
   const access = await loadAdminDomainAccess()
   const members = new Map()
   access.rows.forEach(row => { if (!members.has(row.auth_subject)) members.set(row.auth_subject, row) })
@@ -3792,20 +3809,6 @@ function exportWorkspace() {
   audit('Exported workspace', `${STATE.samples.length} samples · ${STATE.entries.length} entries · ${STATE.cards.length} cards`)
   toast('Exported', 'Workspace downloaded as JSON', 'good')
 }
-function clearWorkspace() {
-  if (!needPerm('admin','Clear workspace')) return
-  if (!confirm('Clear all data for this workspace? This cannot be undone.')) return
-  STATE.samples = []; STATE.entries = []; STATE.cards = []; STATE.audit = []
-  STORAGE.saveSamples(STATE.role, []); STORAGE.saveEntries(STATE.role, []); STORAGE.saveCards(STATE.role, []); STORAGE.saveAudit(STATE.role, [])
-  toast('Cleared', 'Workspace data removed', 'warn'); goPage('dashboard')
-}
-function resetPIN() {
-  if (!confirm('Reset your PIN? You will need to sign in and create a new one.')) return
-  STORAGE.removePinHash(STATE.role)
-  toast('PIN reset', 'Sign in again to create a new PIN', 'warn'); signOut()
-}
-
-
 function renderHandover() {
   if (STATE.role !== 'Laboratory') {
     $('page-handover').innerHTML = renderEmpty('Not available', 'Daily Handover is for Laboratory workspace only.', 'dashboard', '← Dashboard')
