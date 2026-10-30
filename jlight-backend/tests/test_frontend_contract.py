@@ -236,5 +236,9 @@ require("summary.otherVariantCount" in html and "summary.sourceUrl" in html,
 require(r'tbdr\.lshtm\.ac\.uk\/results' in html and
         'rel="noopener noreferrer"' in html,
         "TB QC provenance links must be restricted to the official TBProfiler result host and opened safely")
+require("QC warnings and review notes" in html and
+        "Median coverage is below the 30x review threshold" in html and
+        "review_required_low_coverage" in html,
+        "TB low-coverage warnings must be generated for raw imports and visible in the QC compartment")
 
 print("JLIGHT frontend contract checks passed.")
