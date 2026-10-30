@@ -26,6 +26,23 @@ The normalizer writes `jlight_bioruns_import.csv` using the existing JLIGHT Bioi
 
 The `summary` field contains a compact JSON evidence summary with the ENA dataset/run accession, TBProfiler version, database version, lineage, resistance profile, QC values, variant counts and warnings. The importer does not treat a genotype prediction as a clinical diagnosis.
 
+## Import into the JLIGHT Bioinformatics workspace
+
+The Bioinformatics workspace now exposes a dedicated **TB Intelligence** area with five compartments:
+
+- Overview — profile counts, source-reported resistance classes, variant counts and QC flags.
+- Drug resistance — sample-level resistance classifications and drug-specific annotated mutation evidence.
+- Lineage — main-lineage and sub-lineage distribution.
+- Variant evidence — gene, mutation, confidence, depth and allele frequency where the source output supplies them.
+- QC & provenance — coverage, mapped-read percentage, pipeline version, TB database version and import timestamp.
+
+Two supported import routes are available:
+
+1. **TBProfiler JSON:** Bioinformatics → Review Imported Data → select the completed `.results.json` file → preview → import.
+2. **JLIGHT-normalized CSV:** Bioinformatics → Data Sources → Record type **Bioinformatics outputs** → select `jlight_bioruns_import.csv` → preview → import.
+
+Online imports require the authenticated member's server-verified Bioinformatics write permission. Records are stored in the organisation-scoped `bioRuns` domain and rehydrated into the TB compartments. The run accession remains a source identifier; it is not automatically treated as a patient identifier. Patient linkage requires a separate governed matching process.
+
 ## Interpretation limits
 
 - These are public, previously generated bacterial sequencing runs. They are not patient records and are not linked to a JLIGHT patient.
