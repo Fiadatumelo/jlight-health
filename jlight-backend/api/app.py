@@ -1,5 +1,5 @@
 """
-JLIGHT v4 — Flask REST API
+JLIGHT Health Intelligence API
 =============================
 Endpoints:
   POST /api/analyse-csv       — CSV/XLSX QC analysis
@@ -8,7 +8,7 @@ Endpoints:
   POST /api/cards/acknowledge — Acknowledge a card
   GET  /api/audit             — Audit log
 
-Author: JLIGHT · Team Fiada Mothapo · Hackathon 2026
+
 """
 
 import sys as _sys, os as _os
