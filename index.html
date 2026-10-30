@@ -2048,23 +2048,6 @@ async function createHospitalTrialReferral() {
 
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
-  // Trial workspace is an explicit privacy boundary: do not expose hospital, laboratory,
-  // bioinformatics, or general intelligence records in this workspace's journey.
-  if(STATE.role==='Trial') {
-    const addTrial=(label,rows,summaryFn)=>{
-      (rows||[]).forEach(row=>{
-        if(!row||row.patientId==null||String(row.patientId)!==pid)return;
-        const dateValue=row.eventAt||row.createdAt||row.updatedAt||row.timestamp||row.date||row.visitDate||row.ts;
-        const parsed=dateValue!=null?new Date(dateValue):null;
-        events.push({source:'Clinical Trials',label,when:parsed&&!Number.isNaN(parsed.getTime())?parsed:null,rawWhen:dateValue,summary:summaryFn(row),status:String(row.status||row.state||row.resolutionStatus||'Recorded')});
-      });
-    };
-    addTrial('Trial enrolment',STATE.participants||[],r=>'Authorised study enrolment'+(r.studyName?' · '+r.studyName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
-    addTrial('Trial visit',STATE.visits||[],r=>'Study visit'+(r.visitName?' · '+r.visitName:'')+(r.protocolId?' · protocol: '+r.protocolId:'')+(r.status?' · status: '+r.status:''));
-    addTrial('Trial safety / issue event',STATE.adverseEvents||[],r=>'Recorded trial safety event'+(r.eventType?' · '+r.eventType:'')+(r.status?' · status: '+r.status:''));
-    events.sort((a,b)=>(b.when?b.when.getTime():0)-(a.when?a.when.getTime():0));
-    return events;
-  }
   const add=(source,label,rows,summaryFn)=>{
     (rows||[]).forEach(row=>{
       if(!row||row.patientId==null||String(row.patientId)!==pid)return;
@@ -2104,8 +2087,7 @@ function filterJourneyPatients(value) {
 }
 function renderJourney() {
   const page=document.getElementById('page-journey');if(!page)return;
-  const trialPatientIds=new Set((STATE.participants||[]).map(x=>x&&x.patientId!=null?String(x.patientId):'').filter(Boolean));
-  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId))&&(STATE.role!=='Trial'||trialPatientIds.has(String(p.id))));
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
   let selected=patients.find(p=>String(p.id)===String(STATE.currentPatientId));
   if(!selected&&patients.length)selected=patients[0];
   if(selected)STATE.currentPatientId=selected.id;
@@ -2114,7 +2096,6 @@ function renderJourney() {
     {name:'Hospital',n:events.filter(e=>e.source==='Hospital').length},
     {name:'Laboratory',n:events.filter(e=>e.source==='Laboratory').length},
     {name:'Bioinformatics',n:events.filter(e=>e.source==='Bioinformatics').length},
-    ...(STATE.role==='Trial'?[{name:'Clinical Trials',n:events.filter(e=>e.source==='Clinical Trials').length}]:[]),
     {name:'JLIGHT Intelligence',n:events.filter(e=>e.source==='JLIGHT Intelligence').length}
   ];
   const countCards=counts.map(x=>'<div class="journey-metric tone-blue"><span>'+esc(x.name)+'</span><strong>'+x.n+'</strong><small>linked events</small></div>').join('');
@@ -2398,8 +2379,7 @@ async function runJCAgent() {
 
 async function generatePatientJourneyReports() {
   const status = document.getElementById('patient-journey-report-status');
-  const trialPatientIds = new Set((STATE.participants || []).map(x => x && x.patientId != null ? String(x.patientId) : '').filter(Boolean));
-  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)) && (STATE.role !== 'Trial' || trialPatientIds.has(String(p.id))));
+  const patients = (STATE.patients || []).filter(p => !p.archivedAt && (!p.orgId || String(p.orgId) === String(STATE.orgId)));
   const patient = patients.find(p => String(p.id) === String(STATE.currentPatientId));
   if (!patient) {
     if (status) status.textContent = 'Select an active patient before generating reports.';
@@ -2413,7 +2393,7 @@ async function generatePatientJourneyReports() {
   const journeyReport = {
     reportType: 'patient-journey-summary', schemaVersion: '1.0', generatedAt,
     participantLabel, workspace: 'Current workspace',
-    scope: STATE.role === 'Trial' ? 'clinical-trials-only' : 'hospital-laboratory-bioinformatics-intelligence',
+    scope: 'hospital-laboratory-bioinformatics-intelligence',
     eventCount: events.length,
     events: events.map(e => ({
       source: String(e.source || 'Unknown'), eventType: String(e.label || 'Recorded event'),
