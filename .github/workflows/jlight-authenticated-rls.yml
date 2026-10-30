@@ -1,0 +1,57 @@
+name: JLIGHT authenticated Supabase RLS release gates
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/visible-jc-agent, release/jlight-staging-unified-20261029]
+    paths:
+      - "jlight-backend/tests/test_authenticated_supabase_rls.py"
+      - ".github/workflows/jlight-authenticated-rls.yml"
+      - "supabase/**"
+      - "jlight-backend/api/app.py"
+  pull_request:
+    branches: [main]
+    paths:
+      - "jlight-backend/tests/test_authenticated_supabase_rls.py"
+      - ".github/workflows/jlight-authenticated-rls.yml"
+      - "supabase/**"
+
+permissions:
+  contents: read
+
+jobs:
+  authenticated-rls:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    env:
+      JLIGHT_STAGING_DATABASE_URL: ${{ secrets.JLIGHT_STAGING_DATABASE_URL }}
+      JLIGHT_STAGING_PROJECT_REF: ampkysrzliwjtvbigsvu
+    steps:
+      - name: Check out staging release candidate
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Require the verified staging database
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$JLIGHT_STAGING_DATABASE_URL" || -z "$JLIGHT_STAGING_PROJECT_REF" ]]; then
+            echo "::error::Configure the JLIGHT_STAGING_DATABASE_URL secret before release validation."
+            exit 1
+          fi
+          if [[ "$JLIGHT_STAGING_DATABASE_URL" != *"$JLIGHT_STAGING_PROJECT_REF"* ]]; then
+            echo "::error::Staging database URL does not match the verified JLIGHT staging project ref."
+            exit 1
+          fi
+
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check psycopg2-binary
+
+      - name: Run authenticated tenant, patient-match, report-permission and trial-isolation tests
+        run: python -m unittest discover -s jlight-backend/tests -p "test_authenticated_supabase_rls.py" -v
+
+# Staging-only RLS gate; triggered by release-branch push for credential validation.
