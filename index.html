@@ -1923,6 +1923,122 @@ console.log('v9.0 · Health Intelligence Platform · Production build')
 // ═══════════════════════════════════════════════════════════
 
 
+
+async function refreshClinicalTrialData() {
+  const sb=getSupabase();
+  if(!sb||!MODE.isOnline||!STATE.orgId||STATE.orgId==='default') throw new Error('A verified online organisation workspace is required.');
+  if(STATE.role==='Trial') {
+    const [studies,participants,referrals]=await Promise.all([
+      sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
+      sb.from('jl_trial_participants').select('id,organisation_id,study_id,participant_code,status,site_code,screening_number,consent_status,consent_version,consented_at,withdrawn_at,completed_at,created_at,updated_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(1000),
+      sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+    ]);
+    if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;
+    STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];
+  } else if(STATE.role==='Hospital') {
+    const [studies,referrals]=await Promise.all([
+      sb.rpc('jl_list_recruitable_trial_studies',{p_org_id:STATE.orgId}),
+      sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+    ]);
+    if(studies.error)throw studies.error;if(referrals.error)throw referrals.error;
+    STATE.recruitableTrialStudies=studies.data||[];STATE.trialReferrals=referrals.data||[];
+  }
+  return true;
+}
+
+async function createTrialStudy() {
+  const code=String($('trial-study-code')?.value||'').trim();
+  const title=String($('trial-study-title')?.value||'').trim();
+  if(!code||!title){toast('Study details required','Enter a study code and title.','warn');return;}
+  const sb=getSupabase();const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('Session expired','Sign in again to create a study.','crit');return;}
+  const {error}=await sb.from('jl_trial_studies').insert({organisation_id:STATE.orgId,study_code:code,title,status:'planning',created_by:session.user.id});
+  if(error){toast('Study could not be saved',error.message,'crit');return;}
+  toast('Study created','The study is registered. Recruitment remains disabled until independent approval.','good');
+  await refreshClinicalTrialData();renderTrialTimeline();
+}
+
+async function selectTrialParticipant(id) {
+  STATE.currentTrialParticipantId=String(id);
+  const sb=getSupabase();
+  const {data,error}=await sb.from('jl_trial_participant_events')
+    .select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,source_table,source_record_id,metadata')
+    .eq('organisation_id',STATE.orgId).eq('participant_id',id)
+    .order('occurred_at',{ascending:false}).limit(250);
+  if(error){toast('Timeline unavailable',error.message,'crit');return;}
+  STATE.trialTimelineEvents=data||[];
+  renderTrialTimeline();
+}
+
+async function renderTrialTimeline() {
+  const page=$('page-trial-timeline');if(!page)return;
+  page.innerHTML='<div class="journey-empty">Loading Clinical Trials records…</div>';
+  try{await refreshClinicalTrialData();}catch(e){page.innerHTML='<div class="journey-empty">Clinical Trials data unavailable: '+esc(e.message)+'</div>';return;}
+  const studies=STATE.trialStudies||[],participants=STATE.trialParticipants||[],referrals=STATE.trialReferrals||[];
+  const studyCards=studies.map(s=>'<article class="form-card" style="max-width:none;margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong>'+esc(s.study_code)+' · '+esc(s.title)+'</strong><div class="journey-footnote">Status: '+esc(s.status)+' · Recruitment: '+(s.recruitment_enabled?'Independently authorised':'Not authorised')+'</div></div><span class="journey-status">'+participants.filter(p=>p.study_id===s.id).length+' participants</span></div></article>').join('');
+  const participantList=participants.map(p=>{const s=studies.find(x=>x.id===p.study_id);return '<button type="button" class="journey-patient-choice" style="width:100%;text-align:left" aria-pressed="'+(String(p.id)===String(STATE.currentTrialParticipantId))+'" onclick="selectTrialParticipant(\''+esc(p.id)+'\')"><span><strong>'+esc(p.participant_code)+'</strong><small>'+esc(s?s.study_code:'Study')+' · '+esc(p.status)+' · consent '+esc(p.consent_status)+'</small></span><span class="journey-choice-arrow">View timeline</span></button>';}).join('');
+  const selected=participants.find(p=>String(p.id)===String(STATE.currentTrialParticipantId));
+  if(selected&&!STATE.trialTimelineEvents.length) {
+    const sb=getSupabase();const {data,error}=await sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,source_table,source_record_id,metadata').eq('organisation_id',STATE.orgId).eq('participant_id',selected.id).order('occurred_at',{ascending:false}).limit(250);
+    if(!error)STATE.trialTimelineEvents=data||[];
+  }
+  const timeline=(STATE.trialTimelineEvents||[]).map(e=>'<article class="journey-event"><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-clinical-trials">'+esc(String(e.event_type||'event').replace(/_/g,' '))+'</span><time>'+esc(new Date(e.occurred_at).toLocaleString())+'</time></div><h4>'+esc(e.summary)+'</h4><div class="journey-event-foot"><span class="journey-status">'+esc(e.status)+'</span><span>Recorded '+esc(new Date(e.recorded_at).toLocaleString())+'</span></div></div></article>').join('');
+  const referralRows=referrals.map(r=>{const s=studies.find(x=>x.id===r.study_id);return '<div class="journey-patient-choice"><span><strong>'+esc(r.referral_code)+'</strong><small>'+esc(s?s.study_code:'Study')+' · '+esc(r.status)+'</small></span>'+(r.status==='referred'||r.status==='received'?'<button class="btn btn-sm" onclick="createTrialParticipantFromReferral(\''+esc(r.id)+'\')">Start screening</button>':'')+'</div>';}).join('');
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Clinical Trial Participant Timeline</div><div class="page-sub">Study-specific screening, consent, visits, safety follow-up and protocol history. Separate from the routine Patient Journey.</div></div><button class="btn" onclick="refreshClinicalTrialData().then(renderTrialTimeline).catch(e=>toast(\'Refresh failed\',e.message,\'crit\'))">Refresh</button></div><div class="form-card" style="max-width:none"><div class="section-title">Register a study</div><p class="journey-footnote">Recruitment remains disabled until independent platform approval and verified ethics documentation are recorded.</p><div class="form-grid"><div class="form-row"><label class="form-label">Study code</label><input class="form-input" id="trial-study-code" maxlength="80" placeholder="e.g. TB-2027-01"/></div><div class="form-row"><label class="form-label">Study title</label><input class="form-input" id="trial-study-title" maxlength="240" placeholder="Protocol title"/></div></div><button class="btn btn-primary" onclick="createTrialStudy()">Register study</button></div><div class="section"><div class="section-head"><div><div class="section-title">Studies</div><div class="section-sub">'+studies.length+' study records</div></div></div><div style="display:grid;gap:10px">'+(studyCards||'<div class="journey-empty">No studies registered yet.</div>')+'</div></div><div class="section"><div class="section-title">Recruitment referrals</div><p class="journey-footnote">Only minimum-necessary referral information is displayed. Hospital patient identity is not exposed here.</p><div style="display:grid;gap:8px">'+(referralRows||'<div class="journey-empty">No hospital referrals received.</div>')+'</div></div><div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Study participants</div><p class="journey-footnote">'+participants.length+' study-scoped participant records</p>'+(participantList||'<div class="journey-empty">No participants have entered screening.</div>')+'</aside><section class="journey-main"><div class="journey-panel"><div class="section-title">'+(selected?'Timeline · '+esc(selected.participant_code):'Select a participant')+'</div><p class="journey-footnote">Participant codes are study-specific. Hospital identifiers and full hospital records are not displayed.</p>'+(selected?(timeline||'<div class="journey-empty">No timeline events have been recorded.</div>'):'<div class="journey-empty">Select a study participant to inspect their authorised timeline.</div>')+'</div></section></div>';
+}
+
+async function createTrialParticipantFromReferral(referralId) {
+  const code=window.prompt('Assign a study-specific participant code. Do not enter a patient name or hospital MRN.');
+  if(!code||!code.trim())return;
+  const sb=getSupabase();
+  const {data,error}=await sb.rpc('jl_create_trial_participant_from_referral',{p_org_id:STATE.orgId,p_referral_id:referralId,p_participant_code:code.trim(),p_site_code:null});
+  if(error){toast('Screening record not created',error.message,'crit');return;}
+  STATE.currentTrialParticipantId=data;
+  toast('Screening record created','The participant starts in screening. Consent remains not obtained.','good');
+  await refreshClinicalTrialData();await selectTrialParticipant(data);
+}
+
+function renderTrialEventEntry() {
+  const page=$('page-register');if(!page)return;
+  const participants=STATE.trialParticipants||[];
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Record Clinical Trial Event</div><div class="page-sub">Record an event against an existing study participant.</div></div><button class="btn" onclick="goPage(\'trial-timeline\')">Participant Timeline</button></div><div class="form-card" style="max-width:none"><div class="form-grid"><div class="form-row"><label class="form-label">Participant</label><select class="form-input" id="trial-event-participant"><option value="">Select participant</option>'+participants.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.participant_code)+'</option>').join('')+'</select></div><div class="form-row"><label class="form-label">Event</label><select class="form-input" id="trial-event-type"><option value="screening_started">Screening started</option><option value="screening_outcome">Screening outcome</option><option value="consent_recorded">Consent decision recorded</option><option value="enrolled">Enrolment</option><option value="visit_scheduled">Visit scheduled</option><option value="visit_completed">Visit completed</option><option value="visit_missed">Visit missed</option><option value="adverse_event_recorded">Adverse event recorded</option><option value="serious_adverse_event_recorded">Serious adverse event recorded</option><option value="protocol_deviation_recorded">Protocol deviation</option><option value="withdrawn">Withdrawal</option><option value="completed">Study completion</option></select></div><div class="form-row"><label class="form-label">Event date and time</label><input class="form-input" id="trial-event-date" type="datetime-local"/></div><div class="form-row"><label class="form-label">Status</label><input class="form-input" id="trial-event-status" maxlength="60" value="recorded"/></div><div class="form-row"><label class="form-label">ICF version (for consent events)</label><input class="form-input" id="trial-event-icf" maxlength="80"/></div><div class="form-row"><label class="form-label">Consent outcome</label><select class="form-input" id="trial-event-consent"><option value="">Not applicable</option><option value="obtained">Obtained</option><option value="declined">Declined</option><option value="withdrawn">Withdrawn</option></select></div><div class="form-row span-2"><label class="form-label">Event summary</label><textarea class="form-input" id="trial-event-summary" maxlength="500" rows="3" placeholder="Brief factual summary; do not include direct identifiers or detailed clinical narrative."></textarea></div></div><div class="form-actions"><button class="btn btn-primary" onclick="recordTrialParticipantEvent()">Save event</button><button class="btn" onclick="goPage(\'trial-timeline\')">Cancel</button></div></div>';
+}
+
+async function recordTrialParticipantEvent() {
+  const participantId=$('trial-event-participant')?.value,eventType=$('trial-event-type')?.value,dateValue=$('trial-event-date')?.value;
+  const summary=String($('trial-event-summary')?.value||'').trim(),status=String($('trial-event-status')?.value||'recorded').trim();
+  if(!participantId||!eventType||!dateValue||!summary){toast('Required fields missing','Select a participant, event type, date and factual summary.','warn');return;}
+  const metadata={};
+  if(eventType==='consent_recorded'){metadata.icf_version=String($('trial-event-icf')?.value||'').trim();metadata.consent_status=$('trial-event-consent')?.value||'';if(!metadata.icf_version||!metadata.consent_status){toast('Consent evidence required','Enter the ICF version and documented consent outcome.','warn');return;}}
+  const sb=getSupabase();const {data,error}=await sb.rpc('jl_record_trial_participant_event',{p_org_id:STATE.orgId,p_participant_id:participantId,p_event_type:eventType,p_occurred_at:new Date(dateValue).toISOString(),p_status:status,p_summary:summary,p_metadata:metadata});
+  if(error){toast('Event not saved',error.message,'crit');return;}
+  toast('Event recorded','The append-only participant timeline has been updated.','good');
+  await refreshClinicalTrialData();await selectTrialParticipant(participantId);goPage('trial-timeline');
+}
+
+async function renderTrialReferrals() {
+  const page=$('page-trial-referrals');if(!page)return;
+  page.innerHTML='<div class="journey-empty">Loading approved studies and referrals…</div>';
+  try{await refreshClinicalTrialData();}catch(e){page.innerHTML='<div class="journey-empty">Recruitment records unavailable: '+esc(e.message)+'</div>';return;}
+  const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&String(p.orgId||'')===String(STATE.orgId));
+  const studies=STATE.recruitableTrialStudies||[],referrals=STATE.trialReferrals||[];
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Hospital-to-Trial Recruitment</div><div class="page-sub">Refer a potential candidate to an independently authorised study. JLIGHT does not decide eligibility or enrol the patient.</div></div></div><div class="form-card" style="max-width:none"><div class="section-title">Create referral</div><p class="journey-footnote">Only studies with independent recruitment authorisation and current ethics approval are listed. Do not include names, MRNs, national ID numbers or free-text clinical details in the referral summary.</p><div class="form-grid"><div class="form-row"><label class="form-label">Hospital patient</label><select class="form-input" id="referral-patient"><option value="">Select hospital patient</option>'+patients.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.fullName||'Patient')+' · '+esc(p.mrn||'MRN unavailable')+'</option>').join('')+'</select></div><div class="form-row"><label class="form-label">Approved study</label><select class="form-input" id="referral-study"><option value="">Select authorised study</option>'+studies.map(s=>'<option value="'+esc(s.study_id)+'">'+esc(s.study_code)+' · '+esc(s.title)+'</option>').join('')+'</select></div><div class="form-row"><label class="form-label">Site code (if known)</label><input class="form-input" id="referral-site" maxlength="80"/></div><div class="form-row"><label class="form-label">Screening priority</label><select class="form-input" id="referral-priority"><option value="routine">Routine</option><option value="priority_review">Priority review</option></select></div><div class="form-row span-2"><label class="form-label">Protocol criteria match codes</label><input class="form-input" id="referral-criteria-codes" maxlength="240" placeholder="Comma-separated approved criterion codes only"/></div></div><button class="btn btn-primary" onclick="createHospitalTrialReferral()">Submit governed referral</button><div class="journey-footnote" style="margin-top:10px">A human research team must screen the candidate, verify protocol criteria and complete approved informed-consent procedures. This hand-off does not grant access to the hospital record.</div></div><div class="section"><div class="section-title">Your submitted referrals</div><div style="display:grid;gap:8px;margin-top:12px">'+(referrals.map(r=>'<div class="journey-patient-choice"><span><strong>'+esc(r.referral_code)+'</strong><small>'+esc((studies.find(s=>s.study_id===r.study_id)||{}).study_code||'Study')+' · '+esc(r.status)+'</small></span><span class="journey-status">'+esc(new Date(r.referred_at).toLocaleString())+'</span></div>').join('')||'<div class="journey-empty">No referrals submitted by this account.</div>')+'</div></div>';
+}
+
+async function createHospitalTrialReferral() {
+  const patientId=$('referral-patient')?.value,studyId=$('referral-study')?.value;
+  if(!patientId||!studyId){toast('Select patient and study','Both selections are required.','warn');return;}
+  const study=(STATE.recruitableTrialStudies||[]).find(s=>s.study_id===studyId);
+  if(!study){toast('Study unavailable','Refresh and select a currently authorised study.','crit');return;}
+  const codes=String($('referral-criteria-codes')?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(codes.some(x=>x.length>60)){toast('Invalid criteria codes','Each code must be 60 characters or fewer.','warn');return;}
+  const candidate={site_code:String($('referral-site')?.value||'').trim(),screening_priority:$('referral-priority')?.value||'routine',criteria_match_codes:codes};
+  const sb=getSupabase();const {data,error}=await sb.rpc('jl_create_trial_recruitment_referral',{p_org_id:STATE.orgId,p_study_id:studyId,p_hospital_patient_id:patientId,p_referral_code:'REF-'+uid().toUpperCase(),p_candidate_summary:candidate,p_criteria_version:study.criteria_version});
+  if(error){toast('Referral not submitted',error.message,'crit');return;}
+  toast('Referral submitted','Only the minimum-necessary screening summary was shared with the authorised trial workspace.','good');
+  await refreshClinicalTrialData();renderTrialReferrals();
+}
+
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
   // Trial workspace is an explicit privacy boundary: do not expose hospital, laboratory,
@@ -5907,6 +6023,22 @@ async function loadDomainDataFromBackend() {
         samples:'samples', reports:'reportArchive'
       })[domain]
       if (stateKey) STATE[stateKey] = records
+    }
+    if (STATE.role === 'Trial') {
+      const [studies,participants,referrals] = await Promise.all([
+        sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
+        sb.from('jl_trial_participants').select('id,organisation_id,study_id,participant_code,status,site_code,screening_number,consent_status,consent_version,consented_at,withdrawn_at,completed_at,created_at,updated_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(1000),
+        sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+      ]);
+      if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;
+      STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];
+    } else if (STATE.role === 'Hospital') {
+      const [studies,referrals] = await Promise.all([
+        sb.rpc('jl_list_recruitable_trial_studies',{p_org_id:STATE.orgId}),
+        sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+      ]);
+      if(studies.error)throw studies.error;if(referrals.error)throw referrals.error;
+      STATE.recruitableTrialStudies=studies.data||[];STATE.trialReferrals=referrals.data||[];
     }
     return { ok: true, count: (data || []).length }
   } catch (e) {
