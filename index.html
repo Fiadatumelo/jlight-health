@@ -2237,39 +2237,55 @@ async function requestJlightClinicalTrialsSummary() {
   }
 }
 
+async function openTrialEventSource(eventId) {
+  const sb=getSupabase();
+  const {data,error}=await sb.from('jl_trial_participant_events')
+    .select('participant_id').eq('id',eventId).eq('organisation_id',STATE.orgId).maybeSingle();
+  if(error||!data||!data.participant_id){toast('Source event unavailable','The referenced event is no longer available in your authorised workspace.','warn');return;}
+  await selectTrialParticipant(data.participant_id);
+  goPage('trial-timeline');
+}
+
 function renderClinicalTrialsJCAgent(page) {
   const execution = STATE.jcLastRun && STATE.jcRunPatientId === 'clinical-trials-workspace' ? STATE.jcLastRun : null;
   const summary = execution && execution.result ? execution.result : null;
   const findings = summary && Array.isArray(summary.findings) ? summary.findings : [];
   const counts = summary && summary.status_counts ? summary.status_counts : {};
-  const findingMarkup = findings.map(item =>
-    '<article class="form-card" style="margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' +
-    esc(String(item.rule_id || item.finding_id || 'Trial intelligence finding').replace(/_/g, ' ')) +
-    '</strong><span class="journey-status ' + (item.status === 'pass' ? '' : 'status-open') + '">' +
-    esc(item.status || 'unknown') + ' · ' + esc(item.severity || 'unclassified') +
-    '</span></div><p style="margin:8px 0 0;color:var(--text-2);font-size:13px">' +
-    esc(item.recommended_next_step || 'Review the authorised trial source records.') +
-    '</p></article>'
-  ).join('');
+  const findingMarkup = findings.map(item => {
+    const evidence=item.evidence||{};
+    const refs=Array.isArray(evidence.evidence_refs)?evidence.evidence_refs:[];
+    const refsMarkup=refs.length
+      ? '<div class="journey-footnote" style="margin-top:10px">Source event references: '+refs.map(ref=>
+          '<button class="btn btn-sm" style="margin:3px" onclick="openTrialEventSource(\\''+esc(ref.source_record_id)+'\\')">'+
+          esc(ref.event_type||'timeline event')+' · '+esc(String(ref.source_record_id||'').slice(0,8))+'</button>'
+        ).join('')+'</div>'
+      : '<div class="journey-footnote" style="margin-top:10px">No individual source-event reference is available for this aggregate signal.</div>';
+    return '<article class="form-card" style="margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>'+
+      esc(String(item.rule_id||item.finding_id||'Trial intelligence finding').replace(/_/g,' '))+
+      '</strong><span class="journey-status '+(item.status==='pass'?'':'status-open')+'">'+
+      esc(item.status||'unknown')+' · '+esc(item.severity||'unclassified')+
+      '</span></div><p style="margin:8px 0 0;color:var(--text-2);font-size:13px">'+
+      esc(item.recommended_next_step||'Review the authorised trial source records.')+
+      '</p><div class="journey-footnote">Evidence count: '+esc(evidence.evidence_count||0)+' · Rule: '+esc(evidence.rule_version||'unspecified')+'</div>'+refsMarkup+'</article>';
+  }).join('');
   page.innerHTML =
-    '<div class="page-head"><div><div class="page-title">JC Agent · Clinical Trials</div><div class="page-sub">Trial-specific oversight using de-identified, aggregated study signals.</div></div></div>' +
-    '<section class="form-card" style="max-width:none"><div class="section-title">Clinical Trials intelligence</div>' +
-    '<p style="margin:8px 0;color:var(--text-2);line-height:1.65">JC reviews explicit trial workflow signals for missed visits, protocol deviations, incomplete records, consent-record gaps, safety follow-up and retention signals. It does not assess treatment safety, determine eligibility or make clinical decisions.</p>' +
-    '<div class="journey-footnote">Workspace: ' + esc(STATE.orgName || 'Current organisation') + ' · Scope: Clinical Trials only · Identifiers and source narratives are not sent to JC.</div>' +
-    '<button class="btn btn-primary" id="jc-run-button" onclick="runJCAgent()">Run trial intelligence checks</button>' +
-    '<div id="jc-agent-status" class="journey-footnote" role="status" aria-live="polite" style="margin-top:14px">Ready. JC will evaluate aggregate counts from the active Clinical Trials workspace.</div></section>' +
-    (summary ? '<section class="section"><div class="section-head"><div><div class="section-title">Latest JC result</div><div class="section-sub">' +
-      esc(summary.engine || 'JLIGHT Clinical Trials Intelligence') + ' · version ' + esc(summary.engine_version || '—') +
-      ' · ' + esc(summary.overall_status || 'status unavailable') + '</div></div></div>' +
-      '<div class="kpis"><div class="kpi"><div class="kpi-label">Findings</div><div class="kpi-value">' + esc(summary.finding_count || 0) + '</div></div>' +
-      '<div class="kpi"><div class="kpi-label">Passed</div><div class="kpi-value">' + esc(counts.pass || 0) + '</div></div>' +
-      '<div class="kpi ' + ((counts.review || counts.fail || counts.unknown) ? 'warn' : 'good') + '"><div class="kpi-label">Review / fail / unknown</div><div class="kpi-value">' + esc((counts.review || 0) + (counts.fail || 0) + (counts.unknown || 0)) + '</div></div></div>' +
-      '<div class="dc-list" style="margin-top:14px">' + (findingMarkup || '<div class="form-card">No flags were generated from the supplied trial checks. This does not establish that the study records are complete.</div>') + '</div>' +
-      '<p class="journey-footnote" style="margin-top:12px">Human review required: ' + (summary.human_review_required ? 'Yes' : 'No') + '. Missing inputs remain unknown; JC does not replace investigator, sponsor or ethics oversight.</p></section>' : '') +
-    '<section class="form-card" style="max-width:none"><div class="section-title">Trial data boundaries</div><ul class="journey-notes">' +
-    '<li>Uses a dedicated Clinical Trials endpoint and trial-only JC tool.</li><li>Only allow-listed aggregate checks are derived server-side from canonical study and timeline records.</li>' +
-    '<li>Participant identifiers, consent text, adverse-event narratives and medical details are not sent to JC.</li>' +
-    '<li>Clinical Trials data is not made available to Laboratory, Hospital or Bioinformatics JC.</li></ul></section>';
+    '<div class="page-head"><div><div class="page-title">JC Agent · Clinical Trials</div><div class="page-sub">Trial-specific oversight using de-identified, aggregated study signals.</div></div></div>'+
+    '<section class="form-card" style="max-width:none"><div class="section-title">Clinical Trials intelligence</div>'+
+    '<p style="margin:8px 0;color:var(--text-2);line-height:1.65">JC reviews explicit trial workflow signals for missed visits, protocol deviations, incomplete records, consent-record gaps, safety follow-up and participant withdrawals. It does not assess treatment safety, determine eligibility or make clinical decisions.</p>'+
+    '<div class="journey-footnote">Workspace: '+esc(STATE.orgName||'Current organisation')+' · Scope: Clinical Trials only · No patient identifiers or source narratives are sent to JC. Opaque event references are retained for authorised traceability.</div>'+
+    '<button class="btn btn-primary" id="jc-run-button" onclick="runJCAgent()">Run trial intelligence checks</button>'+
+    '<div id="jc-agent-status" class="journey-footnote" role="status" aria-live="polite" style="margin-top:14px">Ready. JC will evaluate database-derived checks from the active Clinical Trials workspace.</div></section>'+
+    (summary?'<section class="section"><div class="section-head"><div><div class="section-title">Latest JC result</div><div class="section-sub">'+
+      esc(summary.engine||'JLIGHT Clinical Trials Intelligence')+' · version '+esc(summary.engine_version||'—')+
+      ' · '+esc(summary.overall_status||'status unavailable')+' · rules '+esc((summary.rule_versions||[]).join(', ')||'—')+
+      '</div></div></div>'+
+      '<div class="kpis"><div class="kpi"><div class="kpi-label">Findings</div><div class="kpi-value">'+esc(summary.finding_count||0)+'</div></div>'+
+      '<div class="kpi"><div class="kpi-label">Passed</div><div class="kpi-value">'+esc(counts.pass||0)+'</div></div>'+
+      '<div class="kpi '+((counts.review||counts.fail||counts.unknown)?'warn':'good')+'"><div class="kpi-label">Review / fail / unknown</div><div class="kpi-value">'+esc((counts.review||0)+(counts.fail||0)+(counts.unknown||0))+'</div></div></div>'+
+      '<div class="dc-list" style="margin-top:14px">'+(findingMarkup||'<div class="form-card">No server-derived checks were available. This is insufficient input, not evidence that the study records are complete.</div>')+'</div>'+
+      '<p class="journey-footnote" style="margin-top:12px">Human review required: '+(summary.human_review_required?'Yes':'No')+'. Missing inputs remain unknown; JC does not replace investigator, sponsor or ethics oversight.</p></section>':'')+
+    '<section class="form-card" style="max-width:none"><div class="section-title">Trial data boundaries</div><ul class="journey-notes">'+
+    '<li>Uses a dedicated Clinical Trials endpoint and trial-only JC tool.</li><li>Rules execute against authorised canonical study and participant timeline records.</li><li>Evidence references are opaque timeline event IDs; opening one rechecks the user\'s current workspace permissions.</li><li>JC does not make eligibility, enrolment, diagnosis, treatment or safety decisions.</li></ul></section>';
 }
 
 async function runClinicalTrialsJCAgent() {
