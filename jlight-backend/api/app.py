@@ -238,37 +238,23 @@ def api_intelligence_summary():
     claims = getattr(g, "auth_claims", None)
     if not isinstance(claims, dict):
         return jsonify({"success": False, "error": "Authentication required"}), 401
-
-    # Supabase app_metadata is server-managed and signed into the access token.
-    # Never authorise from user_metadata, which users can edit themselves.
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"hospital", "laboratory", "bioinformatics"}, access="read"
+    )
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+    role = scope["organisation_type"]
+    trial_scope = False
     app_metadata = claims.get("app_metadata")
     app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-    org_id = (
-        claims.get("organisation_id") or claims.get("org_id")
-        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
-    )
     permissions = claims.get("permissions")
     if permissions is None:
         permissions = app_metadata.get("permissions", [])
-    token_role = str(claims.get("role", "")).strip().lower()
-    # Supabase's standard database roles are not JLIGHT workspace roles.
-    custom_top_level_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
-    role = str(
-        claims.get("jlight_role") or claims.get("workspace_role")
-        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or custom_top_level_role or ""
-    ).strip().lower()
-    trial_scope = (
-        role in {"trial", "clinical_trials"}
-        or claims.get("clinical_trials_scope") is True
-        or app_metadata.get("clinical_trials_scope") is True
-    )
-    if not isinstance(org_id, str) or not org_id.strip():
-        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
     if not isinstance(permissions, list) or not all(isinstance(p, str) for p in permissions):
         return jsonify({"success": False, "error": "Verified permissions required"}), 403
-    if trial_scope:
-        return jsonify({"success": False, "error": "JC intelligence is not enabled for Clinical Trials scope"}), 403
+    if "intelligence:read" not in permissions:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
 
     try:
         payload = request.get_json(silent=True)
@@ -324,31 +310,18 @@ def api_clinical_trials_intelligence_summary():
     claims = getattr(g, "auth_claims", None)
     if not isinstance(claims, dict):
         return jsonify({"success": False, "error": "Verified authentication required"}), 403
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"clinical_trials"}, access="read"
+    )
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+    role = "clinical_trials"
     app_metadata = claims.get("app_metadata")
     app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-    org_id = (
-        claims.get("organisation_id") or claims.get("org_id")
-        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
-    )
     permissions = claims.get("permissions")
     if permissions is None:
         permissions = app_metadata.get("permissions", [])
-    token_role = str(claims.get("role", "")).strip().lower()
-    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
-    role = str(
-        claims.get("jlight_role") or claims.get("workspace_role")
-        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or custom_role or ""
-    ).strip().lower()
-    trial_scope = (
-        role in {"trial", "clinical_trials"}
-        or claims.get("clinical_trials_scope") is True
-        or app_metadata.get("clinical_trials_scope") is True
-    )
-    if not isinstance(org_id, str) or not org_id.strip():
-        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
-    if not trial_scope:
-        return jsonify({"success": False, "error": "Clinical Trials workspace scope required"}), 403
     if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
         return jsonify({"success": False, "error": "Verified permissions required"}), 403
     if "intelligence:read" not in permissions:
