@@ -386,8 +386,18 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (study_id, self.org_a, 'RLS-RECRUIT-' + study_id[:8], self.a),
         )
 
-        # Only the independent platform administrator can enable recruitment.
+        # The approval queue is platform-admin-only; the study is still pending.
         c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute("SAVEPOINT trial_approval_queue_denial")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute("SELECT * FROM public.jl_list_trial_recruitment_approval_queue()")
+        c.execute("ROLLBACK TO SAVEPOINT trial_approval_queue_denial")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
+        c.execute("SELECT study_id FROM public.jl_list_trial_recruitment_approval_queue() WHERE study_id=%s", (study_id,))
+        self.assertEqual(str(c.fetchone()[0]), study_id)
+
+        # Only the independent platform administrator can enable recruitment.
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
         c.execute(
             """SELECT public.jl_authorise_trial_recruitment(
