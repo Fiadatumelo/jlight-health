@@ -587,6 +587,8 @@ table td { color: var(--text); border-color: var(--border); }
 
 /* Navigation declutter: grouped, collapsible sections */
 .sb-nav { gap: 6px; padding: 12px 10px 16px; }
+.sb-nav-pinned { margin: 0 0 8px; padding: 4px 0 8px; border-bottom: 1px solid var(--border); }
+.sb-nav-admin { margin-top: 4px; }
 .sb-nav-group { border: 1px solid transparent; border-radius: 10px; }
 .sb-nav-group[open] { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.035); }
 .sb-nav-group > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 10px 11px; border-radius: 8px; color: var(--text-3); font-size: 10px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; user-select: none; }
@@ -1693,9 +1695,9 @@ async function enterApp() {
   STATE.cards   = STORAGE.loadCards(STATE.role)
   STATE.audit   = STORAGE.loadAudit(STATE.role)
   STATE.thresholds = STORAGE.loadThresholds(STATE.role) || defaultThresholds()
-  // Load organisation-scoped domain records and the report archive from the local cache
-  // before remote hydration; online remote data will then reconcile over this cache.
+  // Load this organisation's cache, then remove data belonging to unassigned paths.
   loadAllDomainData()
+  enforceLocalPathCache()
   if (!Array.isArray(STATE.reportArchive)) STATE.reportArchive = []
   if (MODE.isOnline) {
     const [remote] = await Promise.all([loadFromBackend(), loadReqsFromSupa(), loadDomainDataFromBackend()])
@@ -3612,11 +3614,11 @@ function renderSettings() {
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Data Management</div>
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">All data is stored locally on this device. Nothing is sent to a server unless you enable a connector. Export at any time.</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">Cloud records are stored in your organisation-scoped database. This device keeps a local cache for faster access; the server remains the source of truth.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="renderProfileSetup()">Edit profile</button>
           <button class="btn" onclick="exportWorkspace()">Export workspace (JSON)</button>
-          <button class="btn" onclick="clearWorkspace()" style="color:var(--red);border-color:rgba(255,77,109,0.3)">Clear workspace data</button>
+          <button class="btn" onclick="goPage('admin')">Open Admin Center</button>
         </div>
         ${STATE.syncConflicts && STATE.syncConflicts.length>0 ? '<div style="margin-top:10px;padding:10px 12px;background:var(--amber-bg);border:1px solid rgba(245,166,35,0.2);border-radius:8px;font-size:12px"><span style="color:var(--amber);font-weight:700">Sync:</span> '+STATE.syncConflicts.length+' conflict(s) resolved (newest wins). See audit trail.</div>' : ''}
       </div>
@@ -3631,8 +3633,8 @@ function renderSettings() {
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Security</div>
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">PIN is hashed with SHA-256, salted per workspace. Resetting requires you to set a new code on next sign-in.</div>
-        <button class="btn" onclick="resetPIN()">Reset PIN</button>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">JLIGHT uses passwordless email verification codes. Access is controlled by verified organisation membership and assigned permissions.</div>
+        <span class="permission-badge">Passwordless email-code sign-in</span>
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">About JLIGHT</div>
@@ -5193,6 +5195,33 @@ function lsSet(key, val) {
       && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
     void syncDomainToBackend(domain, val)
   }
+}
+
+function enforceLocalPathCache() {
+  if (!MODE.isOnline || !MODE.organisationType) return
+  const allowedByPath = {
+    hospital: new Set(['patients','admissions','wards','clinicalOrders','infections','reports']),
+    laboratory: new Set(['patients','labOrders','results','qcRuns','samples','reports']),
+    bioinformatics: new Set(['patients','bioRuns','bioAccessions','bioQc','bioAmr','reports']),
+    clinical_trials: new Set(['protocols','participants','visits','adverseEvents','consents','deviations','reports'])
+  }
+  const allowed = allowedByPath[MODE.organisationType]
+  if (!allowed) throw new Error('No authorised local data path is configured.')
+  const keys = {
+    patients:PATIENT_KEY, labOrders:ORDERS_KEY, results:RESULTS_KEY, qcRuns:QC_KEY,
+    protocols:PROTOCOL_KEY, participants:PARTIC_KEY, visits:VISITS_KEY,
+    adverseEvents:AE_KEY, admissions:ADMIT_KEY, wards:WARD_KEY,
+    clinicalOrders:CORD_KEY, infections:INF_KEY, bioRuns:BIORUN_KEY,
+    bioAccessions:'jl_v10_bio_accessions', bioQc:'jl_v10_bio_qc',
+    bioAmr:'jl_v10_bio_amr', consents:'jl_v10_consents',
+    deviations:'jl_v10_deviations', samples:'jl_v10_samples', reports:REPORT_KEY
+  }
+  for (const [domain,key] of Object.entries(keys)) {
+    if (allowed.has(domain)) continue
+    localStorage.removeItem(jlightStorageKey(key))
+    if (Array.isArray(STATE[domain])) STATE[domain] = []
+  }
+  if (!allowed.has('reports')) STATE.reportArchive = []
 }
 
 function loadAllDomainData() {
