@@ -706,6 +706,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:700px){.auth-card{padding:22px 16px;border-radius:18px}.auth-tagline{margin-bottom:18px}.path-picker{padding:13px}.path-picker-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.journey-patient-choice,.sb-link,.sb-link .sb-link-icon{transition:none;transform:none}}
 
+
+/* Passwordless email-code verification: high-visibility, accessible focus and entry */
+#si-login-code-row .form-label { color:#F4F7FC !important; font-size:14px !important; font-weight:700 !important; }
+#si-login-code-row .form-help { color:#D5DFEC !important; font-size:12px !important; line-height:1.5 !important; }
+#si-login-code-row input#si-login-code {
+  display:block !important; width:100% !important; min-height:54px !important;
+  padding:12px 14px !important; border:2px solid #73A7FF !important;
+  border-radius:10px !important; background:#111B2A !important; color:#FFFFFF !important;
+  font-size:22px !important; font-weight:700 !important; letter-spacing:.22em !important;
+  text-align:center !important; opacity:1 !important; box-shadow:0 0 0 3px rgba(115,167,255,.14) !important;
+}
+#si-login-code-row input#si-login-code::placeholder { color:#B9C7D9 !important; font-size:14px !important; letter-spacing:normal !important; }
+#si-login-code-row input#si-login-code:focus { outline:3px solid rgba(115,167,255,.45) !important; border-color:#FFFFFF !important; }
+#si-verify-btn { min-height:48px !important; font-weight:700 !important; }
+
 </style>
 </head>
 <body>
@@ -1325,6 +1340,120 @@ async function doSignIn(resend = false) {
   } finally {
     if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = pending?.signup ? "Email me a code to create workspace" : "Email me a login code"; }
   }
+}
+
+
+ // ── Authenticated organisation resolution ──
+async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
+  const sb = getSupabase();
+  if (!sb || !MODE.isOnline || !user?.id) {
+    throw new Error("Cannot verify workspace membership without an authenticated online session.");
+  }
+  if (!orgId) throw new Error("Workspace ID is missing; cloud access remains disabled.");
+  const profile = STATE.userProfile || {};
+  const { data, error } = await sb.rpc("jl_link_user_to_organisation", {
+    p_org_id: orgId,
+    p_org_code: orgCode || null,
+    p_full_name: profile.full_name || user.user_metadata?.full_name || null,
+    p_workspace_role: profile.workspace_role || "operator"
+  });
+  if (error) throw new Error("Workspace membership could not be verified: " + error.message);
+  if (String(data || "") !== String(orgId)) {
+    throw new Error("Workspace membership verification returned a different organisation.");
+  }
+  localStorage.setItem("jl_org_id", String(orgId));
+  if (MODE.organisationName) localStorage.setItem("jl_org_name", MODE.organisationName);
+}
+
+async function ensureJlightOrganisation(user, options = {}) {
+  const sb = getSupabase();
+  if (!sb || !user?.id) throw new Error("Cannot set up workspace: authenticated Supabase user is missing.");
+  const { data: sessionResult, error: sessionError } = await sb.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (sessionResult?.session?.user?.id !== user.id) {
+    throw new Error("Email was verified, but the active session could not be confirmed. Please request a fresh code.");
+  }
+  const { data: verified, error: verifyError } = await sb.auth.getUser();
+  if (verifyError || verified?.user?.id !== user.id) {
+    throw new Error("Email was verified, but Supabase could not validate the active session. Please sign in again.");
+  }
+
+  const meta = user.user_metadata || {};
+  const requestedRole = options.role || meta.role || "Laboratory";
+  const role = ["Laboratory", "Trial", "Hospital", "Bioinformatics"].includes(requestedRole)
+    ? requestedRole : "Laboratory";
+  const organisationRole = role === "Bioinformatics" ? "Laboratory" : role;
+  const orgCode = String(options.orgCode || meta.org_code || "").trim().toUpperCase();
+  const orgName = String(options.org || meta.org_name || "JLIGHT Health Intelligence Platform").trim();
+
+  // Existing account: retain its assigned organisation; never create a second
+  // workspace merely because the user signed in through a different module.
+  if (meta.org_id) {
+    MODE.organisationId = meta.org_id;
+    MODE.organisationName = meta.org_name || orgName || "Workspace";
+    MODE.organisationCode = meta.org_code || orgCode || "";
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
+    return;
+  }
+
+  // Recover a workspace already owned by this verified account.
+  const { data: owned, error: ownedError } = await sb
+    .from("jl_organisations")
+    .select("id,name,org_code,role,owner_user_id,owner_email")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+  if (ownedError) throw new Error("Could not check your existing workspace: " + ownedError.message);
+  if (owned) {
+    MODE.organisationId = owned.id;
+    MODE.organisationName = owned.name;
+    MODE.organisationCode = owned.org_code || "";
+    const { error } = await sb.auth.updateUser({ data: {
+      org_name: owned.name, org_id: owned.id, org_code: owned.org_code || null, role
+    } });
+    if (error) throw new Error("Workspace was found, but account details could not be updated: " + error.message);
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
+    return;
+  }
+
+  // Joining is explicit and requires a valid organisation code. The server RPC
+  // remains authoritative for membership and role assignment.
+  if (orgCode) {
+    const { data: existing, error: codeError } = await sb
+      .from("jl_organisations")
+      .select("id,name,org_code,role")
+      .eq("org_code", orgCode)
+      .maybeSingle();
+    if (codeError) throw new Error("Could not verify organisation code: " + codeError.message);
+    if (!existing) throw new Error("Organisation code not found. Check the code with your administrator.");
+    MODE.organisationId = existing.id;
+    MODE.organisationName = existing.name;
+    MODE.organisationCode = existing.org_code || orgCode;
+    const { error } = await sb.auth.updateUser({ data: {
+      org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
+    } });
+    if (error) throw new Error("Workspace was found, but account details could not be updated: " + error.message);
+    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
+    return;
+  }
+
+  // Only accounts with no existing workspace and no join code reach creation.
+  if (!orgName) throw new Error("Enter an organisation name before creating a workspace.");
+  const { data: created, error: createError } = await sb.rpc("jl_create_organisation", {
+    p_name: orgName,
+    p_role: organisationRole
+  });
+  if (createError) throw new Error("Workspace creation failed: " + createError.message);
+  if (!created?.id || !created?.org_code) {
+    throw new Error("Workspace creation failed: the database did not return an organisation code.");
+  }
+  MODE.organisationId = created.id;
+  MODE.organisationName = created.name;
+  MODE.organisationCode = created.org_code;
+  const { error: metadataError } = await sb.auth.updateUser({ data: {
+    org_name: created.name, org_id: created.id, org_code: created.org_code, role
+  } });
+  if (metadataError) throw new Error("Workspace was created, but account details could not be updated: " + metadataError.message);
+  await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
 }
 
 async function verifyLoginCode() {
