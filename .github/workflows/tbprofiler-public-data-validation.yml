@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Validate published TBProfiler reference fixture and QC safeguards
-        run: python -m unittest validation.tbprofiler.test_public_reference_fixture -v
+        run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results -v
 
   public-south-african-tb:
     name: Run pinned TBProfiler on public ENA WGS data
