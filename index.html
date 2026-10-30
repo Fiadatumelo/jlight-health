@@ -1975,7 +1975,7 @@ async function linkLegacyTrialParticipantHistory(trialParticipantId) {
 }
 
 async function activateTrialStudy(id) {
-  const sb=getSupabase();const {error}=await sb.from('jl_trial_studies').update({status:'active',updated_at:new Date().toISOString()}).eq('id',id).eq('organisation_id',STATE.orgId);
+  const sb=getSupabase();const {error}=await sb.rpc('jl_activate_trial_study',{p_org_id:STATE.orgId,p_study_id:id});
   if(error){toast('Study not activated',error.message,'crit');return;}
   toast('Study activated','Recruitment remains disabled until independent platform approval.','good');await refreshClinicalTrialData();renderTrialTimeline();
 }
@@ -1984,9 +1984,8 @@ async function createTrialStudy() {
   const code=String($('trial-study-code')?.value||'').trim();
   const title=String($('trial-study-title')?.value||'').trim();
   if(!code||!title){toast('Study details required','Enter a study code and title.','warn');return;}
-  const sb=getSupabase();const {data:{session}}=await sb.auth.getSession();
-  if(!session){toast('Session expired','Sign in again to create a study.','crit');return;}
-  const {error}=await sb.from('jl_trial_studies').insert({organisation_id:STATE.orgId,study_code:code,title,status:'planning',created_by:session.user.id});
+  const sb=getSupabase();
+  const {error}=await sb.rpc('jl_create_trial_study',{p_org_id:STATE.orgId,p_study_code:code,p_title:title});
   if(error){toast('Study could not be saved',error.message,'crit');return;}
   toast('Study created','The study is registered. Recruitment remains disabled until independent approval.','good');
   await refreshClinicalTrialData();renderTrialTimeline();
