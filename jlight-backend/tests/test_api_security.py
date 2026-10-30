@@ -62,7 +62,7 @@ def test_protected_route_returns_503_when_verifier_unavailable():
     assert response.status_code == 503
 
 
-def test_protected_route_accepts_verified_session(monkeypatch):
+def test_protected_route_fails_closed_without_database_path_authorization(monkeypatch):
     monkeypatch.setenv("SUPABASE_JWT_SECRET", "test-only-secret")
     monkeypatch.setenv("SUPABASE_URL", "https://test-project.supabase.co")
     now = int(time.time())
@@ -74,13 +74,14 @@ def test_protected_route_accepts_verified_session(monkeypatch):
         "exp": now + 60,
     }
     token = jwt.encode(claims, "test-only-secret", algorithm="HS256")
-    response = app.test_client().post(
-        "/api/bio/sequence",
-        headers={"Authorization": f"Bearer {token}"},
-        json={"sequence": "ATCGATCGATCG"},
-    )
-    assert response.status_code == 200
-    assert response.get_json()["success"] is True
+    with patch("api.app.get_db", return_value=None):
+        response = app.test_client().post(
+            "/api/bio/sequence",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"sequence": "ATCGATCGATCG"},
+        )
+    assert response.status_code == 503
+    assert response.get_json()["error"] == "Organisation authorization service unavailable"
 
 
 def test_protected_route_rejects_empty_bearer_token():
