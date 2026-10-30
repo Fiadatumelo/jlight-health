@@ -109,6 +109,57 @@ def close_db(error=None):
         except Exception:
             pass
 
+def resolve_verified_workspace_scope(allowed_domains, access="read"):
+    """Resolve organisation and path from the database, never from browser-supplied roles."""
+    claims = getattr(g, "auth_claims", None)
+    user_id = claims.get("sub") if isinstance(claims, dict) else None
+    if not user_id:
+        return None, (jsonify({"success": False, "error": "Verified authentication required"}), 401)
+    db = get_db()
+    if db is None:
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
+            cur.execute(
+                """SELECT p.org_id::text AS organisation_id,
+                          lower(coalesce(nullif(o.type, 'multi'), o.role)) AS organisation_type
+                   FROM public.jl_user_profiles p
+                   JOIN public.jl_organisations o ON o.id = p.org_id
+                   WHERE p.user_id = %s
+                     AND coalesce(p.active, true) = true
+                     AND coalesce(o.active, true) = true
+                   LIMIT 1""",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
+            org_id = row["organisation_id"]
+            org_type = row["organisation_type"]
+            if org_type not in set(allowed_domains):
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "This organisation is not authorised for the requested workspace"}), 403)
+            cur.execute(
+                "SELECT public.jlight_has_domain_permission(%s::uuid, %s, %s) AS allowed",
+                (org_id, org_type, access),
+            )
+            permission_row = cur.fetchone()
+            allowed = bool(permission_row and permission_row["allowed"])
+        db.rollback()
+        if not allowed:
+            return None, (jsonify({"success": False, "error": "Workspace permission denied"}), 403)
+        return {"organisation_id": org_id, "organisation_type": org_type, "user_id": user_id}, None
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        app.logger.exception("Organisation path authorization failed")
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+
+
 def log_audit(action: str, role: str = "", details: dict = None):
     """Write to audit_log table if DB available, otherwise silent."""
     db = get_db()
@@ -381,7 +432,16 @@ def api_analyse_csv():
     Analyse a CSV/XLSX file for QC anomalies.
     Accepts multipart/form-data (file upload) or JSON with base64 content.
     """
-    role = request.headers.get("X-Role", "Laboratory & Research")
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"hospital", "laboratory", "bioinformatics"}, access="write"
+    )
+    if scope_error:
+        return scope_error
+    role = {
+        "hospital": "Hospital",
+        "laboratory": "Laboratory",
+        "bioinformatics": "Bioinformatics",
+    }[scope["organisation_type"]]
 
     try:
         # Handle file upload
@@ -395,7 +455,6 @@ def api_analyse_csv():
             data = request.get_json()
             csv_text = data.get("csvText", "")
             filename = data.get("fileName", "upload.csv")
-            role = data.get("role", role)
             if not csv_text:
                 return error("No CSV data provided")
             content = csv_text.encode("utf-8")
@@ -412,30 +471,15 @@ def api_analyse_csv():
             "risk_score": result.get("riskScore", 0),
         })
 
-        # Save to DB if available
-        db = get_db()
-        if db and result.get("success"):
-            try:
-                with db.cursor() as cur:
-                    cur.execute(
-                        """INSERT INTO csv_uploads
-                           (file_name, file_size_kb, row_count, column_count,
-                            detected_columns, analysis_result, severity, risk_score)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (
-                            filename,
-                            round(len(content) / 1024),
-                            result.get("rowCount", 0),
-                            result.get("columnCount", 0),
-                            json.dumps(result.get("detectedColumns", {})),
-                            json.dumps({"severity": result.get("severity"), "riskScore": result.get("riskScore")}),
-                            result.get("severity", "stable"),
-                            result.get("riskScore", 0),
-                        )
-                    )
-                db.commit()
-            except Exception:
-                pass
+        # CSV payloads are analysed in-memory only. Persisting them in the
+        # legacy global csv_uploads table would mix organisation data.
+        log_audit("csv_upload", role, {
+            "organisation_id": scope["organisation_id"],
+            "user_id": scope["user_id"],
+            "row_count": result.get("rowCount", 0),
+            "severity": result.get("severity", "unknown"),
+            "risk_score": result.get("riskScore", 0),
+        })
 
         return success(result)
 
