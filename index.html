@@ -921,6 +921,7 @@ const STATE = {
   deviations: [],     // jl_deviations
   consents: [],       // jl_consents
   trialStudies: [], trialParticipants: [], trialTimelineEvents: [], trialReferrals: [], recruitableTrialStudies: [],
+  legacyTrialProtocols: [], legacyTrialParticipants: [],
   currentTrialParticipantId: null, currentTrialStudyId: null,
   // ── HOSPITAL ──
   wards: [],          // jl_wards
@@ -1933,14 +1934,15 @@ async function refreshClinicalTrialData() {
   const sb=getSupabase();
   if(!sb||!MODE.isOnline||!STATE.orgId||STATE.orgId==='default') throw new Error('A verified online organisation workspace is required.');
   if(STATE.role==='Trial') {
-    const [studies,participants,referrals,events]=await Promise.all([
-      sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
+    const [studies,participants,referrals,events,legacyProtocols]=await Promise.all([
+      sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,legacy_protocol_id,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
       sb.from('jl_trial_participants').select('id,organisation_id,study_id,participant_code,status,site_code,screening_number,consent_status,consent_version,consent_record_reference,consented_at,withdrawn_at,completed_at,created_at,updated_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(1000),
       sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500),
-      sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,metadata').eq('organisation_id',STATE.orgId).order('occurred_at',{ascending:false}).limit(5000)
+      sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,metadata').eq('organisation_id',STATE.orgId).order('occurred_at',{ascending:false}).limit(5000),
+      sb.rpc('jl_list_legacy_trial_protocols',{p_org_id:STATE.orgId})
     ]);
-    if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;if(events.error)throw events.error;
-    STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];STATE.trialTimelineEvents=events.data||[];
+    if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;if(events.error)throw events.error;if(legacyProtocols.error)throw legacyProtocols.error;
+    STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];STATE.trialTimelineEvents=events.data||[];STATE.legacyTrialProtocols=legacyProtocols.data||[];
   } else if(STATE.role==='Hospital') {
     const [studies,referrals]=await Promise.all([
       sb.rpc('jl_list_recruitable_trial_studies',{p_org_id:STATE.orgId}),
@@ -1952,6 +1954,25 @@ async function refreshClinicalTrialData() {
   return true;
 }
 
+async function linkTrialStudyLegacyProtocol(studyId) {
+  const protocolId=$('legacy-protocol-'+studyId)?.value;
+  if(!protocolId){toast('Select a protocol','Choose the verified historical protocol for this study.','warn');return;}
+  if(!window.confirm('Confirm that this study corresponds to the selected historical protocol based on source records?'))return;
+  const sb=getSupabase();const {error}=await sb.rpc('jl_link_trial_study_legacy_protocol',{p_org_id:STATE.orgId,p_study_id:studyId,p_protocol_id:protocolId});
+  if(error){toast('Protocol link not saved',error.message,'crit');return;}
+  toast('Historical protocol linked','The study-to-protocol relationship has been recorded for traceability.','good');
+  await refreshClinicalTrialData();renderTrialTimeline();
+}
+
+async function linkLegacyTrialParticipantHistory(trialParticipantId) {
+  const legacyId=$('legacy-participant-'+trialParticipantId)?.value;
+  if(!legacyId){toast('Select a legacy participant','Choose the historical participant code after source-record review.','warn');return;}
+  if(!window.confirm('Confirm that the historical participant record belongs to this study participant after source-record review? Demographic similarity alone is not sufficient.'))return;
+  const sb=getSupabase();const {error}=await sb.rpc('jl_verify_legacy_trial_participant_link',{p_org_id:STATE.orgId,p_trial_participant_id:trialParticipantId,p_legacy_participant_id:legacyId,p_method:'manual_source_record_review'});
+  if(error){toast('Historical record not linked',error.message,'crit');return;}
+  toast('Historical record linked','Verified legacy events will now appear in this participant timeline.','good');
+  await selectTrialParticipant(trialParticipantId);
+}
 
 async function activateTrialStudy(id) {
   const sb=getSupabase();const {error}=await sb.from('jl_trial_studies').update({status:'active',updated_at:new Date().toISOString()}).eq('id',id).eq('organisation_id',STATE.orgId);
@@ -1973,12 +1994,16 @@ async function createTrialStudy() {
 
 async function selectTrialParticipant(id) {
   STATE.currentTrialParticipantId=String(id);
+  const participant=(STATE.trialParticipants||[]).find(p=>String(p.id)===String(id));
+  if(!participant)return;
   const sb=getSupabase();
-  const {data,error}=await sb.rpc('jl_list_trial_participant_timeline',{
-    p_org_id:STATE.orgId,p_participant_id:id,p_limit:250
-  });
-  if(error){toast('Timeline unavailable',error.message,'crit');return;}
-  STATE.trialTimelineEvents=data||[];
+  const [timeline,legacy]=await Promise.all([
+    sb.rpc('jl_list_trial_participant_timeline',{p_org_id:STATE.orgId,p_participant_id:id,p_limit:250}),
+    sb.rpc('jl_list_unlinked_legacy_trial_participants',{p_org_id:STATE.orgId,p_study_id:participant.study_id})
+  ]);
+  if(timeline.error){toast('Timeline unavailable',timeline.error.message,'crit');return;}
+  STATE.trialTimelineEvents=timeline.data||[];
+  STATE.legacyTrialParticipants=legacy.error?[]:(legacy.data||[]);
   renderTrialTimeline();
 }
 
@@ -1987,7 +2012,12 @@ async function renderTrialTimeline() {
   page.innerHTML='<div class="journey-empty">Loading Clinical Trials records…</div>';
   try{await refreshClinicalTrialData();}catch(e){page.innerHTML='<div class="journey-empty">Clinical Trials data unavailable: '+esc(e.message)+'</div>';return;}
   const studies=STATE.trialStudies||[],participants=STATE.trialParticipants||[],referrals=STATE.trialReferrals||[];
-  const studyCards=studies.map(s=>`<article class="form-card" style="max-width:none;margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong>${esc(s.study_code)} · ${esc(s.title)}</strong><div class="journey-footnote">Status: ${esc(s.status)} · Recruitment: ${s.recruitment_enabled?'Independently authorised':'Not authorised'}</div></div><span class="journey-status">${participants.filter(p=>p.study_id===s.id).length} participants</span>${s.status==='planning'?`<button class="btn btn-sm" onclick="activateTrialStudy('${esc(s.id)}')">Activate study</button>`:''}</div></article>`).join('');
+  const studyCards=studies.map(s=>{
+    const linkedProtocol=(STATE.legacyTrialProtocols||[]).find(p=>p.protocol_id===s.legacy_protocol_id);
+    const protocolLink=!s.legacy_protocol_id&&(STATE.legacyTrialProtocols||[]).length
+      ? `<div class="form-row" style="margin-top:10px"><label class="form-label">Verified legacy protocol (optional)</label><select class="form-input" id="legacy-protocol-${esc(s.id)}"><option value="">Select historical protocol</option>${STATE.legacyTrialProtocols.map(p=>`<option value="${esc(p.protocol_id)}">${esc(p.protocol_number)} · ${esc(p.title)}</option>`).join('')}</select><button class="btn btn-sm" style="margin-top:8px" onclick="linkTrialStudyLegacyProtocol('${esc(s.id)}')">Link verified protocol</button></div>` : '';
+    return `<article class="form-card" style="max-width:none;margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong>${esc(s.study_code)} · ${esc(s.title)}</strong><div class="journey-footnote">Status: ${esc(s.status)} · Recruitment: ${s.recruitment_enabled?'Independently authorised':'Not authorised'} · Historical protocol: ${esc(linkedProtocol?linkedProtocol.protocol_number:'Not linked')}</div></div><span class="journey-status">${participants.filter(p=>p.study_id===s.id).length} participants</span>${s.status==='planning'? `<button class="btn btn-sm" onclick="activateTrialStudy('${esc(s.id)}')">Activate study</button>`:''}</div>${protocolLink}</article>`;
+  }).join('');
   const participantList=participants.map(p=>{const s=studies.find(x=>x.id===p.study_id);return '<button type="button" class="journey-patient-choice" style="width:100%;text-align:left" aria-pressed="'+(String(p.id)===String(STATE.currentTrialParticipantId))+'" onclick="selectTrialParticipant(\''+esc(p.id)+'\')"><span><strong>'+esc(p.participant_code)+'</strong><small>'+esc(s?s.study_code:'Study')+' · '+esc(p.status)+' · consent '+esc(p.consent_status)+'</small></span><span class="journey-choice-arrow">View timeline</span></button>';}).join('');
   const selected=participants.find(p=>String(p.id)===String(STATE.currentTrialParticipantId));
   if(selected&&!STATE.trialTimelineEvents.length) {
