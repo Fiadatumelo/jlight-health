@@ -1,4 +1,4 @@
-"""Regression tests for database-enforced JLIGHT organisation paths."""
+"""Regression tests for entitlement-based JLIGHT API workspace selection."""
 import sys
 from pathlib import Path
 from unittest.mock import patch, Mock
@@ -8,9 +8,8 @@ from api.app import app
 
 
 class FakeCursor:
-    def __init__(self, org_type="laboratory", allowed=True):
-        self.org_type = org_type
-        self.allowed = allowed
+    def __init__(self, permissions=None):
+        self.permissions = permissions or {"laboratory": True}
         self.result = None
 
     def __enter__(self):
@@ -21,12 +20,10 @@ class FakeCursor:
 
     def execute(self, query, params=None):
         if "SELECT p.org_id::text AS organisation_id" in query:
-            self.result = {
-                "organisation_id": "org-db-verified",
-                "organisation_type": self.org_type,
-            }
+            self.result = {"organisation_id": "org-db-verified"}
         elif "jlight_has_domain_permission" in query:
-            self.result = {"allowed": self.allowed}
+            _org_id, domain, _access = params
+            self.result = {"allowed": self.permissions.get(domain, False)}
         else:
             self.result = None
 
@@ -35,13 +32,12 @@ class FakeCursor:
 
 
 class FakeDatabase:
-    def __init__(self, org_type="laboratory", allowed=True):
-        self.org_type = org_type
-        self.allowed = allowed
+    def __init__(self, permissions=None):
+        self.permissions = permissions or {"laboratory": True}
         self.rollbacks = 0
 
     def cursor(self):
-        return FakeCursor(self.org_type, self.allowed)
+        return FakeCursor(self.permissions)
 
     def rollback(self):
         self.rollbacks += 1
@@ -51,32 +47,59 @@ def claims(**overrides):
     result = {
         "sub": "00000000-0000-4000-8000-000000000001",
         "aud": "authenticated",
+        "user_metadata": {"org_id": "attacker-controlled-org", "role": "Bioinformatics"},
     }
     result.update(overrides)
     return result
 
 
-def test_csv_analysis_uses_database_path_not_x_role_or_json_role():
-    db = FakeDatabase(org_type="laboratory", allowed=True)
-    analysis = Mock(return_value={"success": True, "rowCount": 4})
+def post_csv(db, headers=None):
+    auth_headers = {"Authorization": "Bearer verified-test-token"}
+    auth_headers.update(headers or {})
     with patch("api.app.verify_access_token", return_value=claims()), \
          patch("api.app.get_db", return_value=db), \
-         patch("api.app.analyse_csv", analysis), \
+         patch("api.app.analyse_csv", Mock(return_value={"success": True, "rowCount": 4})) as analysis, \
          patch("api.app.log_audit"):
         response = app.test_client().post(
             "/api/analyse-csv",
-            headers={
-                "Authorization": "Bearer verified-test-token",
-                "X-Role": "Bioinformatics",
-            },
-            json={"csvText": "sample,result\nS1,positive", "role": "Bioinformatics"},
+            headers=auth_headers,
+            json={"csvText": "sample,result\\nS1,positive", "role": "Hospital"},
         )
+    return response, analysis
+
+
+def test_single_entitled_workspace_is_selected_without_client_role_trust():
+    db = FakeDatabase({"laboratory": True, "bioinformatics": False, "hospital": False})
+    response, analysis = post_csv(db, {"X-Role": "Bioinformatics"})
     assert response.status_code == 200
     assert analysis.call_args.kwargs["role"] == "Laboratory"
 
 
-def test_bioinformatics_api_rejects_laboratory_organisation():
-    db = FakeDatabase(org_type="laboratory", allowed=True)
+def test_multi_workspace_requires_explicit_untrusted_selector_then_checks_entitlement():
+    db = FakeDatabase({"laboratory": True, "bioinformatics": True, "hospital": False})
+    response, _ = post_csv(db)
+    assert response.status_code == 400
+    assert "Select an authorised workspace" in response.get_json()["error"]
+
+    response, analysis = post_csv(db, {"X-JLIGHT-Workspace": "bioinformatics", "X-Role": "Hospital"})
+    assert response.status_code == 200
+    assert analysis.call_args.kwargs["role"] == "Bioinformatics"
+
+
+def test_forged_workspace_selector_cannot_grant_unentitled_path():
+    db = FakeDatabase({"laboratory": True, "bioinformatics": False, "hospital": False})
+    response, _ = post_csv(db, {"X-JLIGHT-Workspace": "bioinformatics", "X-Role": "Bioinformatics"})
+    assert response.status_code == 403
+
+
+def test_unsupported_workspace_selector_is_rejected_before_database_access():
+    db = FakeDatabase({"laboratory": True})
+    response, _ = post_csv(db, {"X-JLIGHT-Workspace": "clinical_trials"})
+    assert response.status_code == 403
+
+
+def test_bioinformatics_endpoint_requires_bioinformatics_entitlement():
+    db = FakeDatabase({"laboratory": True, "bioinformatics": False})
     with patch("api.app.verify_access_token", return_value=claims()), \
          patch("api.app.get_db", return_value=db):
         response = app.test_client().post(
@@ -87,42 +110,12 @@ def test_bioinformatics_api_rejects_laboratory_organisation():
     assert response.status_code == 403
 
 
-def test_database_permission_denial_blocks_workspace_api():
-    db = FakeDatabase(org_type="laboratory", allowed=False)
-    with patch("api.app.verify_access_token", return_value=claims()), \
-         patch("api.app.get_db", return_value=db):
-        response = app.test_client().post(
-            "/api/analyse-csv",
-            headers={"Authorization": "Bearer verified-test-token"},
-            json={"csvText": "sample,result\nS1,positive"},
-        )
-    assert response.status_code == 403
-
-
 def test_workspace_api_fails_closed_when_database_is_unavailable():
     with patch("api.app.verify_access_token", return_value=claims()), \
          patch("api.app.get_db", return_value=None):
         response = app.test_client().post(
             "/api/analyse-csv",
             headers={"Authorization": "Bearer verified-test-token"},
-            json={"csvText": "sample,result\nS1,positive"},
+            json={"csvText": "sample,result\\nS1,positive"},
         )
     assert response.status_code == 503
-
-
-def test_database_scope_ignores_user_metadata_organisation_claims():
-    db = FakeDatabase(org_type="laboratory", allowed=True)
-    user_claims = claims(user_metadata={
-        "org_id": "attacker-controlled-org",
-        "role": "Bioinformatics",
-    })
-    with patch("api.app.verify_access_token", return_value=user_claims), \
-         patch("api.app.get_db", return_value=db), \
-         patch("api.app.analyse_csv", return_value={"success": True, "rowCount": 1}), \
-         patch("api.app.log_audit"):
-        response = app.test_client().post(
-            "/api/analyse-csv",
-            headers={"Authorization": "Bearer verified-test-token"},
-            json={"csvText": "sample,result\nS1,positive"},
-        )
-    assert response.status_code == 200
