@@ -76,6 +76,9 @@ jobs:
           test -s results/ERR10610053.results.json
           test -s results/ERR10610083.results.json
 
+      - name: Test TBProfiler result normalization
+        run: python -m unittest validation.tbprofiler.test_normalize_results -v
+
       - name: Normalize external results to JLIGHT bioRuns import schema
         run: |
           python validation/tbprofiler/normalize_results.py \
