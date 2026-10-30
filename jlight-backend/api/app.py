@@ -244,14 +244,10 @@ def api_analyse_csv():
 
 @app.route("/api/cards", methods=["GET"])
 @require_auth
-@app.route("/api/cards", methods=["GET"])
-@require_auth
 def api_cards():
     """Fail closed until decision cards have tenant-scoped read permissions."""
     return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
 
-@app.route("/api/cards/acknowledge", methods=["POST"])
-@require_auth
 @app.route("/api/cards/acknowledge", methods=["POST"])
 @require_auth
 def api_acknowledge():
@@ -260,8 +256,6 @@ def api_acknowledge():
 
 # ─── Audit Log ────────────────────────────────────────────────────────────────
 
-@app.route("/api/audit", methods=["GET"])
-@require_auth
 @app.route("/api/audit", methods=["GET"])
 @require_auth
 def api_audit():
