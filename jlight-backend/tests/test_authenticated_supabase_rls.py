@@ -46,6 +46,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.a = str(uuid.uuid4())
         cls.b = str(uuid.uuid4())
         cls.platform_admin = str(uuid.uuid4())
+        cls.hospital_only = str(uuid.uuid4())
         cls.org_a = str(uuid.uuid4())
         cls.org_b = str(uuid.uuid4())
         cls.trial_org = str(uuid.uuid4())
@@ -58,6 +59,10 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.event_a = str(uuid.uuid4())
         cls.event_b = str(uuid.uuid4())
         cls.study = str(uuid.uuid4())
+        cls.bio_accession = str(uuid.uuid4())
+        cls.bio_run = str(uuid.uuid4())
+        cls.bio_qc = str(uuid.uuid4())
+        cls.bio_amr = str(uuid.uuid4())
         cls.participant = str(uuid.uuid4())
         cls._seed_transactional_fixtures()
 
@@ -66,7 +71,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c = cls.conn.cursor()
         # Database URL is pinned to the verified staging project before connecting.
         for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example"),
-                          (cls.platform_admin, "rls-platform-admin@invalid.example")):
+                          (cls.platform_admin, "rls-platform-admin@invalid.example"),
+                          (cls.hospital_only, "rls-hospital-only@invalid.example")):
             c.execute(
                 """INSERT INTO auth.users
                    (id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -112,14 +118,15 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             """INSERT INTO public.jlight_organization_memberships
                (organization_id, auth_subject, role, active, created_by)
                VALUES (%s, %s, 'owner', true, %s),
-                      (%s, %s, 'owner', true, %s)
+                      (%s, %s, 'owner', true, %s),
+                      (%s, %s, 'member', true, %s)
                ON CONFLICT (organization_id, auth_subject)
                DO UPDATE SET role = EXCLUDED.role, active = true""",
-            (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b),
+            (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b, cls.org_a, cls.hospital_only, cls.a),
         )
         # The patients_org policy additionally requires a current organisation
         # in jl_user_profiles; use one active profile per synthetic user.
-        for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b)):
+        for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b), (cls.hospital_only, cls.org_a)):
             c.execute(
                 """INSERT INTO public.jl_user_profiles
                    (user_id, org_id, full_name, workspace_role, active)
@@ -138,6 +145,46 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                                      can_report = EXCLUDED.can_report""",
                     (org_id, uid, domain, uid),
                 )
+        # This member belongs to the same organisation but has Hospital permission only.
+        c.execute(
+            """INSERT INTO public.jlight_membership_domain_permissions
+               (organization_id, auth_subject, domain, can_read, can_write, can_report, granted_by)
+               VALUES (%s, %s, 'hospital', true, true, true, %s)
+               ON CONFLICT (organization_id, auth_subject, domain)
+               DO UPDATE SET can_read=true, can_write=true, can_report=true""",
+            (cls.org_a, cls.hospital_only, cls.a),
+        )
+        # Seed normalized Bioinformatics rows with synthetic data and no patient link.
+        c.execute(
+            """INSERT INTO public.jl_bio_accessions
+               (id, org_id, accession_no, sample_type, created_at)
+               VALUES (%s, %s, 'SYNTH-BIO-ACCESSION', 'WGS', now())""",
+            (cls.bio_accession, cls.org_a),
+        )
+        c.execute(
+            """INSERT INTO public.jl_bio_runs
+               (id, org_id, accession_id, run_id, analysis_type, platform,
+                reference_genome, pipeline, pipeline_version, stage, submitted_at, created_at)
+               VALUES (%s, %s, %s, 'SYNTH-TB-RUN-001', 'WGS-TB-Profiler', 'Illumina',
+                       'H37Rv', 'TBProfiler', '6.7.0', 'completed', now(), now())""",
+            (cls.bio_run, cls.org_a, cls.bio_accession),
+        )
+        c.execute(
+            """INSERT INTO public.jl_bio_qc
+               (id, org_id, run_id, coverage_mean, mapping_rate, q_score, dup_rate,
+                gc_content, contamination, qc_status, created_at)
+               VALUES (%s, %s, %s, 45.0, 0.99, 35.0, 0.05, 65.0, 0.01, 'pass', now())""",
+            (cls.bio_qc, cls.org_a, cls.bio_run),
+        )
+        c.execute(
+            """INSERT INTO public.jl_bio_amr
+               (id, org_id, run_id, gene, antibiotic_class, resistance_level,
+                confidence, database_version, created_at)
+               VALUES (%s, %s, %s, 'rpoB', 'rifamycin', 'associated',
+                       0.99, 'WHOv2+', now())""",
+            (cls.bio_amr, cls.org_a, cls.bio_run),
+        )
+
         # Trial organisation is intentionally not added to the hospital-domain membership model.
         c.execute(
             """INSERT INTO public.jl_patients (id, org_id, mrn, full_name)
@@ -234,6 +281,51 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (self.org_b,),
         )
         self.assertFalse(c.fetchone()[0])
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_bioinformatics_tables_require_bioinformatics_workspace_permission(self):
+        c = self._as_user(self.a)
+        c.execute("SELECT id FROM public.jl_bio_accessions WHERE org_id=%s", (self.org_a,))
+        self.assertEqual([row[0] for row in c.fetchall()], [self.bio_accession])
+        c.execute("SELECT id FROM public.jl_bio_runs WHERE org_id=%s", (self.org_a,))
+        self.assertEqual([row[0] for row in c.fetchall()], [self.bio_run])
+        c.execute("SELECT id FROM public.jl_bio_qc WHERE org_id=%s", (self.org_a,))
+        self.assertEqual([row[0] for row in c.fetchall()], [self.bio_qc])
+        c.execute("SELECT id FROM public.jl_bio_amr WHERE org_id=%s", (self.org_a,))
+        self.assertEqual([row[0] for row in c.fetchall()], [self.bio_amr])
+
+        # A Hospital-only member in the same organisation must see none of these
+        # records and must not be able to insert a Bioinformatics run.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.hospital_only,))
+        for table in ("jl_bio_accessions", "jl_bio_runs", "jl_bio_qc", "jl_bio_amr"):
+            c.execute("SELECT id FROM public." + table)
+            self.assertEqual(c.fetchall(), [], "Hospital-only member could read " + table)
+        c.execute("SAVEPOINT bio_write_denial")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                """INSERT INTO public.jl_bio_runs
+                   (id, org_id, run_id, analysis_type, stage, submitted_at, created_at)
+                   VALUES (%s, %s, 'FORBIDDEN-HOSPITAL-RUN', 'WGS', 'completed', now(), now())""",
+                (str(uuid.uuid4()), self.org_a),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT bio_write_denial")
+
+        # A Bioinformatics member in another organisation is still tenant-isolated.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.b,))
+        for table in ("jl_bio_accessions", "jl_bio_runs", "jl_bio_qc", "jl_bio_amr"):
+            c.execute("SELECT id FROM public." + table)
+            self.assertEqual(c.fetchall(), [], "Cross-organisation Bioinformatics read leaked from " + table)
+
+        # The Bioinformatics owner can write a new normalized run record.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute(
+            """INSERT INTO public.jl_bio_runs
+               (id, org_id, run_id, analysis_type, stage, submitted_at, created_at)
+               VALUES (%s, %s, 'SYNTH-TB-RUN-WRITE', 'WGS-TB-Profiler', 'completed', now(), now())""",
+            (str(uuid.uuid4()), self.org_a),
+        )
+        self.assertEqual(c.rowcount, 1)
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
