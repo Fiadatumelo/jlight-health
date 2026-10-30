@@ -2202,45 +2202,7 @@ async function requestJlightIntelligenceSummary(patient, events) {
 }
 
 
-function buildClinicalTrialsJCChecks() {
-  const participants=Array.isArray(STATE.trialParticipants)?STATE.trialParticipants:[];
-  const studies=Array.isArray(STATE.trialStudies)?STATE.trialStudies:[];
-  const events=Array.isArray(STATE.trialTimelineEvents)?STATE.trialTimelineEvents:[];
-  const studyIds=new Set(studies.map(s=>String(s.id)));
-  const missingStudy=participants.filter(p=>!studyIds.has(String(p.study_id))).length;
-  const enrolledWithoutConsent=participants.filter(p=>p.status==='enrolled'&&
-    (p.consent_status!=='obtained'||!p.consent_record_reference||!p.consent_version||!p.consented_at)).length;
-  const missedVisits=events.filter(e=>{
-    if(e.event_type==='visit_missed')return true;
-    if(e.event_type!=='visit_scheduled'||!e.occurred_at||new Date(e.occurred_at).getTime()>=Date.now())return false;
-    return !events.some(done=>done.participant_id===e.participant_id&&done.event_type==='visit_completed'&&
-      new Date(done.occurred_at).getTime()>=new Date(e.occurred_at).getTime());
-  }).length;
-  const deviations=events.filter(e=>e.event_type==='protocol_deviation_recorded').length;
-  const safetyFollowups=events.filter(e=>{
-    if(e.event_type!=='adverse_event_recorded'&&e.event_type!=='serious_adverse_event_recorded')return false;
-    const status=String(e.status||'').toLowerCase();
-    return /open|pending|unresolved|follow.?up required/.test(status)||
-      (e.event_type==='serious_adverse_event_recorded'&&!e.metadata?.sae_reported_at);
-  }).length;
-  const retentionSignals=events.filter(e=>e.event_type==='withdrawn').length+
-    participants.filter(p=>p.status==='withdrawn').length;
-  const checks=[
-    ['overdue_visit',missedVisits],
-    ['protocol_deviation',deviations],
-    ['incomplete_trial_record',missingStudy],
-    ['consent_record_incomplete',enrolledWithoutConsent],
-    ['adverse_event_followup',safetyFollowups],
-    ['retention_risk',retentionSignals],
-  ];
-  return checks.map(([check_id,count])=>({
-    check_id,status:count>0?'review':'pass',
-    severity:count>0?(check_id==='adverse_event_followup'||check_id==='consent_record_incomplete'?'high':'medium'):'info',
-    evidence_count:Math.min(1000000,count),
-  }));
-}
-
-async function requestJlightClinicalTrialsSummary(checks) {
+async function requestJlightClinicalTrialsSummary() {
   const sb = getSupabase();
   if (!sb) return { success: false, message: 'Secure session is unavailable. Sign in again.' };
   const sessionResult = await sb.auth.getSession();
@@ -2255,7 +2217,7 @@ async function requestJlightClinicalTrialsSummary(checks) {
         'Authorization': 'Bearer ' + session.access_token,
         'X-JLIGHT-Workspace': 'clinical_trials'
       },
-      body: JSON.stringify({ clinical_trials_checks: checks })
+      body: JSON.stringify({})
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Clinical Trials JC returned HTTP ' + response.status) };
@@ -2295,7 +2257,7 @@ function renderClinicalTrialsJCAgent(page) {
       '<div class="dc-list" style="margin-top:14px">' + (findingMarkup || '<div class="form-card">No flags were generated from the supplied trial checks. This does not establish that the study records are complete.</div>') + '</div>' +
       '<p class="journey-footnote" style="margin-top:12px">Human review required: ' + (summary.human_review_required ? 'Yes' : 'No') + '. Missing inputs remain unknown; JC does not replace investigator, sponsor or ethics oversight.</p></section>' : '') +
     '<section class="form-card" style="max-width:none"><div class="section-title">Trial data boundaries</div><ul class="journey-notes">' +
-    '<li>Uses a dedicated Clinical Trials endpoint and trial-only JC tool.</li><li>Only allow-listed check names, statuses, severity and bounded counts are sent.</li>' +
+    '<li>Uses a dedicated Clinical Trials endpoint and trial-only JC tool.</li><li>Only allow-listed aggregate checks are derived server-side from canonical study and timeline records.</li>' +
     '<li>Participant identifiers, consent text, adverse-event narratives and medical details are not sent to JC.</li>' +
     '<li>Clinical Trials data is not made available to Laboratory, Hospital or Bioinformatics JC.</li></ul></section>';
 }
@@ -2304,9 +2266,9 @@ async function runClinicalTrialsJCAgent() {
   const status = $('jc-agent-status');
   const button = $('jc-run-button');
   if (button) { button.disabled = true; button.textContent = 'Running trial checks…'; }
-  if (status) status.textContent = 'JC is evaluating aggregate trial workflow signals. No trial records are being changed.';
+  if (status) status.textContent = 'JC is calculating de-identified workflow signals from authorised study and timeline records. No trial records are being changed.';
   try {
-    const response = await requestJlightClinicalTrialsSummary(buildClinicalTrialsJCChecks());
+    const response = await requestJlightClinicalTrialsSummary();
     if (!response || !response.success) throw new Error(response && response.message || 'JC could not complete the Clinical Trials checks.');
     const execution = response.summary || {};
     if (execution.status !== 'succeeded' || !execution.result) throw new Error('JC did not return a completed trial intelligence result.');
