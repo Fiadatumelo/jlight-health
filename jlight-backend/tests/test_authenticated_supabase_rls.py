@@ -52,6 +52,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.hospital_only = str(uuid.uuid4())
         cls.org_code_only = str(uuid.uuid4())
         cls.new_registrant = str(uuid.uuid4())
+        cls.invited_target = str(uuid.uuid4())
         cls.org_a = str(uuid.uuid4())
         cls.org_b = str(uuid.uuid4())
         cls.trial_org = str(uuid.uuid4())
@@ -79,7 +80,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                           (cls.platform_admin, "rls-platform-admin@invalid.example"),
                           (cls.hospital_only, "rls-hospital-only@invalid.example"),
                           (cls.org_code_only, "rls-org-code-only@invalid.example"),
-                          (cls.new_registrant, "rls-new-registrant@invalid.example")):
+                          (cls.new_registrant, "rls-new-registrant@invalid.example"),
+                          (cls.invited_target, "rls-invited-target@invalid.example")):
             c.execute(
                 """INSERT INTO auth.users
                    (id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -367,7 +369,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c = self._as_user(self.a)
         c.execute(
             """SELECT jl_id, payload FROM public.jl_entries
-               WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%' ORDER BY jl_id"""
+               WHERE domain='bioRuns' AND jl_id LIKE 'TBP-%' ORDER BY jl_id"""
         )
         rows = c.fetchall()
         self.assertEqual(len(rows), 2)
@@ -383,7 +385,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
 
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.hospital_only,))
         c.execute(
-            "SELECT jl_id FROM public.jl_entries WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%'"
+            "SELECT jl_id FROM public.jl_entries WHERE domain='bioRuns' AND jl_id LIKE 'TBP-%'"
         )
         self.assertEqual(c.fetchall(), [])
 
@@ -531,15 +533,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
     def test_scoped_invitation_grants_only_the_invited_workspace(self):
         c = self.conn.cursor()
         c.execute("SAVEPOINT scoped_invitation_test")
-        target = str(uuid.uuid4())
-        c.execute(
-            """INSERT INTO auth.users
-               (id, aud, role, email, encrypted_password, email_confirmed_at,
-                raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-               VALUES (%s, 'authenticated', 'authenticated', %s, '', now(),
-                       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())""",
-            (target, "scoped-member-" + target[:8] + "@invalid.example"),
-        )
+        target = self.invited_target
         c.execute("SELECT org_code FROM public.jl_organisations WHERE id = %s", (self.org_a,))
         org_code = c.fetchone()[0]
         c.execute("SET LOCAL ROLE authenticated")
