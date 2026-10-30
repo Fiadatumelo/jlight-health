@@ -42,6 +42,7 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030174607` | Enforce Clinical Trials-specific membership in multi-path organisations; require Laboratory entitlement in legacy Lab code resolution |
 | `20261030174807` | Require an explicit workspace domain for legacy member-access listings on multi-path organisations |
 | `20261030194237` | Require active Laboratory entitlement and caller Laboratory read permission when resolving an organisation by code |
+| `20261031000200` | Prevent a Platform Administrator from authorising Clinical Trials recruitment for a study they created or an organisation where they hold active membership |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
@@ -87,9 +88,10 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - Organisation Admin Center requests an additional pathway and manages member permissions against the currently selected entitled workspace.
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
 - Frontend inline JavaScript syntax check: passed on the latest index.html deployment.
+- Bioinformatics now has dedicated TB Intelligence compartments for overview, drug resistance, lineage, variant evidence, and QC/provenance. Completed TBProfiler JSON and JLIGHT-normalized `bioRuns` CSV are supported; imports require server-verified Bioinformatics write permission. No patient identity is inferred from a genomic run accession.
 - Read-only browser smoke test: confirmed white background, white card, four distinct pathway accents, no PIN/password prompt, and simultaneous Hospital + Laboratory selection under one organisation. No email or registration request was submitted.
 - The safe-regression workflow on the preceding head passed, then the next run failed only because the newly added regression guard called `require()` before its definition. That test-order defect has been corrected; the rerun on the latest head is pending.
-- Authenticated Supabase RLS gate passed on the preceding application commit; the latest rerun is pending.
+- Authenticated Supabase RLS gate passed on the preceding application commit. The staging migration `20261031000200` is now applied, and a new regression test denies recruitment authorisation when a platform administrator is a member of the study's organisation; its latest authenticated staging run is in progress.
 - Netlify preview URL: https://deploy-preview-69--jlight-health.netlify.app. Latest preview UI has been visually and interactively checked.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
 
@@ -99,8 +101,15 @@ These are targeted database tests. They do not establish that every RLS policy, 
 2. Complete adversarial tests for the 36 authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
 3. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
 4. Confirm Supabase Auth password-provider configuration is disabled while retaining passwordless email-code UX; document the leaked-password-protection warning appropriately.
-5. Run the public South African TB dataset validation using a separately governed TBProfiler environment and import the externally generated, versioned outputs into JLIGHT. Do not reintroduce raw-sequence analysis endpoints into JLIGHT.
+5. Complete the public South African TB dataset validation using the separately governed TBProfiler environment, preserve the two public run outputs and provenance, and import the externally generated, versioned outputs into JLIGHT. Do not reintroduce raw-sequence analysis endpoints into JLIGHT.
 6. Make a separate explicit production release decision only after all gates pass.
+
+## TB Intelligence implementation and public-data validation
+
+- The Bioinformatics workspace now has five dedicated TB compartments: overview, drug resistance, lineage, variant evidence, and QC/provenance.
+- The supported inputs are completed TBProfiler `.results.json` files and the JLIGHT-normalized `bioRuns` CSV. The importer previews and validates data, requires server-derived Bioinformatics write permission online, stores in the organisation-scoped `bioRuns` domain, and does not link sample accessions to patients.
+- The isolated TBProfiler 6.7.0 environment now installs with Python 3.10. The public-data workflow records the pipeline/database versions and is attempting two public paired-end runs from `PRJEB57919` (`ERR10610053`, `ERR10610083`). The workflow has not yet completed the raw-read download, TBProfiler execution, normalization, or artifact publication; do not report those steps as passed.
+- Public TBProfiler pages for the two run accessions were independently inspected. `ERR10610053` reports median coverage 48x, lineage 2.2.2, and Pre-XDR-TB. `ERR10610083` reports median coverage 12x, lineage 4.7, and a sensitive genotype call, with an explicit warning that coverage is below 30x and some mutations may be missed. These are source-reported public outputs, not phenotypic DST or clinical truth labels.
 
 ## Explicitly not done
 
