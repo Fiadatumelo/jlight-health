@@ -489,7 +489,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute(
             """INSERT INTO public.jl_organisation_workspaces
                (org_id, workspace_key, status, provisioning_source, approved_at)
-               VALUES (%s, 'clinical_trials', 'active', 'synthetic_test', now())
+               VALUES (%s, 'clinical_trials', 'active', 'initial_registration', now())
                ON CONFLICT (org_id, workspace_key) DO UPDATE SET status='active'""",
             (self.org_b,),
         )
@@ -519,7 +519,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute(
             """INSERT INTO public.jl_organisation_workspaces
                (org_id, workspace_key, status, provisioning_source, approved_at)
-               VALUES (%s, 'clinical_trials', 'active', 'synthetic_test', now())
+               VALUES (%s, 'clinical_trials', 'active', 'initial_registration', now())
                ON CONFLICT (org_id, workspace_key) DO UPDATE SET status='active'""",
             (self.org_b,),
         )
