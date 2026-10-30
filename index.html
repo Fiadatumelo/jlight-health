@@ -2371,8 +2371,8 @@ function renderDashboard() {
       <div class="kpi ${critical > 0 ? 'crit' : 'good'}"><div class="kpi-label">Open Decisions</div><div class="kpi-value">${open}</div><div class="kpi-trend">${critical} critical signals</div></div>
     `
   } else if (STATE.role === 'Bioinformatics') {
-    const runs = STATE.bioRuns || []
-    const tbRuns = runs.filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler')
+    const runs = (STATE.bioRuns || []).map(hydrateTBProfilerRecord)
+    const tbRuns = runs.filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler' || r.outputType === 'TBProfiler JSON summary')
     const flagged = runs.filter(r => /fail|flag|review|error/i.test(String(r.status || r.qcStatus || r.qualityStatus || '')))
     const missingPatient = runs.filter(r => !r.patientId).length
     kpiHTML = `
