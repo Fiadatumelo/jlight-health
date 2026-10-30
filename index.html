@@ -871,6 +871,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-audit" class="page"></div>
         <div id="page-settings" class="page"></div>
         <div id="page-admin" class="page"></div>
+        <div id="page-platform-admin" class="page"></div>
         <div id="page-patients" class="page"></div>
         <div id="page-journey" class="page"></div>
         <div id="page-jc" class="page"></div>
@@ -1110,7 +1111,7 @@ const BACKEND = IS_PRODUCTION_HOST
       url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
       key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
     }
-const MODE = { isOnline: true, organisationName: null, organisationType: null, signupMode: false, hasRestoredSession: false }
+const MODE = { isOnline: true, organisationName: null, organisationType: null, isPlatformAdmin: false, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
 
@@ -1311,7 +1312,7 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:role||meta.role||"Laboratory",orgCode:meta.org_code||""}); await loadVerifiedOrganisationPath(user,role||null); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:role||meta.role||"Laboratory",orgCode:meta.org_code||""}); await loadVerifiedOrganisationPath(user,role||null); await loadOrCreateProfile(user); await refreshPlatformAdminStatus(); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
 async function doSignIn(resend = false) {
@@ -1573,6 +1574,7 @@ async function verifyLoginCode() {
     await ensureJlightOrganisation(user, orgOptions);
     await loadVerifiedOrganisationPath(user, selectedPath);
     await loadOrCreateProfile(user);
+    await refreshPlatformAdminStatus();
     const codeButton = document.getElementById("si-send-org-code");
     if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
     let deliveryNote = "";
@@ -1712,7 +1714,7 @@ async function signOut() {
     const sb = getSupabase()
     if (sb) { try { await sb.auth.signOut() } catch(e) {} }
   }
-  MODE.isOnline = false; MODE.organisationName = null; MODE.organisationType = null
+  MODE.isOnline = false; MODE.organisationName = null; MODE.organisationType = null; MODE.isPlatformAdmin = false
   STATE.role = null; STATE.user = null; STATE.userProfile = null
   STATE.pinBuf = ''; STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
   STATE.currentCardId=null; STATE.currentSampleId=null; STATE.currentPage='dashboard'
@@ -1795,6 +1797,9 @@ function buildNav() {
   const adminItems = MODE.isOnline && STATE.userProfile?.workspace_role === 'admin'
     ? [{ key: 'admin', label: 'Admin Center', icon: '⚙' }]
     : []
+  const platformAdminItems = MODE.isPlatformAdmin
+    ? [{ key: 'platform-admin', label: 'Platform Administration', icon: '◆' }]
+    : []
   const markup = groups.map(group => {
     const items = cfg.nav.filter(item => group.keys.includes(item.key))
     if (!items.length) return ''
@@ -1805,6 +1810,7 @@ function buildNav() {
   nav.innerHTML =
     (pinned.length ? '<div class="sb-nav-pinned">' + pinned.map(renderLink).join('') + '</div>' : '') +
     (adminItems.length ? '<div class="sb-nav-pinned sb-nav-admin">' + adminItems.map(renderLink).join('') + '</div>' : '') +
+    (platformAdminItems.length ? '<div class="sb-nav-pinned sb-nav-admin">' + platformAdminItems.map(renderLink).join('') + '</div>' : '') +
     markup +
     (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
@@ -1817,7 +1823,7 @@ function goPage(page) {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
-    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center',
+    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center', 'platform-admin': 'Platform Administration',
   }
   $('tb-title').textContent = titles[page] || page
   buildNav()
@@ -1833,6 +1839,7 @@ function goPage(page) {
     case 'audit':     renderAudit(); break
     case 'settings':    renderSettings(); break
     case 'admin':        renderAdminCenter(); break
+    case 'platform-admin': renderPlatformAdminCenter(); break
     case 'patients':      renderPatients(); break
     case 'journey':       renderJourney(); break
     case 'jc':             renderJCAgent(); break
