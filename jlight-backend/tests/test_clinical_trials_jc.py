@@ -15,7 +15,14 @@ class ClinicalTrialsJCTests(unittest.TestCase):
     def test_trial_summary_accepts_only_allowlisted_aggregate_checks(self):
         result = build_clinical_trials_intelligence_summary(
             clinical_trials_checks=[
-                {"check_id": "overdue_visit", "status": "review", "severity": "medium", "evidence_count": 3},
+                {"check_id": "overdue_visit", "status": "review", "severity": "medium", "evidence_count": 3,
+                 "rule_version": "ct-ops-2026.10.1",
+                 "evidence_refs": [
+                     {"source_table": "jl_trial_participant_events", "source_record_id": "evt-opaque-1",
+                      "event_type": "visit_scheduled", "occurred_at": "2026-10-30T10:00:00Z"},
+                     {"source_table": "jl_trial_participants", "source_record_id": "participant-id-must-not-leak",
+                      "event_type": "consent_record_incomplete", "occurred_at": "2026-10-30T10:00:00Z"},
+                 ]},
                 {"check_id": "unapproved_free_text", "status": "fail", "severity": "critical", "evidence_count": 99},
                 {"check_id": "participant_withdrawal", "status": "review", "severity": "low", "evidence_count": 1},
                 {"check_id": "adverse_event_followup", "status": "pass", "severity": "info", "evidence_count": 0},
@@ -26,6 +33,12 @@ class ClinicalTrialsJCTests(unittest.TestCase):
         self.assertEqual(result["status_counts"]["pass"], 1)
         self.assertTrue(result["human_review_required"])
         self.assertNotIn("participant_id", str(result).lower())
+        self.assertEqual(result["overall_status"], "review_required")
+        self.assertEqual(result["rule_versions"], ["ct-ops-2026.10.1"])
+        overdue = next(x for x in result["findings"] if x["rule_id"] == "overdue_visit")
+        self.assertEqual(len(overdue["evidence"]["evidence_refs"]), 1)
+        self.assertEqual(overdue["evidence"]["evidence_refs"][0]["source_record_id"], "evt-opaque-1")
+        self.assertNotIn("participant-id-must-not-leak", str(result))
 
     def test_trial_scope_can_execute_trial_tool(self):
         context = JCContext("user-1", "org-1", frozenset({"intelligence:read"}), role="trial", clinical_trials_scope=True)
