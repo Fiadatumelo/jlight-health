@@ -50,7 +50,14 @@ class TBProfilerNormalizerTests(unittest.TestCase):
                 "freq": 0.95,
                 "annotation": [{"drug": "rifampicin", "confidence": "high"}],
             }],
-            "other_variants": [],
+            "other_variants": [{
+                "gene_name": "gyrA",
+                "protein_change": "p.Ser95Thr",
+                "type": "missense_variant",
+                "depth": 74,
+                "freq": 0.99,
+                "annotation": [{"drug": "levofloxacin", "confidence": "not associated with resistance"}],
+            }],
         }
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "ERR_TEST_001.results.json"
@@ -63,6 +70,9 @@ class TBProfilerNormalizerTests(unittest.TestCase):
         self.assertEqual(summary["pipelineVersion"], "6.7.0")
         self.assertEqual(summary["databaseVersion"], "test-db-rev")
         self.assertEqual(summary["resistanceVariants"][0]["annotations"][0]["drug"], "rifampicin")
+        self.assertEqual(summary["otherVariantCount"], 1)
+        self.assertEqual(summary["otherVariants"][0]["gene"], "gyrA")
+        self.assertEqual(summary["otherVariants"][0]["annotations"][0]["drug"], "levofloxacin")
         self.assertNotIn("patientId", summary)
 
 
