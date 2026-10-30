@@ -874,6 +874,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-platform-admin" class="page"></div>
         <div id="page-patients" class="page"></div>
         <div id="page-journey" class="page"></div>
+        <div id="page-trial-timeline" class="page"></div>
+        <div id="page-trial-referrals" class="page"></div>
         <div id="page-jc" class="page"></div>
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
@@ -973,10 +975,8 @@ const ROLES = {
     nav: [
       { key: 'dashboard',  label: 'Dashboard',         icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',    icon: '◈' },
-      // Trial participants use a restricted journey view; other patient records remain hidden.
-      { key: 'journey',    label: 'Patient Journey',  icon: '↗' },
+      { key: 'trial-timeline', label: 'Participant Timeline', icon: '↗' },
       { key: 'jc',         label: 'JC Agent',          icon: '✦' },
-      { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
       { key: 'predictive', label: 'Data Trends & Signals', icon: '◉' },
@@ -994,6 +994,7 @@ const ROLES = {
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
       { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
+      { key: 'trial-referrals', label: 'Trial Recruitment', icon: '⇢' },
       { key: 'jc',          label: 'JC Agent',             icon: '✦' },
       { key: 'register',   label: 'Log Event',           icon: '+' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
@@ -1838,7 +1839,7 @@ function goPage(page) {
   const target = $(`page-${page}`)
   if (target) target.classList.add('active')
   const titles = {
-    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
+    dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey', 'trial-timeline': 'Clinical Trial Participant Timeline', 'trial-referrals': 'Hospital Trial Recruitment',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
     audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center', 'platform-admin': 'Platform Administration',
@@ -1860,6 +1861,8 @@ function goPage(page) {
     case 'platform-admin': renderPlatformAdminCenter(); break
     case 'patients':      renderPatients(); break
     case 'journey':       renderJourney(); break
+    case 'trial-timeline': renderTrialTimeline(); break
+    case 'trial-referrals': renderTrialReferrals(); break
     case 'jc':             renderJCAgent(); break
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
@@ -2757,6 +2760,8 @@ function computePredictions() { return []; }
 // TRIAL & HOSPITAL forms
 // ═══════════════════════════════════════════════════════════
 function renderTrialRegister() {
+  renderTrialEventEntry();
+  return;
   $('page-register').innerHTML = `
     <div class="page-head">
       <div>
