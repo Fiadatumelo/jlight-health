@@ -12,6 +12,15 @@ This is a **separate validation environment**, not a JLIGHT runtime dependency. 
 - The subset deliberately includes one higher-coverage and one lower-coverage run to exercise QC reporting. The public TB-Profiler results page for `ERR10610083` warns that median coverage is below 30x; low coverage can cause mutations to be missed.
 - No patient identifiers, clinical narratives, or raw FASTQ files are imported into JLIGHT.
 
+## Published reference outputs already available
+
+The public TBProfiler result pages for the two ENA runs are also captured as a small JLIGHT import fixture at `validation/tbprofiler/fixtures/public_tbprofiler_bioruns.csv`. This is a structured summary of the published result pages, **not a raw TBProfiler JSON download and not a fresh re-run of the pipeline**. It provides a quick integration check while the separate raw-read workflow downloads and re-runs the two FASTQ pairs.
+
+- [ERR10610053 published TBProfiler result](https://tbdr.lshtm.ac.uk/results/ERR10610053): 48x median coverage, 99.38% mapped reads, lineage 2.2.2, source-reported Pre-XDR-TB, 11 resistance-associated variants.
+- [ERR10610083 published TBProfiler result](https://tbdr.lshtm.ac.uk/results/ERR10610083): 12x median coverage, 99.33% mapped reads, lineage 4.7, source-reported sensitive genotype call, zero resistance-associated variants. The source explicitly warns that coverage is below the recommended 30x and mutations may be missed.
+
+The published pages do not expose the pipeline/database version in the retrieved summary; the fixture records this as `not_reported_by_public_results_page`. Do not infer a version from the date or from the separate pinned validation environment. The fixture regression test checks both samples, their variant/QC fields, provenance and the low-coverage warning.
+
 ## Reproducible environment
 
 The environment pins TBProfiler 6.7.0 from Bioconda. The workflow updates the TBProfiler mutation database, records the package and database update metadata, downloads only the two listed public runs, executes the external pipeline, validates its JSON output, and creates a JLIGHT-compatible CSV.
