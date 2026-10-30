@@ -349,6 +349,138 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT scoped_invitation_test")
         c.execute("RELEASE SAVEPOINT scoped_invitation_test")
 
+    def test_governed_hospital_to_trial_recruitment_and_participant_lifecycle(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT governed_trial_recruitment_test")
+        # This organisation has a Hospital workspace already. Activate the separate
+        # Clinical Trials entitlement and add a distinct Trial member.
+        c.execute(
+            """INSERT INTO public.jl_organisation_workspaces
+               (org_id, workspace_key, status, provisioning_source, approved_at)
+               VALUES (%s, 'clinical_trials', 'active', 'test_fixture', now())
+               ON CONFLICT (org_id, workspace_key)
+               DO UPDATE SET status='active'""",
+            (self.org_a,),
+        )
+        c.execute(
+            """INSERT INTO public.jl_org_memberships
+               (organisation_id, user_id, access_role, status, created_by)
+               VALUES (%s, %s, 'clinical_trial', 'active', %s)
+               ON CONFLICT (organisation_id, user_id, access_role)
+               DO UPDATE SET status='active'""",
+            (self.org_a, self.b, self.a),
+        )
+        study_id = str(uuid.uuid4())
+        c.execute(
+            """INSERT INTO public.jl_trial_studies
+               (id, organisation_id, study_code, title, status, created_by)
+               VALUES (%s, %s, %s, 'Synthetic authorised recruitment study', 'active', %s)""",
+            (study_id, self.org_a, 'RLS-RECRUIT-' + study_id[:8], self.a),
+        )
+
+        # Only the independent platform administrator can enable recruitment.
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
+        c.execute(
+            """SELECT public.jl_authorise_trial_recruitment(
+                 %s, 'SYNTHETIC-ETHICS-APPROVAL', current_date, 'criteria-v1')""",
+            (study_id,),
+        )
+
+        # Hospital owner submits a minimum-necessary referral. The hospital patient
+        # identifier is written only to the private identity map.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        referral_id = c.execute(
+            """SELECT public.jl_create_trial_recruitment_referral(
+                 %s, %s, %s, %s,
+                 '{"site_code":"SYNTH-SITE","screening_priority":"routine","criteria_match_codes":["C01"]}'::jsonb,
+                 'criteria-v1')""",
+            (self.org_a, study_id, self.patient_a, 'REF-' + study_id[:10]),
+        )
+        # psycopg2 cursor.execute returns None; fetch the RPC result explicitly.
+        c.execute(
+            """SELECT public.jl_create_trial_recruitment_referral(
+                 %s, %s, %s, %s,
+                 '{"site_code":"SYNTH-SITE","screening_priority":"routine","criteria_match_codes":["C02"]}'::jsonb,
+                 'criteria-v1')""",
+            (self.org_a, study_id, self.patient_a, 'REF-' + study_id[10:20]),
+        )
+        referral_id = c.fetchone()[0]
+
+        # Trial member can receive the referral and create a separate study code.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.b,))
+        c.execute(
+            "SELECT public.jl_create_trial_participant_from_referral(%s, %s, %s, %s)",
+            (self.org_a, referral_id, 'SYNTH-PART-' + study_id[:6], 'SYNTH-SITE'),
+        )
+        participant_id = c.fetchone()[0]
+        c.execute(
+            "SELECT status, consent_status FROM public.jl_trial_participants WHERE id=%s",
+            (participant_id,),
+        )
+        self.assertEqual(c.fetchone(), ('screening', 'not_obtained'))
+
+        # The trial participant schema has no hospital patient identifier, and the
+        # private identity map is not addressable by an authenticated browser user.
+        c.execute(
+            """SELECT count(*) FROM information_schema.columns
+               WHERE table_schema='public' AND table_name='jl_trial_participants'
+                 AND column_name IN ('patient_id','mrn','id_number','full_name')"""
+        )
+        self.assertEqual(c.fetchone()[0], 0)
+        c.execute("SAVEPOINT private_identity_access_test")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                "SELECT hospital_patient_id FROM private.jl_trial_recruitment_identity_links WHERE referral_id=%s",
+                (referral_id,),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT private_identity_access_test")
+
+        # Enrolment is blocked until consent has a version, outcome and controlled
+        # source-document reference. The failed attempt is rolled back to a savepoint.
+        c.execute("SAVEPOINT enrolment_without_consent_test")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                """SELECT public.jl_record_trial_participant_event(
+                     %s,%s,'enrolled',now(),'recorded','Attempted enrolment','{}'::jsonb)""",
+                (self.org_a, participant_id),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT enrolment_without_consent_test")
+
+        c.execute(
+            """SELECT public.jl_record_trial_participant_event(
+                 %s,%s,'consent_recorded',now(),'recorded','Consent evidence recorded',
+                 '{"icf_version":"ICF-v1","consent_status":"obtained",
+                   "consent_record_reference":"SYNTH-CONSENT-001"}'::jsonb)""",
+            (self.org_a, participant_id),
+        )
+        c.execute(
+            """SELECT public.jl_record_trial_participant_event(
+                 %s,%s,'enrolled',now(),'recorded','Authorised enrolment recorded','{}'::jsonb)""",
+            (self.org_a, participant_id),
+        )
+        c.execute(
+            "SELECT status, consent_status, consent_record_reference FROM public.jl_trial_participants WHERE id=%s",
+            (participant_id,),
+        )
+        self.assertEqual(c.fetchone(), ('enrolled', 'obtained', 'SYNTH-CONSENT-001'))
+
+        # The authorised Trial member can read the participant timeline and referral,
+        # but cannot resolve the linked Hospital identity.
+        c.execute(
+            "SELECT count(*) FROM public.jl_trial_participant_events WHERE participant_id=%s",
+            (participant_id,),
+        )
+        self.assertEqual(c.fetchone()[0], 3)
+        c.execute(
+            "SELECT status FROM public.jl_trial_recruitment_referrals WHERE id=%s",
+            (referral_id,),
+        )
+        self.assertEqual(c.fetchone()[0], 'enrolled')
+
+        c.execute("ROLLBACK TO SAVEPOINT governed_trial_recruitment_test")
+        c.execute("RELEASE SAVEPOINT governed_trial_recruitment_test")
+
     @classmethod
     def tearDownClass(cls):
         if getattr(cls, "conn", None):
