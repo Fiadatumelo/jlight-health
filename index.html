@@ -2729,13 +2729,15 @@ function hydrateTBProfilerRecord(record) {
     try { summary = JSON.parse(summary) } catch (_) { return record }
   }
   if (!summary || typeof summary !== 'object') return record
-  const sourceVariants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants : (Array.isArray(summary.resistanceAssociatedVariants) ? summary.resistanceAssociatedVariants : [])
-  const variants = sourceVariants.map(v => ({
-    gene_name:v.gene||v.locus_tag||'', pos:v.position??null,
-    protein_change:v.proteinChange||v.mutation||'', nucleotide_change:v.nucleotideChange||'', type:v.type||'',
-    freq:v.frequency??v.estimatedFraction??null, depth:v.depth??null,
+  const mapVariant = v => ({
+    gene_name:v.gene||v.gene_name||v.gene_id||v.locus_tag||'', pos:v.position??v.pos??null,
+    protein_change:v.proteinChange||v.protein_change||v.mutation||'', nucleotide_change:v.nucleotideChange||v.nucleotide_change||'',
+    type:v.type||'', freq:v.frequency??v.estimatedFraction??v.freq??null, depth:v.depth??null,
     annotation:(Array.isArray(v.annotations)&&v.annotations.length?v.annotations:(Array.isArray(v.drugs)?v.drugs.map(drug=>({drug:typeof drug==='string'?drug:(drug.drug||drug.name||JSON.stringify(drug)),confidence:v.confidence||''})):[]))
-  }))
+  })
+  const sourceVariants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants : (Array.isArray(summary.resistanceAssociatedVariants) ? summary.resistanceAssociatedVariants : [])
+  const variants = sourceVariants.map(mapVariant)
+  const otherVariants = Array.isArray(summary.otherVariants) ? summary.otherVariants.map(mapVariant) : []
   const qcNotes = Array.isArray(summary.qcWarnings) ? summary.qcWarnings : []
   return {
     ...record,
@@ -2751,10 +2753,11 @@ function hydrateTBProfilerRecord(record) {
     tbProfiler:{
       qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,pctReadsMapped:summary.mappingRatePercent??summary.percentReadsMapped??null,numReads:summary.readCount??summary.numberOfReads??null,notes:qcNotes},
       drVariants:variants,
-      otherVariants:[],
+      otherVariants,
+      otherVariantCount:Number(summary.otherVariantCount??otherVariants.length),
       resistanceEvidence:variants.flatMap(v=>v.annotation.map(a=>({gene:v.gene_name,mutation:v.protein_change||v.type,drug:String(a.drug||''),confidence:String(a.confidence||''),source:String(a.source||''),comment:String(a.comment||''),depth:v.depth??null,frequency:v.freq??null})))
     },
-    provenance:{format:'JLIGHT-normalized TBProfiler CSV',sourceSampleId:String(summary.runAccession||record.sourceRecordId||''),importedAt:record.sourceImportedAt?new Date(record.sourceImportedAt).toISOString():null,patientLinkStatus:'not linked'}
+    provenance:{format:record.outputType||'JLIGHT-normalized TBProfiler CSV',sourceSampleId:String(summary.runAccession||record.sourceRecordId||''),sourceUrl:String(summary.sourceUrl||''),importedAt:record.sourceImportedAt?new Date(record.sourceImportedAt).toISOString():null,patientLinkStatus:'not linked'}
   }
 }
 
@@ -2793,7 +2796,10 @@ function renderBioinformaticsTB() {
     body='<div class="form-card"><h3>Lineage and sub-lineage distribution</h3>'+(groups.length?groups.map(x=>'<div class="tb-bar-row"><span>'+esc(x[0])+'</span><div class="tb-bar"><i style="width:'+Math.round(x[1]/Math.max(all.length,1)*100)+'%"></i></div><b>'+x[1]+'</b></div>').join(''):'<div class="empty">No lineage assignments supplied.</div>')+'</div>'
   }else if(tab==='variants'){
     const variants=all.flatMap(r=>(r.tbProfiler?.drVariants||[]).map(v=>({sample:r.sampleId||r.id,variant:v})))
-    body='<div class="form-card"><h3>Resistance-associated variant evidence · '+variants.length+'</h3>'+(variants.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Gene</th><th>Variant</th><th>Drug</th><th>Confidence</th><th>Depth</th><th>Frequency</th></tr></thead><tbody>'+variants.slice(0,500).map(x=>{const v=x.variant,a=Array.isArray(v.annotation)?v.annotation[0]:(v.annotation||{});return '<tr><td>'+esc(x.sample)+'</td><td>'+esc(v.gene_name||v.gene_id||'—')+'</td><td>'+esc(v.protein_change||v.nucleotide_change||v.type||'—')+'</td><td>'+esc(a.drug||a.comment||'—')+'</td><td>'+esc(a.confidence||'—')+'</td><td>'+esc(v.depth??'—')+'</td><td>'+esc(v.freq??'—')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">No resistance-associated variants reported.</div>')+'<p class="form-help">Source annotations require professional review and comparison with phenotypic DST where available.</p></div>'
+    const otherVariants=all.flatMap(r=>(r.tbProfiler?.otherVariants||[]).map(v=>({sample:r.sampleId||r.id,variant:v})))
+    const otherCounts=all.filter(r=>Number(r.tbProfiler?.otherVariantCount||0)>0)
+    const variantTable=rows=>rows.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Gene</th><th>Variant</th><th>Type</th><th>Drugs / annotation</th><th>Confidence</th><th>Frequency</th></tr></thead><tbody>'+rows.slice(0,500).map(x=>{const v=x.variant,a=Array.isArray(v.annotation)?v.annotation[0]:(v.annotation||{});return '<tr><td>'+esc(x.sample)+'</td><td>'+esc(v.gene_name||v.gene_id||'—')+'</td><td>'+esc(v.protein_change||v.nucleotide_change||v.type||'—')+'</td><td>'+esc(v.type||'—')+'</td><td>'+esc(a.drug||a.comment||'—')+'</td><td>'+esc(a.confidence||'—')+'</td><td>'+esc(v.freq??'—')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">No individual variant records supplied in this import.</div>'
+    body='<div class="form-card"><h3>Resistance-associated variant evidence · '+variants.length+'</h3>'+variantTable(variants)+'<p class="form-help">Source annotations require professional review and comparison with phenotypic DST where available.</p></div><div class="form-card"><h3>Other detected variants</h3>'+(otherVariants.length?variantTable(otherVariants):otherCounts.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Other variants reported</th><th>Source</th></tr></thead><tbody>'+otherCounts.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+Number(r.tbProfiler.otherVariantCount)+'</td><td>TBProfiler published summary</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No other variant records supplied.</div>')+'</div>'
   }else{
     body='<div class="form-card"><h3>QC and pipeline provenance</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>QC</th><th>Median depth</th><th>Reads mapped (%)</th><th>TBProfiler</th><th>TBDB</th><th>Imported</th></tr></thead><tbody>'+all.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.tbProfiler?.qc?.status||r.qualityStatus||'Not supplied')+'</td><td>'+esc(r.tbProfiler?.qc?.medianDepth??'—')+'</td><td>'+esc(r.tbProfiler?.qc?.pctReadsMapped??'—')+'</td><td>'+esc(r.pipelineVersion||'—')+'</td><td>'+esc(r.databaseVersion||'—')+'</td><td>'+esc(r.provenance?.importedAt||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No QC/provenance records available.</div>')+'</div>'
   }
