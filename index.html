@@ -770,15 +770,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <input class="form-input" id="si-org-code" type="text" placeholder="e.g. JLI-1234ABCD5678EF" style="text-transform:uppercase"/>
         <div class="form-help">Enter the organisation code supplied by your administrator (for example, JLI-1234ABCD5678EF)</div>
       </div>
-      <div id="si-role-row" style="display:none" class="form-row">
-        <label class="form-label">Workspace Role <span style="color:var(--amber);font-size:10px">(permanent — one account per role)</span></label>
-        <select class="form-input" id="si-role">
-          <option value="Laboratory">Laboratory</option>
-          <option value="Trial">Clinical Trial</option>
-          <option value="Hospital">Hospital Operations</option>
-          <option value="Bioinformatics">Bioinformatics</option>
-        </select>
-      </div>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
@@ -790,40 +781,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:14px;font-size:12px">
-      <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
+      <span style="color:var(--text-3)">Secure sign-in requires an active email verification session.</span>
     </div>
-  </div>
-</div>
-
-<div id="screen-pin" class="auth-screen">
-  <div class="auth-bg-grid"></div>
-  <div class="auth-glow"></div>
-  <div class="auth-glow-2"></div>
-  <div class="auth-card">
-    <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <div class="auth-name">JLIGHT</div>
-    </div>
-    <div class="auth-tagline" id="pin-workspace">Workspace</div>
-    <div class="auth-title" id="pin-title">Enter your PIN</div>
-    <div class="auth-sub" id="pin-sub">4-digit access code</div>
-    <div class="pin-display" id="pin-dots"><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div></div>
-    <div class="pin-pad">
-      <button class="pin-key" onclick="pinPress('1')">1</button>
-      <button class="pin-key" onclick="pinPress('2')">2</button>
-      <button class="pin-key" onclick="pinPress('3')">3</button>
-      <button class="pin-key" onclick="pinPress('4')">4</button>
-      <button class="pin-key" onclick="pinPress('5')">5</button>
-      <button class="pin-key" onclick="pinPress('6')">6</button>
-      <button class="pin-key" onclick="pinPress('7')">7</button>
-      <button class="pin-key" onclick="pinPress('8')">8</button>
-      <button class="pin-key" onclick="pinPress('9')">9</button>
-      <button class="pin-key empty"></button>
-      <button class="pin-key" onclick="pinPress('0')">0</button>
-      <button class="pin-key" onclick="pinBack()">⌫</button>
-    </div>
-    <div class="auth-status" id="pin-status"></div>
-    <div class="auth-back"><a onclick="goBackToRoles()">← Choose a different workspace</a></div>
   </div>
 </div>
 
@@ -1067,16 +1026,8 @@ const STORAGE = {
   saveAudit(role,a) { try{localStorage.setItem(this.key(role,'audit'),JSON.stringify(a.slice(-1000)))}catch{} if(MODE.isOnline)syncToBackend('audit',a.slice(-50)) },
   loadThresholds(role) { try{return JSON.parse(localStorage.getItem(this.key(role,'thresholds'))||'null')}catch{return null} },
   saveThresholds(role,t) { try{localStorage.setItem(this.key(role,'thresholds'),JSON.stringify(t))}catch{} },
-  getPinHash(role) { return localStorage.getItem('jl_pinhash_'+role) },
-  setPinHash(role,h) { localStorage.setItem('jl_pinhash_'+role,h) },
-  removePinHash(role) { localStorage.removeItem('jl_pinhash_'+role) },
 }
 
-async function hashPin(pin, role) {
-  const data = new TextEncoder().encode(`JLIGHT-v7-${role}-${pin}-2026`)
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
 function toast(title, msg, type) {
   const host = $('toast-host')
@@ -1651,81 +1602,7 @@ async function sendOrganisationCodeEmail() {
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
 }
 
-function doOfflineMode() {
-  if (!confirm('Switch to offline mode? Data stored on this device only.')) return
-  MODE.isOnline = false
-  const role = prompt('Workspace: Laboratory, Trial, Hospital, or Bioinformatics', 'Laboratory')
-  if (!role || !ROLES[role]) return
-  STATE.role = role
-  STATE.pinBuf = ''; STATE.setupBuf = ''; STATE.setupFirst = ''; STATE.failedAttempts = 0
-  STATE.setupMode = !STORAGE.getPinHash(role)
-  const cfg = ROLES[role]
-  const pw = document.getElementById('pin-workspace')
-  const pt = document.getElementById('pin-title')
-  const ps = document.getElementById('pin-sub')
-  if(pw) pw.textContent = cfg.label + ' (offline)'
-  if(pt) pt.textContent = STATE.setupMode ? 'Create PIN' : 'Enter PIN'
-  if(ps) ps.textContent = STATE.setupMode ? '4-digit code' : '4-digit code'
-  const st = document.getElementById('pin-status')
-  if(st) { st.textContent = ''; st.className = 'auth-status' }
-  updateDots()
-  showScreen('screen-pin')
-}
-
-
 function goBackToRoles() { showScreen('screen-signin') }
-function pinPress(d) {
-  const buf = STATE.setupMode ? 'setupBuf' : 'pinBuf'
-  if (STATE[buf].length >= 4) return
-  STATE[buf] += d
-  updateDots()
-  if (STATE[buf].length === 4) setTimeout(() => STATE.setupMode ? handleSetup() : handleLogin(), 150)
-}
-function pinBack() {
-  const buf = STATE.setupMode ? 'setupBuf' : 'pinBuf'
-  STATE[buf] = STATE[buf].slice(0, -1)
-  updateDots()
-}
-function updateDots() {
-  const buf = STATE.setupMode ? STATE.setupBuf : STATE.pinBuf
-  $$('.pin-dot').forEach((d, i) => { d.classList.toggle('filled', i < buf.length); d.classList.remove('error') })
-}
-async function handleLogin() {
-  const expected = STORAGE.getPinHash(STATE.role)
-  const actual = await hashPin(STATE.pinBuf, STATE.role)
-  if (actual === expected) { STATE.failedAttempts = 0; enterApp() }
-  else {
-    STATE.failedAttempts++
-    $$('.pin-dot').forEach(d => d.classList.add('error'))
-    const remaining = 5 - STATE.failedAttempts
-    if (remaining <= 0) { $('pin-status').textContent = 'Too many failed attempts'; $('pin-status').className = 'auth-status error'; return }
-    $('pin-status').textContent = `Incorrect PIN · ${remaining} attempt${remaining === 1 ? '' : 's'} remaining`
-    $('pin-status').className = 'auth-status error'
-    setTimeout(() => { STATE.pinBuf = ''; updateDots(); $('pin-status').textContent = '' }, 900)
-  }
-}
-async function handleSetup() {
-  if (!STATE.setupFirst) {
-    STATE.setupFirst = STATE.setupBuf; STATE.setupBuf = ''; updateDots()
-    $('pin-title').textContent = 'Confirm your PIN'; $('pin-sub').textContent = 'Enter the same 4-digit code again'
-    return
-  }
-  if (STATE.setupBuf === STATE.setupFirst) {
-    const hash = await hashPin(STATE.setupBuf, STATE.role)
-    STORAGE.setPinHash(STATE.role, hash)
-    STATE.setupMode = false
-    enterApp()
-  } else {
-    $$('.pin-dot').forEach(d => d.classList.add('error'))
-    $('pin-status').textContent = 'PINs do not match · start over'
-    $('pin-status').className = 'auth-status error'
-    setTimeout(() => {
-      STATE.setupBuf = ''; STATE.setupFirst = ''; updateDots()
-      $('pin-title').textContent = 'Create your PIN'; $('pin-sub').textContent = 'Choose a 4-digit code'
-      $('pin-status').textContent = ''
-    }, 1100)
-  }
-}
 async function signOut() {
   await audit('Sign out', STATE.role + ' session ended by ' + getDisplayName())
   if (MODE.isOnline) {
@@ -1734,7 +1611,7 @@ async function signOut() {
   }
   MODE.isOnline = false; MODE.organisationName = null; MODE.organisationType = null; MODE.isPlatformAdmin = false
   STATE.role = null; STATE.user = null; STATE.userProfile = null
-  STATE.pinBuf = ''; STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
+  STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
   STATE.currentCardId=null; STATE.currentSampleId=null; STATE.currentPage='dashboard'
   goBackToRoles()
 }
@@ -1877,14 +1754,6 @@ function goPage(page) {
     case 'requests':    renderRequests(); break
   }
 }
-
-document.addEventListener('keydown', (e) => {
-  if ($('screen-pin').classList.contains('active')) {
-    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); pinPress(e.key) }
-    if (e.key === 'Backspace') { e.preventDefault(); pinBack() }
-    if (e.key === 'Escape') { e.preventDefault(); goBackToRoles() }
-  }
-})
 
 // ── Boot: restore an existing Supabase session (passwordless email-code auth) ──
 setTimeout(async () => {
