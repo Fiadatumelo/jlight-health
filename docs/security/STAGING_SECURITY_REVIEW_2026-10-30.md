@@ -50,6 +50,8 @@ All listed migrations are applied to staging. Repository filenames are aligned t
 - `jl_platform_admins` has RLS enabled and no direct client SELECT grants.
 - Staging inspection of 25 public SECURITY DEFINER functions reported **zero anon-executable functions**. Twenty are executable by authenticated users as application RPCs; five are internal/non-client functions. The twenty callable functions still require individual semantic and adversarial review.
 - Security-definer search paths are pinned. Trigger validation functions with `pg_temp` in their search path were hardened to use explicit trusted schemas.
+- Supabase security advisor currently reports 4 intentional RLS-enabled/no-policy INFO notices for tables with no anon/authenticated table grants, plus 20 authenticated SECURITY DEFINER warnings and the leaked-password-protection warning. The 20 RPCs are individually guarded by caller identity/role checks, but full adversarial review remains open.
+- JLIGHT's product flow uses passwordless email codes, but the Supabase Auth password-provider configuration could not be verified through the available project metadata. Do not treat the leaked-password-protection warning as not applicable until password sign-in is confirmed disabled; otherwise enable leaked-password protection without adding password-based JLIGHT sign-in.
 - The legacy `jl_create_organisation` wrapper now performs its own authentication check and delegates to the validated multi-path registration transaction.
 
 ## Transactional synthetic tests performed on staging
