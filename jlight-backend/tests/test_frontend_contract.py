@@ -227,5 +227,11 @@ require("summary.resistanceAssociatedVariants" in html and
 require("function classifyTBResistanceType(" in html and
         "if(v.includes('pre-mdr'))return 'Pre-MDR-TB'" in html,
         "TB resistance classes must distinguish Pre-MDR, MDR, Pre-XDR and XDR")
+require("const otherVariants = Array.isArray(summary.otherVariants)" in html and
+        "r.tbProfiler?.otherVariants" in html and
+        "Other detected variants" in html,
+        "TB variant compartment must preserve and display non-resistance-associated variants separately")
+require("summary.otherVariantCount" in html and "summary.sourceUrl" in html,
+        "TB import must preserve other-variant counts and source provenance")
 
 print("JLIGHT frontend contract checks passed.")
