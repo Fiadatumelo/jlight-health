@@ -370,6 +370,14 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                DO UPDATE SET status='active'""",
             (self.org_a, self.b, self.a),
         )
+        c.execute(
+            """INSERT INTO public.jlight_organization_memberships
+               (organization_id, auth_subject, role, active, created_by)
+               VALUES (%s, %s, 'clinical_trial', true, %s)
+               ON CONFLICT (organization_id, auth_subject)
+               DO UPDATE SET role='clinical_trial', active=true""",
+            (self.org_a, self.b, self.a),
+        )
         study_id = str(uuid.uuid4())
         c.execute(
             """INSERT INTO public.jl_trial_studies
@@ -390,14 +398,6 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         # Hospital owner submits a minimum-necessary referral. The hospital patient
         # identifier is written only to the private identity map.
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
-        referral_id = c.execute(
-            """SELECT public.jl_create_trial_recruitment_referral(
-                 %s, %s, %s, %s,
-                 '{"site_code":"SYNTH-SITE","screening_priority":"routine","criteria_match_codes":["C01"]}'::jsonb,
-                 'criteria-v1')""",
-            (self.org_a, study_id, self.patient_a, 'REF-' + study_id[:10]),
-        )
-        # psycopg2 cursor.execute returns None; fetch the RPC result explicitly.
         c.execute(
             """SELECT public.jl_create_trial_recruitment_referral(
                  %s, %s, %s, %s,
