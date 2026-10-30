@@ -34,6 +34,23 @@ class TBProfilerNormalizerTests(unittest.TestCase):
         self.assertEqual(result["drugs"], ["rifampicin"])
         self.assertEqual(result["annotations"][0]["confidence"], "high")
 
+    def test_low_coverage_tbprofiler_result_is_flagged_for_review(self):
+        sample = {
+            "id": "ERR_LOW_COVERAGE_TEST",
+            "qc": {"median_depth": 12, "pct_reads_mapped": 99.3, "num_reads": 400000},
+            "dr_variants": [],
+            "other_variants": [],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "ERR_LOW_COVERAGE_TEST.results.json"
+            path.write_text(json.dumps(sample), encoding="utf-8")
+            row = normalize_one(path, "PRJEB_TEST", "6.7.0", "test-db-rev")
+        summary = json.loads(row["summary"])
+        self.assertEqual(row["qualityStatus"], "review_required_low_coverage")
+        self.assertTrue(any("below the 30x review threshold" in note for note in summary["qcWarnings"]))
+        self.assertEqual(summary["medianCoverage"], 12)
+        self.assertEqual(summary["mappingRatePercent"], 99.3)
+
     def test_normalized_summary_keeps_lineage_and_version_provenance(self):
         sample = {
             "id": "ERR_TEST_001",
