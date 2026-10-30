@@ -71,6 +71,7 @@ All fixtures used synthetic accounts and were rolled back; no real patient or pa
 10. Confirmed an organisation with the legacy Laboratory role placeholder but no active Laboratory entitlement cannot be resolved as a Laboratory organisation.
 11. Hardened the legacy one-argument member-list RPC: it now fails closed when multiple standard pathways are active and requires an explicit workspace domain.
 12. Confirmed Platform Administrator status alone does not grant organisation workspace discovery or patient-data access.
+13. Confirmed an unverified email account cannot register an organisation and an organisation code alone cannot create membership.
 
 These are targeted database tests. They do not establish that every RLS policy, API route, browser interaction, or authenticated SECURITY DEFINER function is secure.
 
