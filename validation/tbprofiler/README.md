@@ -45,7 +45,7 @@ The Bioinformatics workspace now exposes a dedicated **TB Intelligence** area wi
 - Drug resistance — sample-level resistance classifications and drug-specific annotated mutation evidence.
 - Lineage — main-lineage and sub-lineage distribution.
 - Variant evidence — gene, mutation, confidence, depth and allele frequency where the source output supplies them.
-- QC & provenance — coverage, mapped-read percentage, pipeline version, TB database version and import timestamp.
+- QC & provenance — coverage, mapped-read percentage, pipeline version, TB database version, import timestamp, and explicit QC warning/review notes. Raw JSON imports below 30x median coverage are automatically flagged for review.
 
 Two supported import routes are available:
 
