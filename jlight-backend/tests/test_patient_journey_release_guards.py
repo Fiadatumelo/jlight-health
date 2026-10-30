@@ -22,28 +22,24 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
             with self.subTest(token=token):
                 self.assertNotIn(token, HTML)
 
-    def test_trial_journey_returns_before_non_trial_sources_are_added(self):
+    def test_clinical_trials_uses_separate_participant_timeline(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\nfunction selectJourneyPatient", start)
+        end = HTML.index("\\nfunction selectJourneyPatient", start)
         function = HTML[start:end]
-        trial_guard = function.index("if(STATE.role==='Trial')")
-        trial_return = function.index("return events;", trial_guard)
-        non_trial_add = function.index("add('Hospital'")
-        self.assertLess(trial_guard, trial_return)
-        self.assertLess(trial_return, non_trial_add)
-        trial_block = function[trial_guard:trial_return]
-        self.assertIn("STATE.participants", trial_block)
-        self.assertIn("STATE.visits", trial_block)
-        self.assertIn("STATE.adverseEvents", trial_block)
-        self.assertNotIn("STATE.labOrders", trial_block)
-        self.assertNotIn("STATE.bioRuns", trial_block)
-        self.assertNotIn("STATE.cards", trial_block)
+        self.assertNotIn("STATE.role==='Trial'", function)
+        self.assertNotIn("STATE.participants", function)
+        self.assertNotIn("STATE.visits", function)
+        self.assertNotIn("STATE.adverseEvents", function)
+        self.assertIn("async function renderTrialTimeline()", HTML)
+        self.assertIn("key: 'trial-timeline'", HTML)
+        self.assertIn('id="page-trial-timeline"', HTML)
 
     def test_patient_events_require_exact_patient_id(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
         end = HTML.index("\nfunction selectJourneyPatient", start)
         function = HTML[start:end]
-        self.assertGreaterEqual(function.count("String(row.patientId)!==pid"), 2)
+        self.assertGreaterEqual(function.count("String(row.patientId)!==pid"), 1)
+        self.assertIn("row.patientId==null||String(row.patientId)!==pid", function)
 
     def test_issue_resolution_is_not_inferred_from_recommendation(self):
         start = HTML.index("function buildPatientJourneyEvents(patient)")
