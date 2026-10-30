@@ -2,13 +2,11 @@
 JLIGHT Health Intelligence API
 =============================
 Endpoints:
-  POST /api/analyse-csv       — CSV/XLSX QC analysis
-  GET  /api/health            — System health check
-  GET  /api/cards             — Decision cards (from DB or static)
-  POST /api/cards/acknowledge — Acknowledge a card
-  GET  /api/audit             — Audit log
-
-
+  GET  /api/health            — Public service health check
+  POST /api/analyse-csv       — Protected QC dataset analysis
+  GET  /api/cards             — Disabled until tenant-scoped permissions are configured (503)
+  POST /api/cards/acknowledge — Disabled until tenant-scoped permissions are configured (503)
+  GET  /api/audit             — Disabled until tenant-scoped permissions are configured (503)
 """
 
 import sys as _sys, os as _os
