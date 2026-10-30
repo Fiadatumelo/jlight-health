@@ -1484,6 +1484,15 @@ async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const verifiedPath = pathByType[type];
   if (!verifiedPath || !ROLES[verifiedPath]) throw new Error("This organisation does not have a valid system-assigned JLIGHT path. Contact JLIGHT support.");
   if (requestedPath && requestedPath !== verifiedPath) throw new Error("This organisation is registered for " + ROLES[verifiedPath].label + ". JLIGHT will not open " + ROLES[requestedPath].label + " for this organisation.");
+  const permissionDomain = type === "trial" || type === "clinical_trial" ? "clinical_trials" : type
+  const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
+    p_organization_id: data.id,
+    p_domain: permissionDomain,
+    p_access: "read"
+  })
+  if (permissionError || canRead !== true) {
+    throw new Error("Your organisation membership is not yet authorised to read this workspace. Ask an administrator to approve and grant access.")
+  }
   MODE.organisationId = data.id;
   MODE.organisationName = data.name;
   MODE.organisationCode = data.org_code || MODE.organisationCode || "";
