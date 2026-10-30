@@ -1,7 +1,7 @@
 """
-JLIGHT v4 — Test Suite
+JLIGHT QC engine regression tests
 ========================
-End-to-end tests for ML engine, CSV engine, and Bioinformatics engine.
+Regression tests for the retained structured QC and CSV engine.
 Run with: python3 tests/test_all.py
 """
 
