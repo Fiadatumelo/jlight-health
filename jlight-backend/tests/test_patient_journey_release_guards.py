@@ -55,7 +55,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
 
     def test_patient_journey_ui_exposes_two_report_action_and_status(self):
         start = HTML.index("function renderJourney() {")
-        end = HTML.index("\nfunction downloadJourneyJson", start)
+        end = HTML.index("function downloadJourneyJson", start)
         function = HTML[start:end]
         self.assertIn('onclick="generatePatientJourneyReports()"', function)
         self.assertIn('id="patient-journey-report-status"', function)
