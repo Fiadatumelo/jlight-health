@@ -62,3 +62,6 @@ jobs:
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
+      - name: Test JC intelligence agent and summary engine
+        working-directory: jlight-backend
+        run: python -m pytest tests/test_intelligence_engine.py tests/test_jc_agent.py tests/test_intelligence_api.py -q
