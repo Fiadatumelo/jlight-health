@@ -64,14 +64,31 @@ def jsonable_text(value: Any) -> str | None:
 def compact_variant(variant: Any) -> dict[str, Any]:
     if not isinstance(variant, dict):
         return {"sourceValue": variant}
+    raw_annotations = variant.get("annotation") or variant.get("annotations") or []
+    if isinstance(raw_annotations, dict):
+        raw_annotations = [raw_annotations]
+    annotations = []
+    for item in raw_annotations if isinstance(raw_annotations, list) else []:
+        if not isinstance(item, dict):
+            continue
+        annotations.append({
+            "drug": first_value(item, ("drug", "antimicrobial", "name")),
+            "confidence": item.get("confidence"),
+            "source": item.get("source"),
+            "comment": item.get("comment"),
+        })
     drugs = variant.get("drugs") or []
-    annotations = variant.get("annotations") or []
+    if not drugs:
+        drugs = [item["drug"] for item in annotations if item.get("drug")]
     return {
-        "gene": first_value(variant, ("gene", "locus_tag")),
-        "position": first_value(variant, ("genome_pos", "position", "pos")),
-        "mutation": first_value(variant, ("mutation", "nucleotide_change", "protein_change")),
+        "gene": first_value(variant, ("gene_name", "gene_id", "gene", "locus_tag")),
+        "position": first_value(variant, ("pos", "genome_pos", "position")),
+        "mutation": first_value(variant, ("protein_change", "nucleotide_change", "mutation")),
+        "proteinChange": variant.get("protein_change"),
+        "nucleotideChange": variant.get("nucleotide_change"),
         "type": first_value(variant, ("type", "variant_type", "consequence")),
         "frequency": number(first_value(variant, ("freq", "frequency", "allele_frequency"))),
+        "depth": number(variant.get("depth")),
         "drugs": drugs,
         "annotations": annotations,
     }
@@ -142,6 +159,9 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
         "pipelineVersion": jsonable_text(pipeline_version),
         "databaseVersion": jsonable_text(database_version),
         "lineage": jsonable_text(lineage),
+        "mainLineage": jsonable_text(first_value(result, ("main_lineage", "mainLineage"))),
+        "subLineage": jsonable_text(first_value(result, ("sub_lineage", "subLineage"))),
+        "spoligotype": jsonable_text(result.get("spoligotype")),
         "drugResistanceType": jsonable_text(drtype),
         "medianCoverage": median_coverage,
         "mappingRatePercent": mapping_rate,
