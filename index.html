@@ -587,6 +587,8 @@ table td { color: var(--text); border-color: var(--border); }
 
 /* Navigation declutter: grouped, collapsible sections */
 .sb-nav { gap: 6px; padding: 12px 10px 16px; }
+.sb-nav-pinned { margin: 0 0 8px; padding: 4px 0 8px; border-bottom: 1px solid var(--border); }
+.sb-nav-admin { margin-top: 4px; }
 .sb-nav-group { border: 1px solid transparent; border-radius: 10px; }
 .sb-nav-group[open] { background: rgba(255,255,255,.015); border-color: rgba(255,255,255,.035); }
 .sb-nav-group > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; padding: 10px 11px; border-radius: 8px; color: var(--text-3); font-size: 10px; font-weight: 800; letter-spacing: 1.1px; text-transform: uppercase; user-select: none; }
@@ -733,7 +735,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
-    <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
+    <div class="path-picker"><div class="path-picker-title">Organisation workspace</div><div class="path-picker-sub">Your organisation has one registered path. JLIGHT verifies it after sign-in; selecting another path cannot grant access.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
       <button type="button" class="path-choice path-lab" data-path="Laboratory" aria-pressed="false" onclick="selectJlightPath('Laboratory')"><span class="path-choice-icon">LAB</span><span class="path-choice-copy"><strong>Laboratory</strong><small>Workflow traceability, turnaround time and source-data quality</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-hospital" data-path="Hospital" aria-pressed="false" onclick="selectJlightPath('Hospital')"><span class="path-choice-icon">HIS</span><span class="path-choice-copy"><strong>Hospital &amp; Health Informatics</strong><small>Patient journey, orders, results and operational bottlenecks</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-bio" data-path="Bioinformatics" aria-pressed="false" onclick="selectJlightPath('Bioinformatics')"><span class="path-choice-icon">BIO</span><span class="path-choice-copy"><strong>Bioinformatics</strong><small>Review imported analysis outputs and quality metrics</small></span><span class="path-choice-check">✓</span></button>
@@ -868,6 +870,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-connectors" class="page"></div>
         <div id="page-audit" class="page"></div>
         <div id="page-settings" class="page"></div>
+        <div id="page-admin" class="page"></div>
         <div id="page-patients" class="page"></div>
         <div id="page-journey" class="page"></div>
         <div id="page-jc" class="page"></div>
@@ -1107,7 +1110,7 @@ const BACKEND = IS_PRODUCTION_HOST
       url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
       key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
     }
-const MODE = { isOnline: true, organisationName: null, signupMode: false, hasRestoredSession: false }
+const MODE = { isOnline: true, organisationName: null, organisationType: null, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
 
@@ -1280,7 +1283,7 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:role||meta.role||"Laboratory",orgCode:meta.org_code||""}); await loadVerifiedOrganisationPath(user,role||null); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
 async function doSignIn(resend = false) {
@@ -1303,8 +1306,8 @@ async function doSignIn(resend = false) {
       pending.joinType = (document.getElementById("si-join-type") || {}).value || "new";
       pending.orgName = (document.getElementById("si-org") || {}).value?.trim() || "JLIGHT Health Intelligence Platform";
       pending.orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
-      if (pending.joinType === "join" && !/^[A-Z0-9]{3}-[A-Z0-9]{4}$/.test(pending.orgCode)) {
-        showStatus("Enter the 8-character organisation code in the format JLI-AB12."); return;
+      if (pending.joinType === "join" && !/^[A-Z0-9]{3}-[A-Z0-9]{4,32}$/.test(pending.orgCode)) {
+        showStatus("Enter the organisation code supplied by your administrator (for example, JLI-AB12)."); return;
       }
       if (pending.role === "Trial") {
         showStatus("Clinical Trials workspaces require administrator-approved provisioning. Contact your JLIGHT administrator, then sign in with your email code."); return;
@@ -1389,7 +1392,7 @@ async function ensureJlightOrganisation(user, options = {}) {
   const requestedRole = options.role || meta.role || "Laboratory";
   const role = ["Laboratory", "Trial", "Hospital", "Bioinformatics"].includes(requestedRole)
     ? requestedRole : "Laboratory";
-  const organisationRole = role === "Bioinformatics" ? "Laboratory" : role;
+  const organisationRole = role;
   const orgCode = String(options.orgCode || meta.org_code || "").trim().toUpperCase();
   const orgName = String(options.org || meta.org_name || "JLIGHT Health Intelligence Platform").trim();
 
@@ -1439,6 +1442,11 @@ async function ensureJlightOrganisation(user, options = {}) {
       org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
     } });
     if (error) throw new Error("Workspace was found, but account details could not be updated: " + error.message);
+    const { error: invitationError } = await sb.rpc("jl_accept_organisation_invitation", {
+      p_org_id: existing.id,
+      p_org_code: existing.org_code || orgCode
+    });
+    if (invitationError) throw new Error("Organisation administrator approval is required before access. " + invitationError.message);
     await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
     return;
   }
@@ -1461,6 +1469,38 @@ async function ensureJlightOrganisation(user, options = {}) {
   } });
   if (metadataError) throw new Error("Workspace was created, but account details could not be updated: " + metadataError.message);
   await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
+}
+
+async function loadVerifiedOrganisationPath(user, requestedPath = null) {
+  const sb = getSupabase();
+  if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
+  const { data, error } = await sb.from("jl_organisations")
+    .select("id,name,org_code,role,type,active")
+    .eq("id", MODE.organisationId).maybeSingle();
+  if (error || !data) throw new Error("Could not verify the organisation's registered path. Access remains closed.");
+  if (data.active === false) throw new Error("This organisation is inactive. Contact JLIGHT support.");
+  const type = String(data.type || data.role || "").trim().toLowerCase();
+  const pathByType = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial", trial:"Trial", clinical_trial:"Trial" };
+  const verifiedPath = pathByType[type];
+  if (!verifiedPath || !ROLES[verifiedPath]) throw new Error("This organisation does not have a valid system-assigned JLIGHT path. Contact JLIGHT support.");
+  if (requestedPath && requestedPath !== verifiedPath) throw new Error("This organisation is registered for " + ROLES[verifiedPath].label + ". JLIGHT will not open " + ROLES[requestedPath].label + " for this organisation.");
+  const permissionDomain = type === "trial" || type === "clinical_trial" ? "clinical_trials" : type
+  const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
+    p_organization_id: data.id,
+    p_domain: permissionDomain,
+    p_access: "read"
+  })
+  if (permissionError || canRead !== true) {
+    throw new Error("Your organisation membership is not yet authorised to read this workspace. Ask an administrator to approve and grant access.")
+  }
+  MODE.organisationId = data.id;
+  MODE.organisationName = data.name;
+  MODE.organisationCode = data.org_code || MODE.organisationCode || "";
+  MODE.organisationType = type;
+  STATE.orgId = data.id;
+  STATE.orgName = data.name;
+  STATE.role = verifiedPath;
+  return verifiedPath;
 }
 
 async function verifyLoginCode() {
@@ -1494,6 +1534,7 @@ async function verifyLoginCode() {
       ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath, orgCode: pending.joinType === "join" ? pending.orgCode : "" }
       : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
     await ensureJlightOrganisation(user, orgOptions);
+    await loadVerifiedOrganisationPath(user, selectedPath);
     await loadOrCreateProfile(user);
     const codeButton = document.getElementById("si-send-org-code");
     if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
@@ -1634,7 +1675,7 @@ async function signOut() {
     const sb = getSupabase()
     if (sb) { try { await sb.auth.signOut() } catch(e) {} }
   }
-  MODE.isOnline = false; MODE.organisationName = null
+  MODE.isOnline = false; MODE.organisationName = null; MODE.organisationType = null
   STATE.role = null; STATE.user = null; STATE.userProfile = null
   STATE.pinBuf = ''; STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
   STATE.currentCardId=null; STATE.currentSampleId=null; STATE.currentPage='dashboard'
@@ -1655,6 +1696,10 @@ async function signOut() {
 async function enterApp() {
   const cfg = ROLES[STATE.role]
   if (!cfg) throw new Error('The selected JLIGHT module is not configured.')
+  if (MODE.isOnline && MODE.organisationType) {
+    const verifiedRoles = { hospital:'Hospital', laboratory:'Laboratory', bioinformatics:'Bioinformatics', clinical_trials:'Trial', trial:'Trial', clinical_trial:'Trial' }
+    if (verifiedRoles[MODE.organisationType] !== STATE.role) throw new Error('Workspace path does not match the organisation\'s registered path. Access has been stopped.')
+  }
   // Resolve the active workspace before loading or syncing domain records.
   STATE.orgId = MODE.organisationId || localStorage.getItem('jl_org_id') || 'default'
   STATE.orgName = MODE.organisationName || localStorage.getItem('jl_org_name') || 'Workspace'
@@ -1664,20 +1709,18 @@ async function enterApp() {
   STATE.cards   = STORAGE.loadCards(STATE.role)
   STATE.audit   = STORAGE.loadAudit(STATE.role)
   STATE.thresholds = STORAGE.loadThresholds(STATE.role) || defaultThresholds()
-  // Load organisation-scoped domain records and the report archive from the local cache
-  // before remote hydration; online remote data will then reconcile over this cache.
+  // Load this organisation's cache, then remove data belonging to unassigned paths.
   loadAllDomainData()
+  enforceLocalPathCache()
   if (!Array.isArray(STATE.reportArchive)) STATE.reportArchive = []
   if (MODE.isOnline) {
-    const remote = await loadFromBackend()
+    const [remote] = await Promise.all([loadFromBackend(), loadReqsFromSupa(), loadDomainDataFromBackend()])
     if (remote) {
       if (remote.samples && remote.samples.length) STATE.samples = remote.samples
       if (remote.entries && remote.entries.length) STATE.entries = remote.entries
-      if (remote.cards   && remote.cards.length)   STATE.cards   = remote.cards
-      if (remote.audit   && remote.audit.length)    STATE.audit   = remote.audit
+      if (remote.cards && remote.cards.length) STATE.cards = remote.cards
+      if (remote.audit && remote.audit.length) STATE.audit = remote.audit
     }
-    loadReqsFromSupa()
-    await loadDomainDataFromBackend()
   }
   $('sb-username').textContent = cfg.user
   $('sb-userrole').textContent = cfg.label
@@ -1701,8 +1744,8 @@ function buildNav() {
     { label: 'Overview', keys: ['dashboard'] },
     { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
     { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
-    { label: 'Insights', keys: ['predictive', 'analytics', 'jc'] },
-    { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
+    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Connections', keys: ['connectors', 'audit', 'settings'] },
   ]
   const used = new Set()
   const renderLink = item => {
@@ -1711,6 +1754,10 @@ function buildNav() {
     const badge = item.key === 'cards' && openCards > 0 ? '<span class="sb-link-badge">' + openCards + '</span>' : ''
     return '<div class="sb-link ' + isActive + '" role="button" tabindex="0" onclick="goPage(\'' + item.key + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goPage(\'' + item.key + '\')}"><span class="sb-link-icon" aria-hidden="true">' + item.icon + '</span><span>' + esc(item.label) + '</span>' + badge + '</div>'
   }
+  const pinned = cfg.nav.filter(item => item.key === 'jc')
+  const adminItems = MODE.isOnline && STATE.userProfile?.workspace_role === 'admin'
+    ? [{ key: 'admin', label: 'Admin Center', icon: '⚙' }]
+    : []
   const markup = groups.map(group => {
     const items = cfg.nav.filter(item => group.keys.includes(item.key))
     if (!items.length) return ''
@@ -1718,7 +1765,11 @@ function buildNav() {
     return '<details class="sb-nav-group" ' + (isActive ? 'open' : '') + '><summary>' + group.label + '</summary>' + items.map(renderLink).join('') + '</details>'
   }).join('')
   const remaining = cfg.nav.filter(item => !used.has(item.key))
-  nav.innerHTML = markup + (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
+  nav.innerHTML =
+    (pinned.length ? '<div class="sb-nav-pinned">' + pinned.map(renderLink).join('') + '</div>' : '') +
+    (adminItems.length ? '<div class="sb-nav-pinned sb-nav-admin">' + adminItems.map(renderLink).join('') + '</div>' : '') +
+    markup +
+    (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
 function goPage(page) {
   STATE.currentPage = page
@@ -1729,7 +1780,7 @@ function goPage(page) {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
-    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent',
+    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center',
   }
   $('tb-title').textContent = titles[page] || page
   buildNav()
@@ -1744,6 +1795,7 @@ function goPage(page) {
     case 'connectors': renderConnectors(); break
     case 'audit':     renderAudit(); break
     case 'settings':    renderSettings(); break
+    case 'admin':        renderAdminCenter(); break
     case 'patients':      renderPatients(); break
     case 'journey':       renderJourney(); break
     case 'jc':             renderJCAgent(); break
@@ -3576,11 +3628,11 @@ function renderSettings() {
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Data Management</div>
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">All data is stored locally on this device. Nothing is sent to a server unless you enable a connector. Export at any time.</div>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">Cloud records are stored in your organisation-scoped database. This device keeps a local cache for faster access; the server remains the source of truth.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn" onclick="renderProfileSetup()">Edit profile</button>
           <button class="btn" onclick="exportWorkspace()">Export workspace (JSON)</button>
-          <button class="btn" onclick="clearWorkspace()" style="color:var(--red);border-color:rgba(255,77,109,0.3)">Clear workspace data</button>
+          <button class="btn" onclick="goPage('admin')">Open Admin Center</button>
         </div>
         ${STATE.syncConflicts && STATE.syncConflicts.length>0 ? '<div style="margin-top:10px;padding:10px 12px;background:var(--amber-bg);border:1px solid rgba(245,166,35,0.2);border-radius:8px;font-size:12px"><span style="color:var(--amber);font-weight:700">Sync:</span> '+STATE.syncConflicts.length+' conflict(s) resolved (newest wins). See audit trail.</div>' : ''}
       </div>
@@ -3595,8 +3647,8 @@ function renderSettings() {
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Security</div>
-        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">PIN is hashed with SHA-256, salted per workspace. Resetting requires you to set a new code on next sign-in.</div>
-        <button class="btn" onclick="resetPIN()">Reset PIN</button>
+        <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.55">JLIGHT uses passwordless email verification codes. Access is controlled by verified organisation membership and assigned permissions.</div>
+        <span class="permission-badge">Passwordless email-code sign-in</span>
       </div>
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">About JLIGHT</div>
@@ -3608,6 +3660,146 @@ function renderSettings() {
     </div>
   `
 }
+async function loadAdminDomainAccess() {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline || !MODE.organisationId || STATE.userProfile?.workspace_role !== 'admin') {
+    return { rows: [], error: 'Administrator access is required.' }
+  }
+  const isTrial = MODE.organisationType === 'clinical_trials'
+  const { data, error } = isTrial
+    ? await sb.rpc('jl_list_trial_members', { p_org_id: MODE.organisationId })
+    : await sb.rpc('jlight_list_org_domain_access', { p_organization_id: MODE.organisationId })
+  return { rows: Array.isArray(data) ? data : [], error: error?.message || null }
+}
+
+async function saveAdminDomainAccess(userId) {
+  if (!requirePermission('admin', 'Manage member access')) return
+  const domain = ({ hospital:'hospital', laboratory:'laboratory', bioinformatics:'bioinformatics' })[MODE.organisationType]
+  if (!domain) { toast('Access managed separately', 'Clinical Trials membership requires approved provisioning.', 'warn'); return }
+  const read = !!document.getElementById('admin-read-' + userId)?.checked
+  const write = !!document.getElementById('admin-write-' + userId)?.checked
+  const report = !!document.getElementById('admin-report-' + userId)?.checked
+  if ((write || report) && !read) {
+    toast('Invalid permissions', 'Read access is required before write or report access.', 'warn')
+    return
+  }
+  const sb = getSupabase()
+  if (!sb) return
+  const { error } = await sb.rpc('jlight_set_member_domain_permission', {
+    p_organization_id: MODE.organisationId,
+    p_auth_subject: userId,
+    p_domain: domain,
+    p_can_read: read,
+    p_can_write: write,
+    p_can_report: report
+  })
+  if (error) { toast('Access update failed', error.message, 'crit'); return }
+  await audit('Member domain permissions updated', domain + ' access changed for ' + userId)
+  toast('Access updated', 'Member permissions were saved.', 'good')
+  renderAdminCenter()
+}
+
+async function clearLocalWorkspaceCache() {
+  if (!requirePermission('admin', 'Clear local workspace cache')) return
+  if (!confirm('Clear this browser\'s cached copy of the current organisation data? Cloud records will not be deleted and will be downloaded again.')) return
+  const keys = [
+    'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
+    'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
+    'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
+    'jl_v10_bio_runs','jl_v10_bio_accessions','jl_v10_bio_qc','jl_v10_bio_amr',
+    'jl_v10_consents','jl_v10_deviations','jl_v10_samples','jl_v10_report_archive'
+  ]
+  keys.forEach(key => localStorage.removeItem(jlightStorageKey(key)))
+  loadAllDomainData()
+  await loadDomainDataFromBackend()
+  await audit('Local workspace cache cleared', 'Cloud records retained; browser cache rehydrated from authorised domain records.')
+  toast('Local cache refreshed', 'Cloud records were retained.', 'good')
+  goPage('admin')
+}
+
+async function inviteAdminMember() {
+  if (!requirePermission('admin', 'Invite organisation member')) return
+  const email = (document.getElementById('admin-invite-email')?.value || '').trim().toLowerCase()
+  const accessRole = document.getElementById('admin-invite-role')?.value || ''
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    toast('Check email address', 'Enter a valid email address for an existing JLIGHT account.', 'warn')
+    return
+  }
+  const sb = getSupabase()
+  if (!sb) return
+  const { data, error } = await sb.rpc('jl_invite_org_member', {
+    p_email: email,
+    p_access_role: accessRole
+  })
+  if (error) { toast('Invitation not created', error.message, 'crit'); return }
+  await audit('Organisation invitation created', accessRole + ' invitation for ' + email)
+  toast('Invitation created', 'The user must verify their email and accept the organisation invitation before access is granted.', 'good')
+  renderAdminCenter()
+}
+
+async function renderAdminCenter() {
+  const page = $('page-admin')
+  if (!page) return
+  if (!MODE.isOnline || STATE.userProfile?.workspace_role !== 'admin') {
+    page.innerHTML = renderEmpty('Administrator access required', 'This area is restricted to your organisation administrator.', 'dashboard', '← Dashboard')
+    return
+  }
+  const metricsByPath = {
+    hospital: [
+      ['Patient records', STATE.patients.length], ['Admissions', STATE.admissions.length],
+      ['Clinical orders', STATE.clinicalOrders.length], ['Infection flags', STATE.infections.length],
+      ['Wards', STATE.wards.length]
+    ],
+    laboratory: [
+      ['Patient records', STATE.patients.length], ['Lab orders', STATE.labOrders.length],
+      ['Results', STATE.results.length], ['Samples', STATE.samples.length],
+      ['QC runs', STATE.qcRuns.length]
+    ],
+    bioinformatics: [
+      ['Patient records', STATE.patients.length], ['Analysis runs', STATE.bioRuns.length],
+      ['Accessions', (STATE.bioAccessions || []).length], ['QC checks', (STATE.bioQc || []).length],
+      ['AMR analyses', (STATE.bioAmr || []).length]
+    ],
+    clinical_trials: [
+      ['Protocols', STATE.protocols.length], ['Participants', STATE.participants.length],
+      ['Visits', STATE.visits.length], ['Adverse events', STATE.adverseEvents.length],
+      ['Protocol deviations', (STATE.deviations || []).length]
+    ]
+  }
+  const counts = metricsByPath[MODE.organisationType] || []
+  const access = await loadAdminDomainAccess()
+  const members = new Map()
+  access.rows.forEach(row => { if (!members.has(row.auth_subject)) members.set(row.auth_subject, row) })
+  const domain = ({ hospital:'Hospital', laboratory:'Laboratory', bioinformatics:'Bioinformatics' })[MODE.organisationType] || 'Clinical Trials'
+  const inviteRole = ({ hospital:'hospital', laboratory:'laboratory', bioinformatics:'bioinformatics', clinical_trials:'clinical_trial' })[MODE.organisationType]
+  const isTrialPath = MODE.organisationType === 'clinical_trials'
+  const memberRows = Array.from(members.values()).map(row => {
+    const memberName = '<strong>' + esc(row.display_name || row.email || 'Member') + '</strong><div style="font-size:11px;color:var(--text-3)">' + esc(row.email || '') + '</div>'
+    if (isTrialPath) {
+      return '<tr><td>' + memberName + '</td><td>' + esc(row.membership_role || '') + '</td><td>' + (row.membership_active ? 'Approved' : 'Invitation pending / inactive') + '</td></tr>'
+    }
+    return '<tr><td>' + memberName + '<div style="font-size:11px;color:var(--text-3)">' + esc(row.membership_role || '') + (row.membership_active ? '' : ' · inactive') + '</div></td>' +
+      '<td><input type="checkbox" id="admin-read-' + esc(row.auth_subject) + '" ' + (row.can_read ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><input type="checkbox" id="admin-write-' + esc(row.auth_subject) + '" ' + (row.can_write ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><input type="checkbox" id="admin-report-' + esc(row.auth_subject) + '" ' + (row.can_report ? 'checked' : '') + ' ' + (row.membership_role === 'owner' ? 'disabled' : '') + '></td>' +
+      '<td><button class="btn btn-sm" onclick="saveAdminDomainAccess(\'' + esc(row.auth_subject) + '\')" ' + (row.membership_role === 'owner' || !row.membership_active ? 'disabled' : '') + '>Save</button></td></tr>'
+  }).join('')
+  const memberTableHead = isTrialPath
+    ? '<tr><th>Member</th><th>Role</th><th>Membership status</th></tr>'
+    : '<tr><th>Member</th><th>Read</th><th>Write</th><th>Reports</th><th></th></tr>'
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">Admin Center</div><div class="page-sub">Organisation controls · storage · archives · member access</div></div><span class="permission-badge admin">Administrator</span></div>' +
+    '<div class="kpis">' + counts.map(item => '<div class="kpi"><div class="kpi-label">' + esc(item[0]) + '</div><div class="kpi-value">' + item[1] + '</div></div>').join('') + '</div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation path</div><div class="detail-row"><span class="detail-row-label">Organisation</span><span class="detail-row-value">' + esc(MODE.organisationName || '') + '</span></div><div class="detail-row"><span class="detail-row-label">System-assigned path</span><span class="detail-row-value">' + esc(domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Organisation code</span><span class="detail-row-value">' + esc(MODE.organisationCode || '—') + '</span></div><p class="form-help">This path is assigned during organisation provisioning. Members cannot enable another workspace from their profile.</p></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Invite a member</div><p class="form-help">Only an administrator can approve membership. The person must already have a verified JLIGHT email-code account; an organisation code alone does not grant access.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="form-input" id="admin-invite-email" type="email" placeholder="colleague@organisation.org" style="min-width:240px;flex:1"><select class="form-input" id="admin-invite-role"><option value="' + esc(inviteRole) + '">Standard ' + esc(domain) + ' member</option><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="org_admin">Organisation administrator</option></select><button class="btn btn-primary" onclick="inviteAdminMember()">Create invitation</button></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Member access · ' + esc(domain) + '</div><p class="form-help">Grant only the access each active member needs. Write and report permissions require read access.</p>' +
+    (access.error ? '<div class="auth-status error">' + esc(access.error) + '</div>' : '') +
+    '<div style="overflow:auto"><table class="data-table"><thead>' + memberTableHead + '</thead><tbody>' + memberRows + '</tbody></table></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Storage & data management</div><p class="form-help">JLIGHT stores structured records in the organisation-scoped database and keeps a local browser cache. There is no separate object-storage bucket configured in this workspace.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportWorkspace()">Export workspace data</button><button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button><button class="btn" onclick="clearLocalWorkspaceCache()">Clear local cache</button></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Report archive</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" onclick="renderAdminCenter()">Refresh archive</button></div><div id="admin-report-archive">' + renderReportArchiveHtml() + '</div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Security & audit</div><p class="form-help">Access changes and report deletions are recorded in the workspace audit trail. Patient-level access remains restricted by organisation and domain policies in the database.</p><button class="btn" onclick="goPage(\'audit\')">Open audit trail</button></div>'
+}
+
 function exportWorkspace() {
   const data = { workspace: STATE.role, user: STATE.user, exported: new Date().toISOString(), samples: STATE.samples, entries: STATE.entries, cards: STATE.cards, audit: STATE.audit }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -3617,20 +3809,6 @@ function exportWorkspace() {
   audit('Exported workspace', `${STATE.samples.length} samples · ${STATE.entries.length} entries · ${STATE.cards.length} cards`)
   toast('Exported', 'Workspace downloaded as JSON', 'good')
 }
-function clearWorkspace() {
-  if (!needPerm('admin','Clear workspace')) return
-  if (!confirm('Clear all data for this workspace? This cannot be undone.')) return
-  STATE.samples = []; STATE.entries = []; STATE.cards = []; STATE.audit = []
-  STORAGE.saveSamples(STATE.role, []); STORAGE.saveEntries(STATE.role, []); STORAGE.saveCards(STATE.role, []); STORAGE.saveAudit(STATE.role, [])
-  toast('Cleared', 'Workspace data removed', 'warn'); goPage('dashboard')
-}
-function resetPIN() {
-  if (!confirm('Reset your PIN? You will need to sign in and create a new one.')) return
-  STORAGE.removePinHash(STATE.role)
-  toast('PIN reset', 'Sign in again to create a new PIN', 'warn'); signOut()
-}
-
-
 function renderHandover() {
   if (STATE.role !== 'Laboratory') {
     $('page-handover').innerHTML = renderEmpty('Not available', 'Daily Handover is for Laboratory workspace only.', 'dashboard', '← Dashboard')
@@ -4842,6 +5020,7 @@ function copyOrgCode() {
 
 
 function renderReportArchiveHtml() {
+  const canDelete = MODE.isOnline && STATE.userProfile?.workspace_role === 'admin'
   const reports = (Array.isArray(STATE.reportArchive) ? STATE.reportArchive : [])
     .filter(r => !MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(r.orgId || '') === String(STATE.orgId))
     .slice().sort((a,b) => String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
@@ -4853,7 +5032,7 @@ function renderReportArchiveHtml() {
     '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
     '<button class="btn btn-sm" onclick="openArchivedReport(\'' + esc(r.id) + '\')">Open</button>' +
     '<button class="btn btn-sm" onclick="downloadArchivedReport(\'' + esc(r.id) + '\')">Download</button>' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' +
+    (canDelete ? '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedReport(\'' + esc(r.id) + '\')">Delete</button>' : '') +
     '</div></div>'
   ).join('') + '</div>'
 }
@@ -4882,7 +5061,7 @@ function downloadArchivedReport(id) {
   audit('Archived report downloaded', report.id)
 }
 async function deleteArchivedReport(id) {
-  if (!requirePermission('supervisor', 'Delete archived report')) return
+  if (!requirePermission('admin', 'Delete archived report')) return
   const report = findArchivedReport(id)
   if (!report) { toast('Report not found', 'Refresh the archive and try again.', 'warn'); return }
   if (!confirm('Delete this archived report? This cannot be undone. Download a copy first if it must be retained.')) return
@@ -5024,7 +5203,8 @@ const JLIGHT_ORG_SCOPED_KEYS = new Set([
   'jl_v10_patients','jl_v10_lab_orders','jl_v10_lab_results','jl_v10_qc_runs',
   'jl_v10_protocols','jl_v10_participants','jl_v10_visits','jl_v10_ae',
   'jl_v10_admissions','jl_v10_wards','jl_v10_clinical_orders','jl_v10_infections',
-  'jl_v10_bio_runs','jl_v10_samples','jl_v10_report_archive'
+  'jl_v10_bio_runs','jl_v10_bio_accessions','jl_v10_bio_qc','jl_v10_bio_amr',
+  'jl_v10_consents','jl_v10_deviations','jl_v10_samples','jl_v10_report_archive'
 ])
 function jlightStorageKey(key) {
   if (JLIGHT_ORG_SCOPED_KEYS.has(key) && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
@@ -5054,13 +5234,43 @@ function lsSet(key, val) {
     [QC_KEY]: 'qcRuns', [PROTOCOL_KEY]: 'protocols', [PARTIC_KEY]: 'participants',
     [VISITS_KEY]: 'visits', [AE_KEY]: 'adverseEvents', [ADMIT_KEY]: 'admissions',
     [WARD_KEY]: 'wards', [CORD_KEY]: 'clinicalOrders', [INF_KEY]: 'infections',
-    [BIORUN_KEY]: 'bioRuns', 'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
+    [BIORUN_KEY]: 'bioRuns', 'jl_v10_bio_accessions': 'bioAccessions',
+    'jl_v10_bio_qc': 'bioQc', 'jl_v10_bio_amr': 'bioAmr',
+    'jl_v10_consents': 'consents', 'jl_v10_deviations': 'deviations',
+    'jl_v10_samples': 'samples', [REPORT_KEY]: 'reports'
   }
   const domain = domainByKey[key]
   if (domain && Array.isArray(val) && typeof syncDomainToBackend === 'function'
       && MODE.isOnline && STATE.orgId && STATE.orgId !== 'default') {
     void syncDomainToBackend(domain, val)
   }
+}
+
+function enforceLocalPathCache() {
+  if (!MODE.isOnline || !MODE.organisationType) return
+  const allowedByPath = {
+    hospital: new Set(['patients','admissions','wards','clinicalOrders','infections','reports']),
+    laboratory: new Set(['patients','labOrders','results','qcRuns','samples','reports']),
+    bioinformatics: new Set(['patients','bioRuns','bioAccessions','bioQc','bioAmr','reports']),
+    clinical_trials: new Set(['protocols','participants','visits','adverseEvents','consents','deviations','reports'])
+  }
+  const allowed = allowedByPath[MODE.organisationType]
+  if (!allowed) throw new Error('No authorised local data path is configured.')
+  const keys = {
+    patients:PATIENT_KEY, labOrders:ORDERS_KEY, results:RESULTS_KEY, qcRuns:QC_KEY,
+    protocols:PROTOCOL_KEY, participants:PARTIC_KEY, visits:VISITS_KEY,
+    adverseEvents:AE_KEY, admissions:ADMIT_KEY, wards:WARD_KEY,
+    clinicalOrders:CORD_KEY, infections:INF_KEY, bioRuns:BIORUN_KEY,
+    bioAccessions:'jl_v10_bio_accessions', bioQc:'jl_v10_bio_qc',
+    bioAmr:'jl_v10_bio_amr', consents:'jl_v10_consents',
+    deviations:'jl_v10_deviations', samples:'jl_v10_samples', reports:REPORT_KEY
+  }
+  for (const [domain,key] of Object.entries(keys)) {
+    if (allowed.has(domain)) continue
+    localStorage.removeItem(jlightStorageKey(key))
+    if (Array.isArray(STATE[domain])) STATE[domain] = []
+  }
+  if (!allowed.has('reports')) STATE.reportArchive = []
 }
 
 function loadAllDomainData() {
@@ -5077,6 +5287,11 @@ function loadAllDomainData() {
   STATE.clinicalOrders = lsGet(CORD_KEY)
   STATE.infections    = lsGet(INF_KEY)
   STATE.bioRuns       = lsGet(BIORUN_KEY)
+  STATE.bioAccessions = lsGet('jl_v10_bio_accessions')
+  STATE.bioQc         = lsGet('jl_v10_bio_qc')
+  STATE.bioAmr        = lsGet('jl_v10_bio_amr')
+  STATE.consents      = lsGet('jl_v10_consents')
+  STATE.deviations    = lsGet('jl_v10_deviations')
   STATE.reportArchive = lsGet(REPORT_KEY)
   // Legacy compat
   STATE.samples       = lsGet('jl_v10_samples')
@@ -5430,19 +5645,30 @@ async function loadDomainDataFromBackend() {
     if (sessionError) throw sessionError
     if (!session) return { ok: false, reason: 'unauthenticated' }
     if (!STATE.orgId || STATE.orgId === 'default') return { ok: false, reason: 'no_workspace' }
+    const allowedDomainsByPath = {
+      hospital: ['patients', 'admissions', 'wards', 'clinicalOrders', 'infections', 'reports'],
+      laboratory: ['patients', 'labOrders', 'results', 'qcRuns', 'samples', 'reports'],
+      bioinformatics: ['patients', 'bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
+      clinical_trials: ['protocols', 'participants', 'visits', 'adverseEvents', 'consents', 'deviations', 'reports']
+    }
+    const allowedDomains = allowedDomainsByPath[MODE.organisationType]
+    if (!allowedDomains) throw new Error('No verified organisation path is available for data loading.')
     const { data, error } = await sb.from('jl_entries')
       .select('jl_id, domain, payload, ts')
       .eq('org_id', STATE.orgId)
-      .not('domain', 'is', null)
+      .in('domain', allowedDomains)
       .order('ts', { ascending: false })
-      .limit(5000)
+      .limit(1500)
     if (error) throw error
     const keys = {
       patients: PATIENT_KEY, labOrders: ORDERS_KEY, results: RESULTS_KEY,
       qcRuns: QC_KEY, protocols: PROTOCOL_KEY, participants: PARTIC_KEY,
       visits: VISITS_KEY, adverseEvents: AE_KEY, admissions: ADMIT_KEY,
       wards: WARD_KEY, clinicalOrders: CORD_KEY, infections: INF_KEY,
-      bioRuns: BIORUN_KEY, samples: 'jl_v10_samples', reports: REPORT_KEY
+      bioRuns: BIORUN_KEY, bioAccessions: 'jl_v10_bio_accessions',
+      bioQc: 'jl_v10_bio_qc', bioAmr: 'jl_v10_bio_amr',
+      consents: 'jl_v10_consents', deviations: 'jl_v10_deviations',
+      samples: 'jl_v10_samples', reports: REPORT_KEY
     }
     const merged = {}
     for (const [domain, key] of Object.entries(keys)) {
@@ -5465,6 +5691,8 @@ async function loadDomainDataFromBackend() {
         protocols:'protocols', participants:'participants', visits:'visits',
         adverseEvents:'adverseEvents', admissions:'admissions', wards:'wards',
         clinicalOrders:'clinicalOrders', infections:'infections', bioRuns:'bioRuns',
+        bioAccessions:'bioAccessions', bioQc:'bioQc', bioAmr:'bioAmr',
+        consents:'consents', deviations:'deviations',
         samples:'samples', reports:'reportArchive'
       })[domain]
       if (stateKey) STATE[stateKey] = records
