@@ -274,7 +274,11 @@ def api_intelligence_summary():
     app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
     permissions = claims.get("permissions")
     if permissions is None:
-        permissions = app_metadata.get("permissions", [])
+        permissions = app_metadata.get("permissions")
+    if permissions is None:
+        # The database scope check above is authoritative; absent custom JWT
+        # permission claims inherit only the read capability just verified.
+        permissions = ["intelligence:read"]
     if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
         return jsonify({"success": False, "error": "Verified permissions required"}), 403
     if "intelligence:read" not in permissions:
