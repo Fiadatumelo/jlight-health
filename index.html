@@ -2020,7 +2020,11 @@ async function requestJlightIntelligenceSummary(patient, events) {
   try {
     const response = await fetch(baseUrl + '/api/intelligence/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'X-JLIGHT-Workspace': ({Hospital:'hospital',Laboratory:'laboratory',Bioinformatics:'bioinformatics'})[STATE.role] || ''
+      },
       body: JSON.stringify({ journey_checks: checks })
     });
     const body = await response.json().catch(() => ({}));
@@ -2084,7 +2088,11 @@ async function requestJlightClinicalTrialsSummary(checks) {
   try {
     const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'X-JLIGHT-Workspace': 'clinical_trials'
+      },
       body: JSON.stringify({ clinical_trials_checks: checks })
     });
     const body = await response.json().catch(() => ({}));
