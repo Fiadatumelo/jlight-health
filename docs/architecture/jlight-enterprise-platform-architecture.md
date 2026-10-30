@@ -171,3 +171,30 @@ Clinical-trial recruitment and data use must follow protocol, ethics approval, l
 This architecture preserves the proposal's central design: existing LIS, HIS, CTMS, LIMS, HL7/FHIR, genomics and other permitted inputs feed the JLIGHT Intelligence Layer; proposal-aligned engines evaluate operational and scientific records; and Decision Cards deliver focused, traceable intelligence to authorised users. It also preserves the proposal's Patient Journey and trial intelligence while making the hospital-to-trial recruitment pathway explicit and governed.
 
 The proposal's five-minute/real-time language is treated as a deployment target conditional on actual connector availability, not as a claim that every site already has live integration. The platform must accurately distinguish implemented, configured, simulated and planned capabilities.
+
+
+## Implementation status — 30 October 2026
+
+This section distinguishes committed and staging-applied implementation from planned capabilities. The architecture above is the approved product direction; a documented capability is not considered operational until the implementation and release tests verify it.
+
+### Implemented on the staging release candidate
+
+- Organisation-scoped multi-pathway workspace and member permission model; passwordless email-code identity verification remains separate from organisation membership and pathway authorization.
+- Canonical study-scoped Clinical Trials participant records, append-only participant events, explicit screening outcomes, consent evidence references and enrolment gating.
+- Governed Hospital-to-Clinical-Trial referral hand-off with a restricted candidate summary, private Hospital-patient identity map, referral audit events and separate Trial-side participant identity.
+- Independent platform-admin ethics/recruitment approval queue; active study activation and legacy protocol mapping are controlled database operations.
+- Explicit, manually reviewed historical participant linking; legacy timeline events are exposed through a permission-checked de-identified timeline function.
+- Separate Clinical Trial Participant Timeline and Hospital Trial Recruitment workflows; Clinical Trials is no longer represented as part of the routine Patient Journey.
+- Clinical Trials JC checks are derived server-side from canonical database records. Browser-supplied evidence counts are rejected. Findings include bounded opaque timeline-event references and versioned rule identifiers; absent evidence is represented as unknown.
+- Direct browser writes to canonical Trial participants, Trial events, referrals and study lifecycle records are revoked; scoped database functions perform lifecycle mutations.
+
+### Not yet release-verified or not yet implemented
+
+- Browser end-to-end testing of the full registration → Hospital referral → Trial screening → consent → enrolment → participant timeline workflow.
+- Production migration, production deployment and PR merge. Production remains untouched.
+- Automated protocol-criteria matching and AI-assisted recruitment prioritisation. Human research-team screening remains mandatory.
+- A validated machine-learning model registry, training/validation datasets, calibration, drift monitoring and prospective performance evidence.
+- Full high-volume ingestion worker deployment, queue operations, replay/dead-letter monitoring and measured load/restore testing.
+- Production-grade direct integrations to LIS/HIS/LIMS/CTMS or live instrument feeds. Do not claim these integrations unless separately implemented and verified.
+
+No implementation in this section authorises autonomous diagnosis, treatment, eligibility adjudication, enrolment, patient contact, specimen processing or instrument control.
