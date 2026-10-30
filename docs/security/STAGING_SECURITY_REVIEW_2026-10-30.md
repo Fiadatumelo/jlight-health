@@ -38,6 +38,7 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030173550` | Serialize first-time registration to prevent concurrent duplicate organisations |
 | `20261030173917` | Pin trigger search paths and require verified auth in the legacy registration wrapper |
 | `20261030173943` | Prevent Platform Admin self-review and own-organisation review |
+| `20261030174607` | Enforce Clinical Trials-specific membership in multi-path organisations; require Laboratory entitlement in legacy Lab code resolution |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
@@ -62,6 +63,8 @@ All fixtures used synthetic accounts and were rolled back; no real patient or pa
 6. Invited a synthetic member to Bioinformatics. After email-code identity and invitation acceptance, the member could access Bioinformatics only; Hospital and Clinical Trials remained denied.
 7. Changed the member's Bioinformatics grant to read-only. Read remained allowed and write/report were denied.
 8. Confirmed the organisation-admin domain-access listing and permission update RPCs work against a multi-path organisation.
+9. Confirmed a Bioinformatics-only member in an organisation that also has Clinical Trials sees Bioinformatics only, cannot read Clinical Trials, and is not included in the Clinical Trials member listing.
+10. Confirmed an organisation with the legacy Laboratory role placeholder but no active Laboratory entitlement cannot be resolved as a Laboratory organisation.
 
 These are targeted database tests. They do not establish that every RLS policy, API route, browser interaction, or authenticated SECURITY DEFINER function is secure.
 
@@ -75,7 +78,7 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
 - Frontend inline JavaScript syntax check: passed.
 - GitHub `regression` and `authenticated-rls` workflows: queued/pending at the time of this review.
-- Netlify deploy preview: processing the latest PR commit.
+- Netlify deploy preview: the latest deploy check failed before a preview was confirmed. Netlify's check points to https://app.netlify.com/projects/jlight-health/deploys/6ae4d6d97d870227ffc38e14; the deployment log is not accessible through the repository connection, so the cause is not yet established.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
 
 ## Remaining release gates
