@@ -14,8 +14,18 @@ for role in ("Laboratory", "Hospital", "Bioinformatics", "Trial"):
     require(f'data-path="{role}"' in html, f"Missing path selector for {role}")
 require("sessionStorage.removeItem('jl_selected_path')" in html,
         "A fresh app load must require a fresh path choice")
-require("Choose a JLIGHT path before signing in" in html,
-        "Sign-in must require an explicit path choice")
+require("Select one or more pathways for this organisation" in html and
+        "Select one or more pathways for initial organisation registration" in html,
+        "Initial registration must allow one or multiple pathway selections")
+require('selectedPaths.map(x => ({Laboratory:"laboratory",Hospital:"hospital",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[x])' in html,
+        "Initial registration must submit every selected pathway to the server")
+require("await loadVerifiedOrganisationPath(user, selectedPath)" in html and
+        "Your organisation or member account is not authorised for the selected workspace." in html,
+        "Returning users must have the selected pathway verified against server entitlements")
+require("Choose one of your approved workspaces to continue." in html,
+        "Multi-workspace accounts must choose an approved workspace after sign-in")
+require("Choose a JLIGHT path before signing in" not in html,
+        "Obsolete single-path sign-in requirement must not return")
 
 # Shared patient journey and patient-scoped report outputs.
 require('id="page-journey"' in html, "Patient Journey page container missing")
