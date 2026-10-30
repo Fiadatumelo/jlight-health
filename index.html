@@ -493,6 +493,16 @@ body{background:linear-gradient(145deg,#f6f8fd,#edf4ff 55%,#f7f3ff);color:var(--
 .source-import-card{margin-top:20px;padding:20px;background:#fff;border:1px solid #dfe7f4;border-radius:16px;box-shadow:0 6px 22px rgba(28,43,72,.04)}
 .source-import-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px}.source-import-tag{padding:6px 9px;border-radius:999px;background:#e8f1ff;color:#285bc5;font-size:10px;font-weight:800;white-space:nowrap}.source-import-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.source-import-full{grid-column:1/-1}.source-import-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.source-import-help{color:#64718a;font-size:12px;line-height:1.6}.source-import-preview{margin-top:16px}.source-import-result{padding:14px;border-radius:12px;border:1px solid #dfe7f4;background:#f8fbff}.source-import-result strong{font-size:13px;color:#182338}.source-import-result p{margin-top:6px;font-size:12px;line-height:1.6;color:#526078}.source-import-result.success{background:#eefaf4;border-color:#ccebd9}.source-import-result.error{background:#fff1f3;border-color:#f2cbd3}.source-import-table-wrap{overflow:auto;margin-top:12px}.source-import-table-wrap table{min-width:480px}@media(max-width:700px){.source-import-card{padding:14px}.source-import-grid{grid-template-columns:1fr}.source-import-full{grid-column:1}}
 
+.tb-tabs{display:flex;gap:7px;flex-wrap:wrap;margin:4px 0 16px;padding:6px;background:#f1f5fc;border:1px solid #e2e9f4;border-radius:13px}
+.tb-tab{border:1px solid transparent;background:transparent;color:#526078;border-radius:9px;padding:9px 13px;font-size:12px;font-weight:700;cursor:pointer}
+.tb-tab.active{background:#fff;color:#285bc5;border-color:#dbe5f4;box-shadow:0 2px 8px rgba(28,43,72,.06)}
+.tb-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:16px}
+.tb-panel-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.tb-bar-row{display:grid;grid-template-columns:minmax(110px,1fr) minmax(80px,2fr) 28px;gap:10px;align-items:center;margin:13px 0;font-size:12px;color:var(--text-2)}
+.tb-bar{height:9px;border-radius:99px;background:#edf1f8;overflow:hidden}.tb-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#087f8c,#397fe3,#8f6ce0)}
+.tb-lineage-list{display:flex;gap:8px;flex-wrap:wrap}.tb-chip{padding:7px 10px;border-radius:999px;background:#f0e9ff;color:#7044b8;font-size:11px;font-weight:700}
+.tb-table-wrap{overflow:auto}.tb-table-wrap table{min-width:680px}.tb-table-wrap td,.tb-table-wrap th{white-space:nowrap}
+@media(max-width:700px){.tb-tab{padding:8px 9px;font-size:11px}.tb-bar-row{grid-template-columns:100px 1fr 24px}}
 /* JLIGHT brand refinement: vivid but restrained, with a near-microscopic rose signature */
 .auth-screen{background:radial-gradient(ellipse at 8% 8%,rgba(40,198,220,.13),transparent 31%),radial-gradient(ellipse at 94% 10%,rgba(255,185,72,.14),transparent 27%),radial-gradient(ellipse at 8% 92%,rgba(170,103,255,.12),transparent 30%),radial-gradient(ellipse at 95% 92%,rgba(44,220,192,.12),transparent 28%),linear-gradient(135deg,#f8fbff 0%,#f4f7ff 55%,#fbfcff 100%)}
 .auth-bg-grid{background-image:linear-gradient(rgba(71,118,225,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(71,118,225,.035) 1px,transparent 1px);background-size:72px 72px}
@@ -966,6 +976,7 @@ const ROLES = {
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'journey',    label: 'Patient Journey',     icon: '↗' },
       { key: 'jc',          label: 'JC Agent',             icon: '✦' },
+      { key: 'tb',         label: 'TB Intelligence',     icon: 'TB' },
       { key: 'register',   label: 'Review Imported Data', icon: '+' },
       { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
       { key: 'analytics',  label: 'Analytics',            icon: '◊' },
@@ -1707,6 +1718,7 @@ function goPage(page) {
   const titles = {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey', 'trial-timeline': 'Clinical Trial Participant Timeline', 'trial-referrals': 'Hospital Trial Recruitment',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
+    tb: 'Tuberculosis Intelligence',
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
     audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center', 'platform-admin': 'Platform Administration',
   }
@@ -1717,6 +1729,7 @@ function goPage(page) {
     case 'cards':     renderCards(); break
     case 'detail':    renderDetail(); break
     case 'register':  renderRegister(); break
+    case 'tb':        renderBioinformaticsTB(); break
     case 'predictive': renderPredictive(); break
     case 'handover': renderHandover(); break
     case 'analytics': renderAnalytics(); break
@@ -2582,13 +2595,158 @@ function renderRegister() {
   if (STATE.role === 'Hospital')   return renderHospitalRegister()
   if (STATE.role === 'Bioinformatics') return renderBioinformaticsReview()
 }
+let TB_PROFILER_IMPORT_PREVIEW = null
+let TB_PROFILER_IMPORT_NAME = ''
+
 function renderBioinformaticsReview() {
   const page = document.getElementById('page-register')
   if (!page) return
-  const runs = STATE.bioRuns || []
-  page.innerHTML = '<div class="page-head"><div><div class="page-title">Review Imported Bioinformatics Data</div><div class="page-sub">JLIGHT analyses supplied outputs; it does not run sequencing or wet-lab pipelines.</div></div></div>' +
-    '<div class="kpis"><div class="kpi"><div class="kpi-label">Imported Analysis Outputs</div><div class="kpi-value">' + runs.length + '</div><div class="kpi-trend">Records currently loaded</div></div><div class="kpi"><div class="kpi-label">Open Decisions</div><div class="kpi-value">' + (STATE.cards || []).filter(c => !c.acknowledged).length + '</div><div class="kpi-trend">Signals for professional review</div></div></div>' +
-    '<div class="form-card"><p style="color:var(--text-2);line-height:1.7">Connect a validated source or approved export to review existing analysis outputs. Imports require documented field mapping, access controls, patient-ID matching, error handling and auditability. JLIGHT does not sequence samples or perform wet-lab processing.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button><button class="btn" onclick="goPage(\'journey\')">View Patient Journey</button><button class="btn" onclick="goPage(\'cards\')">Review Decision Cards</button></div></div>'
+  const runs = (STATE.bioRuns || []).filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler')
+  page.innerHTML = '<div class="page-head"><div><div class="page-title">Bioinformatics Data Intake</div><div class="page-sub">Validated external analysis outputs only. JLIGHT does not process raw reads or call variants.</div></div><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence →</button></div>' +
+    '<div class="kpis"><div class="kpi"><div class="kpi-label">TB Profiles</div><div class="kpi-value">' + runs.length + '</div><div class="kpi-trend">Imported TBProfiler results</div></div><div class="kpi"><div class="kpi-label">Open Decisions</div><div class="kpi-value">' + (STATE.cards || []).filter(c => !c.acknowledged).length + '</div><div class="kpi-trend">For professional review</div></div></div>' +
+    '<div class="form-card"><h3>Import TBProfiler result JSON</h3><p class="form-help">Select a completed .results.json file. JLIGHT extracts resistance classification, lineage, variant evidence, QC and pipeline/database provenance. FASTQ/FASTA and BAM files are not accepted. Sample identifiers are not automatically linked to patients.</p><div class="form-row" style="margin-top:14px"><label class="form-label" for="tb-profiler-json">TBProfiler JSON result</label><input class="form-input" id="tb-profiler-json" type="file" accept=".json,application/json" onchange="handleTBProfilerJsonFile(event)"/></div><div id="tb-profiler-preview" class="source-import-preview"><p class="form-help">Preview validates structure without saving.</p></div><button class="btn btn-primary" id="tb-profiler-import" onclick="commitTBProfilerJson()" disabled>Import validated TB profile</button></div>' +
+    '<div class="form-card"><h3>Imported TBProfiler profiles · ' + runs.length + '</h3>' + (runs.length ? '<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Resistance class</th><th>Lineage</th><th>QC</th><th>Pipeline</th></tr></thead><tbody>' + runs.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.drtype||'Not reported')+'</td><td>'+esc(r.mainLineage||'Not reported')+'</td><td>'+esc(r.tbProfiler?.qc?.status||r.qualityStatus||'Not reported')+'</td><td>'+esc(r.pipelineVersion||'Not supplied')+'</td></tr>').join('') + '</tbody></table></div>' : '<div class="empty">No TBProfiler outputs imported yet.</div>') + '</div>'
+}
+
+function normaliseTBProfilerResult(source) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) throw new Error('Each result must be a TBProfiler JSON object.')
+  const sampleId = String(source.id || source.sample_id || '').trim()
+  if (!sampleId) throw new Error('TBProfiler result is missing its sample id.')
+  const pipeline = source.pipeline && typeof source.pipeline === 'object' ? source.pipeline : {}
+  const qc = source.qc && typeof source.qc === 'object' ? source.qc : {}
+  const drVariants = Array.isArray(source.dr_variants) ? source.dr_variants : []
+  const otherVariants = Array.isArray(source.other_variants) ? source.other_variants : []
+  const mainLineage = String(source.main_lineage || '')
+  const subLineage = String(source.sub_lineage || '')
+  const drtype = String(source.drtype || source.dr_type || '')
+  if (!drtype && !mainLineage && !drVariants.length && !Object.keys(qc).length) throw new Error('JSON does not contain recognisable TBProfiler resistance, lineage or QC output.')
+  const annotations = drVariants.flatMap(v => {
+    const list = Array.isArray(v.annotation) ? v.annotation : (v.annotation ? [v.annotation] : [])
+    return list.map(a => ({gene:String(v.gene_name||v.gene_id||v.locus_tag||''),mutation:String(v.protein_change||v.nucleotide_change||v.type||''),drug:String(a.drug||''),confidence:String(a.confidence||''),source:String(a.source||''),comment:String(a.comment||''),depth:v.depth??null,frequency:v.freq??null}))
+  })
+  const version = String(pipeline.version || pipeline.tbprofiler_version || source.tbprofiler_version || '')
+  const databaseVersion = String(pipeline.db_version || pipeline.database_version || source.db_version || '')
+  const timestamp = String(source.timestamp || source.created_at || new Date().toISOString())
+  return {
+    id:'tbprofiler:'+sampleId, sourceRecordId:sampleId, sampleId,
+    pathogen:'Mycobacterium tuberculosis complex', analysisType:'TBProfiler',
+    outputType:'TBProfiler result JSON', status:'completed',
+    qualityStatus:String(qc.status || qc.qc_status || 'QC status not supplied'),
+    drtype:drtype || 'Not reported', mainLineage:mainLineage || 'Not reported',
+    subLineage:subLineage || 'Not reported', lineage:Array.isArray(source.lineage)?source.lineage:[],
+    spoligotype:String(source.spoligotype||''), pipelineName:String(pipeline.name||pipeline.software||'TBProfiler'),
+    pipelineVersion:version||'Not supplied', databaseVersion:databaseVersion||'Not supplied',
+    createdAt:timestamp, ts:Date.parse(timestamp)||Date.now(), sourceSystem:'TBProfiler',
+    tbProfiler:{
+      schemaVersion:String(source.schema_version||''),
+      pipeline:{name:String(pipeline.name||pipeline.software||'TBProfiler'),version,databaseVersion},
+      qc:{status:String(qc.status||qc.qc_status||''),medianDepth:qc.median_depth??null,pctReadsMapped:qc.pct_reads_mapped??null,numReads:qc.num_reads??null,meanDepth:qc.mean_depth??null},
+      resistanceEvidence:annotations, drVariants:drVariants.slice(0,2000),
+      otherVariants:otherVariants.slice(0,2000),
+      qcFailVariants:Array.isArray(source.qc_fail_variants)?source.qc_fail_variants.slice(0,500):[],
+      notes:Array.isArray(source.notes)?source.notes.slice(0,100).map(String):[]
+    },
+    provenance:{format:'TBProfiler .results.json',sourceSampleId:sampleId,importedAt:new Date().toISOString(),patientLinkStatus:'not linked'}
+  }
+}
+
+function handleTBProfilerJsonFile(event) {
+  const file = event && event.target && event.target.files ? event.target.files[0] : null
+  if (!file) return
+  TB_PROFILER_IMPORT_PREVIEW = null
+  TB_PROFILER_IMPORT_NAME = file.name || 'TBProfiler JSON'
+  const button = document.getElementById('tb-profiler-import')
+  const preview = document.getElementById('tb-profiler-preview')
+  if (button) button.disabled = true
+  if (file.size > 10 * 1024 * 1024) { if(preview)preview.innerHTML='<div class="source-import-result error"><strong>File too large</strong><p>Maximum JSON size is 10 MB.</p></div>'; return }
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(String(reader.result||''))
+      const list = Array.isArray(parsed) ? parsed : [parsed]
+      if (!list.length || list.length > 100) throw new Error('Import between 1 and 100 sample results per file.')
+      const records = list.map(normaliseTBProfilerResult)
+      if (new Set(records.map(r=>r.id)).size !== records.length) throw new Error('Duplicate sample IDs occur within this file.')
+      TB_PROFILER_IMPORT_PREVIEW = records
+      if(button)button.disabled=false
+      if(preview)preview.innerHTML='<div class="source-import-result success"><strong>TBProfiler output validated</strong><p>'+records.length+' sample(s) · '+records.reduce((n,r)=>n+r.tbProfiler.drVariants.length,0)+' resistance-associated variants · '+records.reduce((n,r)=>n+r.tbProfiler.otherVariants.length,0)+' other variants.</p><p>Pipeline '+esc(records[0].pipelineVersion)+' · database '+esc(records[0].databaseVersion)+'. No records saved yet; sample IDs are not patient IDs.</p></div>'
+    } catch(e) { TB_PROFILER_IMPORT_PREVIEW=null; if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Validation failed</strong><p>'+esc(e.message||'Invalid JSON.')+'</p></div>' }
+  }
+  reader.onerror=()=>{TB_PROFILER_IMPORT_PREVIEW=null;if(preview)preview.innerHTML='<div class="source-import-result error"><strong>File read failed</strong></div>'}
+  reader.readAsText(file)
+}
+
+async function commitTBProfilerJson() {
+  const records=TB_PROFILER_IMPORT_PREVIEW
+  const preview=document.getElementById('tb-profiler-preview')
+  if(!records||!records.length){toast('Preview first','Validate a TBProfiler JSON file before importing.','warn');return}
+  if(!requirePermission('write','Import TBProfiler result'))return
+  const current=STATE.bioRuns||[],existing=new Set(current.map(r=>String(r.id)))
+  const imported=records.filter(r=>!existing.has(String(r.id))).map(r=>({...r,orgId:STATE.orgId,role:STATE.role,sourceFile:TB_PROFILER_IMPORT_NAME}))
+  if(!imported.length){if(preview)preview.innerHTML='<div class="source-import-result error"><strong>No new profiles</strong><p>All sample IDs already exist in this workspace.</p></div>';return}
+  const next=current.concat(imported)
+  try{localStorage.setItem(jlightStorageKey(BIORUN_KEY),JSON.stringify(next.slice(-2000)))}catch(e){toast('Local save failed','No records were imported.','crit');return}
+  STATE.bioRuns=next
+  let sync={ok:false,reason:'offline'}
+  if(MODE.isOnline)sync=await syncDomainToBackend('bioRuns',imported)
+  if(MODE.isOnline&&!sync.ok){
+    window._tbProfilerPendingSync=imported
+    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>Local cache saved; retry cloud sync before relying on the server copy.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
+    return
+  }
+  await audit('TBProfiler result imported',imported.length+' profile(s); '+TB_PROFILER_IMPORT_NAME+'; no patient identity linked.')
+  TB_PROFILER_IMPORT_PREVIEW=null
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>'+imported.length+' TB profile(s) imported</strong><p>Workspace sync confirmed. Open TB Intelligence to review compartments.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+  const button=document.getElementById('tb-profiler-import');if(button)button.disabled=true
+  renderDashboard()
+  toast('TB profiles imported','External TBProfiler outputs imported; no sequence analysis or patient matching performed.','good')
+}
+
+async function retryTBProfilerCloudSync() {
+  const pending=window._tbProfilerPendingSync||[]
+  if(!pending.length||!MODE.isOnline){toast('No pending TB sync','No pending online import batch.','warn');return}
+  const result=await syncDomainToBackend('bioRuns',pending)
+  if(!result.ok){toast('Cloud sync failed',result.reason||'Check connectivity.','crit');return}
+  window._tbProfilerPendingSync=null
+  await audit('TBProfiler cloud sync retried',pending.length+' profile(s) synchronised.')
+  const preview=document.getElementById('tb-profiler-preview')
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Cloud sync confirmed</strong><p>'+pending.length+' profile(s) synchronised.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+}
+
+function renderBioinformaticsTB() {
+  const page=document.getElementById('page-tb')
+  if(!page)return
+  const all=(STATE.bioRuns||[]).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler')
+  const tab=STATE.bioTbTab||'overview'
+  const tabs=[['overview','Overview'],['resistance','Drug resistance'],['lineage','Lineage'],['variants','Variant evidence'],['qc','QC & provenance']]
+  const tabbar='<div class="tb-tabs" role="tablist">'+tabs.map(x=>'<button class="tb-tab '+(tab===x[0]?'active':'')+'" role="tab" aria-selected="'+(tab===x[0]?'true':'false')+'" onclick="setBioinformaticsTBTab(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'</div>'
+  const resistant=all.filter(r=>r.drtype&&!/sensitive|not reported/i.test(r.drtype))
+  const variantCount=all.reduce((n,r)=>n+(r.tbProfiler?.drVariants?.length||0),0)
+  const qcFlags=all.filter(r=>/fail|review|low|flag/i.test(r.qualityStatus||''))
+  let body=''
+  if(tab==='overview'){
+    const classes=['Sensitive','RR-TB','MDR-TB','Pre-XDR-TB','XDR-TB','Other / unclassified']
+    const counts=classes.map(c=>({label:c,value:all.filter(r=>c==='Other / unclassified'?!classes.slice(0,-1).some(x=>(r.drtype||'').toLowerCase().includes(x.toLowerCase())):(r.drtype||'').toLowerCase().includes(c.toLowerCase())).length}))
+    const lineages=[...new Set(all.map(r=>r.mainLineage).filter(x=>x&&x!=='Not reported'))]
+    body='<div class="tb-kpi-grid"><div class="kpi"><div class="kpi-label">TB profiles</div><div class="kpi-value">'+all.length+'</div><div class="kpi-trend">Imported source outputs</div></div><div class="kpi"><div class="kpi-label">Non-susceptible classes</div><div class="kpi-value">'+resistant.length+'</div><div class="kpi-trend">As reported by TBProfiler</div></div><div class="kpi"><div class="kpi-label">Resistance variants</div><div class="kpi-value">'+variantCount+'</div><div class="kpi-trend">Source annotations</div></div><div class="kpi"><div class="kpi-label">QC flags</div><div class="kpi-value">'+qcFlags.length+'</div><div class="kpi-trend">Source QC labels</div></div></div><div class="tb-panel-grid"><section class="form-card"><h3>Resistance classification</h3>'+(all.length?counts.map(c=>'<div class="tb-bar-row"><span>'+esc(c.label)+'</span><div class="tb-bar"><i style="width:'+Math.round(c.value/Math.max(all.length,1)*100)+'%"></i></div><b>'+c.value+'</b></div>').join(''):'<div class="empty">No TB profiles imported.</div>')+'</section><section class="form-card"><h3>Lineage coverage</h3><div class="tb-lineage-list">'+(lineages.length?lineages.map(x=>'<span class="tb-chip">'+esc(x)+'</span>').join(''):'<div class="empty">No lineage data supplied.</div>')+'</div><p class="form-help">Lineage is shown as reported by TBProfiler; JLIGHT does not independently call lineage.</p></section></div>'
+  }else if(tab==='resistance'){
+    body='<div class="form-card"><h3>Drug-resistance classification</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Reported class</th><th>Resistance variants</th><th>Pipeline</th></tr></thead><tbody>'+all.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.drtype||'Not reported')+'</td><td>'+(r.tbProfiler?.drVariants?.length||0)+'</td><td>'+esc(r.pipelineVersion||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No resistance profiles available.</div>')+'</div>'
+  }else if(tab==='lineage'){
+    const groups=Object.entries(all.reduce((a,r)=>{const k=(r.mainLineage||'Not reported')+(r.subLineage&&r.subLineage!=='Not reported'?' · '+r.subLineage:'');a[k]=(a[k]||0)+1;return a},{}))
+    body='<div class="form-card"><h3>Lineage and sub-lineage distribution</h3>'+(groups.length?groups.map(x=>'<div class="tb-bar-row"><span>'+esc(x[0])+'</span><div class="tb-bar"><i style="width:'+Math.round(x[1]/Math.max(all.length,1)*100)+'%"></i></div><b>'+x[1]+'</b></div>').join(''):'<div class="empty">No lineage assignments supplied.</div>')+'</div>'
+  }else if(tab==='variants'){
+    const variants=all.flatMap(r=>(r.tbProfiler?.drVariants||[]).map(v=>({sample:r.sampleId||r.id,variant:v})))
+    body='<div class="form-card"><h3>Resistance-associated variant evidence · '+variants.length+'</h3>'+(variants.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Gene</th><th>Variant</th><th>Drug</th><th>Confidence</th><th>Depth</th><th>Frequency</th></tr></thead><tbody>'+variants.slice(0,500).map(x=>{const v=x.variant,a=Array.isArray(v.annotation)?v.annotation[0]:(v.annotation||{});return '<tr><td>'+esc(x.sample)+'</td><td>'+esc(v.gene_name||v.gene_id||'—')+'</td><td>'+esc(v.protein_change||v.nucleotide_change||v.type||'—')+'</td><td>'+esc(a.drug||a.comment||'—')+'</td><td>'+esc(a.confidence||'—')+'</td><td>'+esc(v.depth??'—')+'</td><td>'+esc(v.freq??'—')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">No resistance-associated variants reported.</div>')+'<p class="form-help">Source annotations require professional review and comparison with phenotypic DST where available.</p></div>'
+  }else{
+    body='<div class="form-card"><h3>QC and pipeline provenance</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>QC</th><th>Median depth</th><th>Reads mapped (%)</th><th>TBProfiler</th><th>TBDB</th><th>Imported</th></tr></thead><tbody>'+all.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.tbProfiler?.qc?.status||r.qualityStatus||'Not supplied')+'</td><td>'+esc(r.tbProfiler?.qc?.medianDepth??'—')+'</td><td>'+esc(r.tbProfiler?.qc?.pctReadsMapped??'—')+'</td><td>'+esc(r.pipelineVersion||'—')+'</td><td>'+esc(r.databaseVersion||'—')+'</td><td>'+esc(r.provenance?.importedAt||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No QC/provenance records available.</div>')+'</div>'
+  }
+  page.innerHTML='<div class="page-head"><div><div class="page-title">Tuberculosis Intelligence</div><div class="page-sub">External TBProfiler outputs across resistance, lineage, variant evidence, QC and provenance.</div></div><button class="btn" onclick="goPage(\'register\')">Import TBProfiler JSON</button></div>'+tabbar+body+'<p class="journey-footnote">These are source-pipeline predictions, not phenotypic drug-susceptibility results or autonomous clinical conclusions. Review against the exact TBProfiler/TBDB version and laboratory evidence.</p>'
+}
+
+function setBioinformaticsTBTab(tab) {
+  if(!['overview','resistance','lineage','variants','qc'].includes(tab))return
+  STATE.bioTbTab=tab
+  renderBioinformaticsTB()
 }
 
 function renderLabRegister() {
