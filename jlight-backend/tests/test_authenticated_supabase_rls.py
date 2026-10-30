@@ -335,8 +335,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                 (self.org_a, self.org_a_code),
             )
         c.execute("ROLLBACK TO SAVEPOINT code_only_invitation")
-        c.execute("SELECT id FROM public.jlight_organization_memberships WHERE auth_subject=%s", (self.org_code_only,))
-        self.assertEqual(c.fetchall(), [])
+        c.execute("SELECT public.jl_list_my_workspaces(NULL)")
+        self.assertEqual(c.fetchone()[0], [])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
