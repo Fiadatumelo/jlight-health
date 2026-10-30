@@ -16,6 +16,19 @@ permissions:
   contents: read
 
 jobs:
+  published-reference-contract:
+    name: Validate published South African TBProfiler reference outputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out JLIGHT
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate published TBProfiler reference fixture and QC safeguards
+        run: python -m unittest validation.tbprofiler.test_public_reference_fixture -v
+
   public-south-african-tb:
     name: Run pinned TBProfiler on public ENA WGS data
     runs-on: ubuntu-24.04
@@ -54,18 +67,23 @@ jobs:
       - name: Download two public paired-end ENA runs
         run: |
           mkdir -p work/reads work/results
-          curl --fail --location --retry 3 --retry-delay 5 \
+          curl --parallel --parallel-immediate --parallel-max 4 \
+            --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610053_1.fastq.gz \
             "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/053/ERR10610053/ERR10610053_1.fastq.gz" \
-            --output work/reads/ERR10610053_1.fastq.gz
-          curl --fail --location --retry 3 --retry-delay 5 \
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610053_2.fastq.gz \
             "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/053/ERR10610053/ERR10610053_2.fastq.gz" \
-            --output work/reads/ERR10610053_2.fastq.gz
-          curl --fail --location --retry 3 --retry-delay 5 \
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610083_1.fastq.gz \
             "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_1.fastq.gz" \
-            --output work/reads/ERR10610083_1.fastq.gz
-          curl --fail --location --retry 3 --retry-delay 5 \
-            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_2.fastq.gz" \
-            --output work/reads/ERR10610083_2.fastq.gz
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610083_2.fastq.gz \
+            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_2.fastq.gz"
           sha256sum work/reads/* > work/fastq_sha256.txt
 
       - name: Run TBProfiler on both samples
