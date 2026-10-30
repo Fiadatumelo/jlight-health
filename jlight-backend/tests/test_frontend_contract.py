@@ -42,8 +42,34 @@ require("patient-journey-summary" in html and "patient-data-quality-traceability
 require("journeyReport.correlationId = correlationId" in html and
         "qualityReport.correlationId = correlationId" in html,
         "The two patient reports must share a correlation ID")
-require("if(STATE.role==='Trial')" in html and "return events;" in html,
-        "Clinical Trials must remain isolated in the patient journey")
+# Clinical Trials has its own study-scoped participant timeline, never the routine patient journey.
+trial_nav_start = role_block.index("Trial:")
+trial_nav_end = role_block.index("Hospital:", trial_nav_start)
+trial_nav = role_block[trial_nav_start:trial_nav_end]
+require("key: 'trial-timeline'" in trial_nav and "key: 'journey'" not in trial_nav,
+        "Clinical Trials must use a separate participant timeline navigation")
+require('id="page-trial-timeline"' in html and "function renderTrialTimeline()" in html,
+        "Dedicated Clinical Trial Participant Timeline is missing")
+require("jl_trial_participant_events" in html and "selectTrialParticipant" in html,
+        "Participant timeline must read canonical study-scoped event records")
+require("jl_record_trial_participant_event" in html and "function recordTrialParticipantEvent()" in html,
+        "Trial events must persist through the validated database event function")
+require("key: 'trial-referrals'" in role_block and "function createHospitalTrialReferral()" in html,
+        "Hospital-to-Clinical-Trial recruitment referral workflow is missing")
+require("jl_create_trial_recruitment_referral" in html and
+        "jl_create_trial_participant_from_referral" in html,
+        "Recruitment hand-off and screening creation must use governed database functions")
+journey_start = html.index("function buildPatientJourneyEvents(patient)")
+journey_end = html.index("\\nfunction selectJourneyPatient", journey_start)
+journey = html[journey_start:journey_end]
+require("STATE.participants" not in journey and "STATE.visits" not in journey and
+        "STATE.adverseEvents" not in journey and "STATE.role==='Trial'" not in journey,
+        "Routine Patient Journey must not include Clinical Trials records")
+report_start = html.index("async function generatePatientJourneyReports()")
+report_end = html.index("\\nfunction ", report_start + 10)
+journey_reports = html[report_start:report_end]
+require("trialPatientIds" not in journey_reports and "STATE.role === 'Trial'" not in journey_reports,
+        "Routine Patient Journey reports must not include Clinical Trials participant identities")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
 journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
