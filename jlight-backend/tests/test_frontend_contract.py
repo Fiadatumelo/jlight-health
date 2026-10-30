@@ -213,7 +213,11 @@ require("syncDomainToBackend('bioRuns',imported)" in html,
         "TBProfiler records must persist through the organisation-scoped Bioinformatics domain")
 require("patientLinkStatus:'not linked'" in html,
         "TBProfiler sample IDs must not be silently treated as patient IDs")
-require("requirePermission('supervisor','Import TBProfiler result')" in html,
-        "TBProfiler import must require supervisor-level permission")
+require("p_domain:'bioinformatics',p_access:'write'" in html and
+        "jlight_has_domain_permission" in html,
+        "Online TBProfiler imports must use server-derived Bioinformatics write permission")
+require("function hydrateTBProfilerRecord(" in html and
+        "JLIGHT-normalized TBProfiler CSV" in html,
+        "TB compartments must support the public validation workflow's normalized CSV output")
 
 print("JLIGHT frontend contract checks passed.")
