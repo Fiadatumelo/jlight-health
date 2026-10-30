@@ -459,6 +459,30 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT lab_code_resolution_test")
         c.execute("RELEASE SAVEPOINT lab_code_resolution_test")
 
+    def test_platform_admin_cannot_authorise_recruitment_for_own_organisation(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT independent_recruitment_approval_test")
+        c.execute(
+            """INSERT INTO public.jl_org_memberships
+               (organisation_id, user_id, access_role, status, created_by)
+               VALUES (%s, %s, 'org_admin', 'active', %s)
+               ON CONFLICT DO NOTHING""",
+            (self.trial_org, self.platform_admin, self.a),
+        )
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute(
+            "SELECT set_config('request.jwt.claim.sub', %s, true)",
+            (self.platform_admin,),
+        )
+        with self.assertRaises(Exception):
+            c.execute(
+                """SELECT public.jl_authorise_trial_recruitment(
+                     %s, 'SYNTH-ETHICS-APPROVAL', current_date, 'ct-criteria-test-v1')""",
+                (self.study,),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT independent_recruitment_approval_test")
+        c.execute("RELEASE SAVEPOINT independent_recruitment_approval_test")
+
     def test_clinical_trials_records_are_not_visible_from_hospital_membership(self):
         c = self._as_user(self.b)
         c.execute("SELECT id FROM public.jl_trial_studies")
