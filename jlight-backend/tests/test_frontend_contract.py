@@ -93,7 +93,7 @@ removed_legacy_handlers = (
     "enrolParticipant", "submitNewRequest", "acceptLabRequest", "rejectLabRequest",
     "releaseResult", "generateResultReceivedCard",
     "computeAuditHash", "sha256hex", "validateConsentRef", "mergeByTimestamp",
-    "detectOfflineData", "startAutoEngines",
+    "detectOfflineData", "startAutoEngines", "updateRequestBadge",
 )
 for name in removed_legacy_handlers:
     require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
