@@ -391,7 +391,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
 
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.b,))
         c.execute(
-            "SELECT jl_id FROM public.jl_entries WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%'"
+            "SELECT jl_id FROM public.jl_entries WHERE domain='bioRuns' AND jl_id LIKE 'TBP-%'"
         )
         self.assertEqual(c.fetchall(), [])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
