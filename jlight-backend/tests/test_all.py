@@ -1,7 +1,7 @@
 """
-JLIGHT v4 — Test Suite
+JLIGHT QC engine regression tests
 ========================
-End-to-end tests for ML engine, CSV engine, and Bioinformatics engine.
+Regression tests for the retained structured QC and CSV engine.
 Run with: python3 tests/test_all.py
 """
 
@@ -12,13 +12,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import traceback
 from engine.ml_engine import JLIGHTMLPipeline
 from engine.csv_engine import analyse_csv
-from engine.bio_engine import (
-    screen_tb_resistance,
-    detect_variants,
-    analyse_ngs_quality,
-    calculate_wgs_metrics,
-    analyse_sequence,
-)
 
 PASS = "✅"
 FAIL = "❌"
@@ -161,117 +154,6 @@ test("Decision card generation", test_csv_generates_decision_card)
 test("ML results in output", test_csv_ml_results)
 test("Analysis steps list", test_csv_steps)
 test("Minimal CSV (single column)", test_csv_minimal)
-
-
-# ─── Bioinformatics Tests ─────────────────────────────────────────────────────
-
-print("\n🧬 BIOINFORMATICS ENGINE")
-
-# Real RpoB S450L resistant sequence
-RESISTANT_SEQ = (
-    "TTGGCAGATTCCCGCCAGAGCAAAACAGCCGCTAGTCCTAGTCCGAGTCGCCCGCAAAGTTTCCGACATCACCCAGAACCGT"
-    "CGGCACGGTCGTGGCGAGAAGATCACCCCTGACGAAGCGCCAGCTGCTGGGCAACCACATCGGCTTGCCCGGCATGCGCGAA"
-    "ATCAAGGAGCAGTTCGGCAACCGCATCTCCATCAAGCGGATTACCGGCTTGCAAGTCACCGTCTTGCCCGGCACGCTGCGCG"
-    "ACCCCTTGATCGACCAGACCTTGACCATCTTGACCATCTTGACCAGCTTGACC"
-)
-
-SENSITIVE_SEQ = (
-    "ATGCGTACCGATCGATCGATCGATCGAATCGATCGATCGTACGATCGATCGATCG"
-    "ATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCGATCG"
-)
-
-REF_SEQ = "ATGCGTACCGATCGATCGATCGATCGAATCGATCGATCGTACGATCGATCGATCG"
-SAMPLE_SEQ = "ATGCGTACCGATCGATCGATCGATCGAATCGATCGATCGTACGATCGATCTATCG"  # 1 SNV
-
-def test_tb_resistant():
-    report = screen_tb_resistance(RESISTANT_SEQ)
-    assert report.sequence_length > 50
-    assert report.mutations_screened == 16
-    # Should detect at least one mutation given the sequence
-    assert isinstance(report.resistant_mutations, list)
-    assert report.who_category in ("Pan-Sensitive (No Mutations Detected)", "Drug-Resistant TB", "MDR-TB", "Pre-XDR-TB", "XDR-TB")
-
-def test_tb_sensitive():
-    report = screen_tb_resistance(SENSITIVE_SEQ)
-    assert report.who_category == "Pan-Sensitive (No Mutations Detected)"
-    assert len(report.resistant_mutations) == 0
-
-def test_tb_short_seq():
-    try:
-        screen_tb_resistance("ATCG")
-        assert False, "Should handle short sequences"
-    except Exception:
-        pass
-
-def test_variant_detection():
-    report = detect_variants(REF_SEQ, SAMPLE_SEQ)
-    assert report.total_variants >= 1, "Should detect at least 1 SNV"
-    assert report.snvs >= 1
-    assert 0 <= report.percent_identity <= 100
-
-def test_variant_identical():
-    report = detect_variants(REF_SEQ, REF_SEQ)
-    assert report.total_variants == 0
-    assert report.percent_identity == 100.0
-
-def test_ngs_quality():
-    seqs = [SENSITIVE_SEQ] * 100
-    result = analyse_ngs_quality(seqs)
-    assert result.total_reads == 100
-    assert 0 <= result.gc_content <= 100
-    assert result.qc_status in ("PASS", "WARN", "FAIL")
-    assert len(result.per_base_quality) > 0
-
-def test_wgs_n50():
-    lengths = [284512, 198304, 142880, 98741, 76543, 52341, 41200, 38900, 29800, 21400]
-    result = calculate_wgs_metrics(lengths)
-    assert result.n50 > 0
-    assert result.l50 > 0
-    assert result.n50 >= result.n90
-    assert result.contig_count == 10
-    assert result.total_assembly_size == sum(lengths)
-
-def test_wgs_from_sequences():
-    seqs = ["ATCG" * 1000, "GCTA" * 500, "TTAA" * 200]
-    result = calculate_wgs_metrics(seqs)
-    assert result.contig_count == 3
-
-def test_sequence_analysis_dna():
-    result = analyse_sequence(SENSITIVE_SEQ)
-    assert result.sequence_type == "DNA"
-    assert 0 < result.gc_content < 100
-    assert result.length == len(SENSITIVE_SEQ)
-    assert result.melting_temp_c > 0
-
-def test_sequence_analysis_orfs():
-    # ATG (start) + codons (>20 aa worth) + TAA (stop) = valid ORF ≥60bp
-    coding = "ATGAAACCCGGGTTTAGCGATCGATCGATCGATCGATCGATCGATCGATCGATCGTAA"
-    orf_seq = coding * 3  # Repeat to ensure length
-    result = analyse_sequence(orf_seq)
-    assert result.orf_count >= 1, f"Expected ORF, got {result.orf_count}. Seq length: {result.length}"
-
-def test_sequence_rna():
-    rna = SENSITIVE_SEQ.replace("T", "U")
-    result = analyse_sequence(rna)
-    assert result.sequence_type == "RNA"
-
-def test_sequence_fasta_input():
-    fasta = ">Sample_1 Mycobacterium tuberculosis\n" + SENSITIVE_SEQ
-    result = analyse_sequence(fasta)
-    assert result.length == len(SENSITIVE_SEQ)
-
-test("TB resistance — resistant sequence", test_tb_resistant)
-test("TB resistance — sensitive sequence", test_tb_sensitive)
-test("TB resistance — short sequence handling", test_tb_short_seq)
-test("Variant detection — 1 SNV", test_variant_detection)
-test("Variant detection — identical sequences", test_variant_identical)
-test("NGS quality metrics", test_ngs_quality)
-test("WGS N50 from lengths", test_wgs_n50)
-test("WGS N50 from sequences", test_wgs_from_sequences)
-test("Sequence analysis — DNA", test_sequence_analysis_dna)
-test("Sequence analysis — ORF detection", test_sequence_analysis_orfs)
-test("Sequence analysis — RNA", test_sequence_rna)
-test("Sequence analysis — FASTA input", test_sequence_fasta_input)
 
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
