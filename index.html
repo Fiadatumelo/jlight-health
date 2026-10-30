@@ -1125,9 +1125,7 @@ async function sha256(text) {
   const b = await crypto.subtle.digest('SHA-256', d)
   return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')
 }
-async function auditHash(prevHash, e) {
-  return sha256((prevHash||'0'.repeat(64))+e.ts+(e.action||'')+(e.detail||'')+(e.user||''))
-}
+
 
 // ─── Permissions ───
 const PERM = { viewer:0, operator:1, supervisor:2, admin:3 }
@@ -1644,7 +1642,7 @@ function doOfflineMode() {
   showScreen('screen-pin')
 }
 
-function chooseRole(r) { /* legacy — offline mode uses pin screen */ }
+
 function goBackToRoles() { showScreen('screen-signin') }
 function pinPress(d) {
   const buf = STATE.setupMode ? 'setupBuf' : 'pinBuf'
@@ -1718,19 +1716,7 @@ async function signOut() {
 
 
 
-async function submitProfile() {
-  const name  = (document.getElementById('pf-name')||{}).value?.trim()||''
-  const emp   = (document.getElementById('pf-emp')||{}).value?.trim()||''
-  const title = (document.getElementById('pf-title')||{}).value?.trim()||''
-  const role  = (document.getElementById('pf-role')||{}).value||'operator'
-  const st    = document.getElementById('pf-status')
-  if (!name)  { if(st) st.textContent='Full name required'; return }
-  if (!title) { if(st) st.textContent='Job title required'; return }
-  await saveUserProfile({ fullName:name, employeeId:emp, jobTitle:title, workspaceRole:role })
-  document.getElementById('profile-overlay').remove()
-  updateSidebarUser()
-  toast('Profile saved', 'Welcome, '+name, 'good')
-}
+
 
 
 
@@ -1929,17 +1915,7 @@ console.log('v9.0 · Health Intelligence Platform · Production build')
 // ═══════════════════════════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════════════════════════
-function filterJlightQuickLinks(query) {
-  const q = String(query || '').trim().toLowerCase()
-  let visible = 0
-  cards.forEach(card => {
-    const show = !q || (card.dataset.search + ' ' + card.textContent).toLowerCase().includes(q)
-    card.hidden = !show
-    if (show) visible++
-  })
-  const empty = document.getElementById('jlight-no-quick-results')
-  if (empty) empty.hidden = visible !== 0
-}
+
 
 function buildPatientJourneyEvents(patient) {
   const pid=String(patient.id), events=[];
@@ -2431,14 +2407,11 @@ function renderLabRegister() {
 // ═══════════════════════════════════════════════════════════
 // LABORATORY INTELLIGENCE ENGINES
 // ═══════════════════════════════════════════════════════════
-function submitResult() {
-  toast('Result entry disabled', 'JLIGHT analyses authorised source data; it does not generate laboratory results.', 'warn');
-  goPage('connectors');
-}
 
-function analyseLabSample() { return []; }
 
-function generateRegistrationErrorCard() { return null; }
+
+
+
 
 // ═══════════════════════════════════════════════════════════
 // PREDICTIVE FAILURE ENGINE — the function user didn't know about
@@ -4852,24 +4825,7 @@ function updateSidebarUser() {
 // ── FALSE POSITIVE WORKFLOW ──
 // Per ISO 15189 §5.9.1: results must be reviewed by authorised personnel.
 // False positives must be documented with reason for audit trail.
-function markAsFalsePositive(cardId) {
-  if (!requirePermission('supervisor', 'Mark as false positive')) return
-  const c = STATE.cards.find(x => x.id === cardId)
-  if (!c) return
-  const reason = prompt('Reason this is not a real error (required for audit):\n\nExamples:\n• Known reagent lot characteristic\n• Verified by repeat analysis — result confirmed normal\n• Patient on medication affecting this analyte (specify)\n• Confirmed instrument artefact')
-  if (!reason || !reason.trim()) return
-  c.falsePositive = true
-  c.falsePositiveReason = reason.trim()
-  c.falsePositiveBy = getDisplayName()
-  c.falsePositiveAt = Date.now()
-  c.acknowledged = true
-  c.acknowledgedBy = getDisplayName()
-  c.acknowledgedAt = Date.now()
-  STORAGE.saveCards(STATE.role, STATE.cards)
-  audit('False positive documented', c.title + ' — ' + reason.trim() + ' — by ' + getDisplayName())
-  toast('False positive recorded', 'Reason saved to audit trail', 'good')
-  renderDetail()
-}
+
 
 // ── CONSENT REFERENCE VALIDATION ──
 // Per ICH E6(R3) / GCP: consent must reference document version and date.
@@ -4889,59 +4845,9 @@ function validateConsentRef(value) {
 // Lab: needs 5+ QC data points per instrument-test combination.
 // Trial: needs 2+ visit events per participant.
 // Hospital: needs 5+ TAT events per ward-priority combination.
-function getPredictiveProgress() {
-  const p = { groups: [], needed: 5, ready: 0, total: 0 }
-  if (STATE.role === 'Laboratory') {
-    const groups = {}
-    STATE.samples.forEach(s => {
-      if (!s.qcValue || isNaN(parseFloat(s.qcValue)) || !s.test || !s.instrument) return
-      const k = s.instrument + '|' + s.test
-      groups[k] = (groups[k] || 0) + 1
-    })
-    p.groups = Object.entries(groups).map(([k, v]) => ({ label: k.replace('|', ' — '), count: v, ready: v >= 5 }))
-    p.ready = p.groups.filter(g => g.ready).length
-    p.total = p.groups.length
-    p.needed = 5
-  } else if (STATE.role === 'Trial') {
-    const pp = {}
-    STATE.entries.forEach(e => { if (e.participantId) pp[e.participantId] = (pp[e.participantId] || 0) + 1 })
-    p.groups = Object.entries(pp).map(([k, v]) => ({ label: k, count: v, ready: v >= 2 }))
-    p.ready = p.groups.filter(g => g.ready).length
-    p.total = p.groups.length
-    p.needed = 2
-  } else if (STATE.role === 'Hospital') {
-    const ww = {}
-    STATE.entries.forEach(e => {
-      if (!e.ward || !e.priority || isNaN(parseFloat(e.tatHours))) return
-      const k = e.ward + '|' + e.priority
-      ww[k] = (ww[k] || 0) + 1
-    })
-    p.groups = Object.entries(ww).map(([k, v]) => ({ label: k.replace('|', ' — '), count: v, ready: v >= 5 }))
-    p.ready = p.groups.filter(g => g.ready).length
-    p.total = p.groups.length
-    p.needed = 5
-  }
-  return p
-}
 
-function renderPredictiveOnboarding(p) {
-  const pct = p.total > 0 ? Math.round((p.ready / p.total) * 100) : 0
-  return '<div class="predictive-card" style="margin-bottom:18px">' +
-    '<div class="predictive-head"><div class="predictive-icon">◉</div>' +
-    '<div><div class="predictive-title">Building prediction models</div>' +
-    '<div class="predictive-sub">Need ' + p.needed + '+ data points per pattern · ' + p.ready + '/' + p.total + ' patterns ready</div></div></div>' +
-    '<div class="progress-bar-wrap" style="margin-bottom:12px"><div class="progress-bar-fill" style="width:' + pct + '%"></div></div>' +
-    '<div style="font-size:13px;color:var(--text-2);margin-bottom:' + (p.groups.length ? '12px' : '0') + ';line-height:1.6">Keep recording ' +
-    (STATE.role === 'Laboratory' ? 'QC results for each instrument-test combination' : STATE.role === 'Trial' ? 'visit events for each participant' : 'TAT events for each ward-priority pair') +
-    '. Predictions appear automatically when enough data is collected.</div>' +
-    (p.groups.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">' +
-      p.groups.slice(0, 12).map(g => '<div style="background:' + (g.ready ? 'var(--green-bg)' : 'var(--surface-3)') +
-        ';border:1px solid ' + (g.ready ? 'rgba(46,232,154,0.2)' : 'var(--border)') +
-        ';border-radius:8px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px">' +
-        '<span style="font-size:11px;font-family:DM Mono,monospace;color:' + (g.ready ? 'var(--green)' : 'var(--text-2)') + '">' + esc(g.label) + '</span>' +
-        '<span style="font-size:11px;font-weight:700;color:' + (g.ready ? 'var(--green)' : 'var(--text-3)') + '">' + g.count + '/' + p.needed + (g.ready ? ' ✓' : '') + '</span></div>'
-      ).join('') + '</div>' : '') + '</div>'
-}
+
+
 
 // ── PAGINATION + SEARCH ──
 // pageSize=25 items per page — handles large volumes efficiently.
@@ -5178,143 +5084,23 @@ function renderImport() {
   toast('Import adapter not configured', 'Use Data Sources to review supported integration requirements. JLIGHT does not create specimens or laboratory measurements.', 'warn')
   goPage('connectors')
 }
-function handleCSVFile() { renderImport() }
-function parseCSV() { throw new Error('Legacy specimen-processing import disabled; use a validated source-data adapter.') }
-function importCSV() {
-  toast('Legacy import disabled', 'The old importer created simulated specimens/results and is out of scope. Use an approved source-system integration.', 'warn')
-  goPage('connectors')
-}
+
+
+
 // ── AUDIT INTEGRITY CHECK UI ──
-async function checkAuditIntegrity() {
-  const el = document.getElementById('audit-integrity')
-  if (el) el.innerHTML = '<div style="padding:10px;font-size:12px;color:var(--text-2);font-family:DM Mono,monospace">Verifying ' + STATE.audit.length + ' entries...</div>'
-  const result = await verifyAuditChain()
-  if (!el) return
-  if (result.valid) {
-    el.innerHTML = '<div class="form-card" style="background:var(--green-bg);border-color:rgba(46,232,154,0.18);max-width:none;margin-bottom:16px">' +
-      '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--green);margin-bottom:4px">✓ Audit chain verified</div>' +
-      '<div style="font-size:12.5px;color:var(--text-2)">All ' + result.count + ' entries form a valid SHA-256 chain. No tampering detected.</div></div>'
-  } else {
-    el.innerHTML = '<div class="form-card" style="background:var(--red-bg);border-color:rgba(255,77,109,0.18);max-width:none;margin-bottom:16px">' +
-      '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;color:var(--red);margin-bottom:4px">⚠ Audit chain broken</div>' +
-      '<div style="font-size:12.5px;color:var(--text-2)">Break at entry #' + (result.brokenAt + 1) + ' of ' + result.count + '. Possible tampering. Entry: ' + esc(result.entry.action) + ' (' + esc(result.entry.time) + ').</div></div>'
-  }
-  await audit('Audit integrity verified', result.valid ? 'PASS · ' + result.count + ' entries' : 'FAIL · broken at ' + result.brokenAt)
-}
+
 
 
 // ── CROSS-WORKSPACE REQUEST ACTIONS ──
-async function submitNewRequest() {
-  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
-  const localRef = get('nrq-local'), test = get('nrq-test'), stype = get('nrq-stype')
-  const priority = get('nrq-priority') || 'Routine', consent = get('nrq-consent'), notes = get('nrq-notes'), targetOrgCode = get('nrq-target-org')
-  if (!localRef) { toast('Required', STATE.role === 'Trial' ? 'Participant ID required' : 'Patient ID required', 'crit'); return }
-  if (!test)     { toast('Required', 'Test must be selected', 'crit'); return }
-  if (!stype)    { toast('Required', 'Sample type required', 'crit'); return }
-  if (!consent)  { toast('Required', 'Consent reference is required', 'crit'); return }
-  const cv = validateConsentRef(consent)
-  if (!cv.valid) { toast('Invalid consent reference', cv.error, 'crit'); return }
-  let targetOrgId
-  try { targetOrgId = await resolveTargetLaboratoryOrg(targetOrgCode) }
-  catch (e) { toast('Laboratory not verified', e.message, 'crit'); return }
-  const prefix = STATE.role === 'Trial' ? 'JL-TRL' : 'JL-HOS'
-  const pseudoRef = prefix + '-' + uid().toUpperCase().slice(0, 8)
-  const req = {
-    id: uid(), ts: Date.now(), fromWorkspace: STATE.role, targetWorkspace: 'Laboratory',
-    targetOrgId, localRef, pseudonymousRef: pseudoRef, testRequested: test, sampleType: stype,
-    priority, consentRef: consent, notes, status: 'pending', requestedBy: getDisplayName(),
-  }
-  const all = loadAllRequests(); all.push(req); saveAllRequests(all)
-  pushRequestToSupabase(req)
-  audit('Lab request raised', 'Local: ' + localRef + ' Pseudo: ' + pseudoRef + ' Test: ' + test)
-  toast('Request sent to laboratory', pseudoRef + ' · awaiting lab response', 'good')
-  // Check for obvious pre-analytical errors
-  const issues = []
-  if (req.priority === 'Stat' && consent.length < 10) issues.push({ severity: 'warn', title: 'Stat request with minimal consent documentation', description: 'Ensure full consent record is on file for this Stat request.' })
-  if (req.sampleType === 'CSF' && !notes) issues.push({ severity: 'warn', title: 'CSF sample — no collection notes', description: 'CSF requires collection time, appearance, and storage documentation.' })
-  if (req.testRequested === 'Blood Culture' && req.priority !== 'Stat') issues.push({ severity: 'warn', title: 'Blood culture not marked Stat', description: 'Blood cultures typically require Stat priority to minimise pre-incubation delay.' })
-  issues.forEach(issue => {
-    STATE.cards.push({ id: uid(), ts: Date.now(), role: STATE.role, severity: issue.severity, source: 'Request Validator', title: issue.title, description: issue.description, signals: [{ label: 'Lab ref', value: pseudoRef, tone: 'amber' }, { label: 'Test', value: test, tone: 'blue' }], insight: issue.description, rootCause: [{ stage: 'Request', cause: issue.description }], actions: ['Review before the lab accepts'], trace: 'Request_Validator → ' + pseudoRef, acknowledged: false })
-  })
-  if (issues.length > 0) STORAGE.saveCards(STATE.role, STATE.cards)
-  const wrap = document.getElementById('req-form-wrap')
-  if (wrap) wrap.style.display = 'none'
-  renderRequests()
-}
 
-function acceptLabRequest(id) {
-  if (!requirePermission('operator', 'Accept lab request')) return
-  const all = loadAllRequests(), r = all.find(x => x.id === id)
-  if (!r) return
-  r.status = 'accepted'; r.acceptedAt = Date.now(); r.acceptedBy = getDisplayName()
-  saveAllRequests(all); pushRequestToSupabase(r)
-  audit('Lab request accepted', 'Ref: ' + r.pseudonymousRef + ' from ' + r.fromWorkspace)
-  toast('Request accepted', r.pseudonymousRef + ' · add to pipeline', 'good')
-  renderRequests()
-}
 
-function rejectLabRequest(id) {
-  const reason = prompt('Reason for rejection (visible to requesting workspace):')
-  if (reason === null) return
-  const all = loadAllRequests(), r = all.find(x => x.id === id)
-  if (!r) return
-  r.status = 'rejected'; r.rejectionReason = reason || 'No reason given'
-  r.rejectedAt = Date.now(); r.rejectedBy = getDisplayName()
-  saveAllRequests(all); pushRequestToSupabase(r)
-  audit('Lab request rejected', 'Ref: ' + r.pseudonymousRef + ' · reason: ' + r.rejectionReason)
-  toast('Rejected', r.rejectionReason, 'warn')
-  renderRequests()
-}
 
-function releaseResult(id) {
-  if (!requirePermission('supervisor', 'Release lab result')) return
-  const all = loadAllRequests(), r = all.find(x => x.id === id)
-  if (!r) return
-  const val    = document.getElementById('rv-' + id) ? document.getElementById('rv-' + id).value.trim() : ''
-  const unit   = document.getElementById('ru-' + id) ? document.getElementById('ru-' + id).value.trim() : ''
-  const interp = document.getElementById('ri-' + id) ? document.getElementById('ri-' + id).value : ''
-  const ref    = document.getElementById('rr-' + id) ? document.getElementById('rr-' + id).value.trim() : ''
-  if (!val)    { toast('Missing result', 'Enter a result value', 'crit'); return }
-  if (!interp) { toast('Missing interpretation', 'Select an interpretation', 'crit'); return }
-  r.status = 'released'; r.releasedResult = val; r.releasedUnit = unit
-  r.releasedInterpretation = interp; r.releasedReferenceRange = ref
-  r.releasedAt = Date.now(); r.releasedBy = getDisplayName()
-  saveAllRequests(all); pushRequestToSupabase(r)
-  audit('Result released to ' + r.fromWorkspace, 'Ref: ' + r.pseudonymousRef + ' · ' + val + ' ' + unit + ' by ' + getDisplayName())
-  toast('Result released', r.pseudonymousRef + ' → ' + r.fromWorkspace, 'good')
-  updateRequestBadge(); renderRequests()
-}
 
-function generateResultReceivedCard(r) {
-  const isCrit = r.releasedInterpretation && (r.releasedInterpretation.includes('Critical') || r.releasedInterpretation.includes('Positive'))
-  const isAbnormal = r.releasedInterpretation && r.releasedInterpretation !== 'Within reference range'
-  const severity = isCrit ? 'crit' : isAbnormal ? 'warn' : 'good'
-  const card = {
-    id: uid(), ts: Date.now(), role: STATE.role, severity, source: 'Lab Result · Cross-Workspace',
-    title: 'Lab result received: ' + r.testRequested + ' for ' + r.localRef,
-    description: r.testRequested + ' = ' + r.releasedResult + ' ' + (r.releasedUnit || '') + ' — ' + (r.releasedInterpretation || '') + (r.releasedReferenceRange ? ' (Ref: ' + r.releasedReferenceRange + ')' : ''),
-    signals: [
-      { label: STATE.role === 'Trial' ? 'Participant' : 'Patient', value: r.localRef, tone: isCrit ? 'red' : 'blue' },
-      { label: 'Test', value: r.testRequested, tone: 'blue' },
-      { label: 'Result', value: r.releasedResult + ' ' + (r.releasedUnit || ''), tone: isCrit ? 'red' : isAbnormal ? 'amber' : 'green' },
-      { label: 'Interpretation', value: r.releasedInterpretation || '—', tone: isCrit ? 'red' : isAbnormal ? 'amber' : 'green' },
-    ],
-    insight: isCrit
-      ? 'Critical result. Immediate clinical review required. Verify with laboratory that this has been read back per critical value protocol.'
-      : isAbnormal
-      ? 'Abnormal result. ' + (STATE.role === 'Trial' ? 'Review against protocol criteria. Document in CRF. Assess whether this constitutes an Adverse Event.' : 'Clinical review recommended. Document clinical action in ward record.')
-      : 'Result within reference range. ' + (STATE.role === 'Trial' ? 'Document in CRF.' : 'File in patient record.'),
-    rootCause: isCrit ? [{ stage: 'Clinical', cause: 'Critical value — assess ' + (STATE.role === 'Trial' ? 'participant' : 'patient') + ' ' + r.localRef + ' immediately' }] : [],
-    actions: isCrit
-      ? ['Assess ' + (STATE.role === 'Trial' ? 'participant' : 'patient') + ' ' + r.localRef + ' immediately', STATE.role === 'Trial' ? 'Determine if SAE criteria are met — 24h reporting clock applies' : 'Notify responsible clinician', 'Document clinical action taken', 'Acknowledge this card when done']
-      : [STATE.role === 'Trial' ? 'Document in CRF for ' + r.localRef : 'File in ward record for ' + r.localRef, 'Acknowledge this card to confirm receipt'],
-    trace: 'Lab_Release → ' + r.pseudonymousRef + ' → ' + STATE.role,
-    acknowledged: false,
-  }
-  STATE.cards.push(card)
-  STORAGE.saveCards(STATE.role, STATE.cards)
-  toast(isCrit ? 'Critical result received' : 'Lab result received', r.testRequested + ': ' + r.releasedResult + ' ' + (r.releasedUnit || ''), severity)
-}
+
+
+
+
+
 
 // ── BIOINFORMATICS REGISTER FORM ──
 const NGS_REF_RANGES = {
@@ -5322,50 +5108,7 @@ const NGS_REF_RANGES = {
   minGC: 30, maxGC: 70, maxContamination: 5
 }
 
-function renderRegisterBio() {
-  $('page-register').innerHTML =
-    '<div class="page-head"><div><div class="page-title">New Bioinformatics Analysis</div>' +
-    '<div class="page-sub">Submit NGS run · JLIGHT analyses all QC metrics against published standards</div></div></div>' +
-    '<div class="form-card"><div class="form-grid">' +
-    '<div class="form-row"><label class="form-label">Analysis Type</label>' +
-    '<select class="form-input" id="bf-type"><option value="">— Select —</option>' +
-    '<option>Whole Genome Sequencing (WGS)</option><option>Whole Exome Sequencing (WES)</option>' +
-    '<option>Targeted Panel Sequencing</option><option>RNA-Seq</option>' +
-    '<option>16S rRNA Metagenomics</option><option>Shotgun Metagenomics</option>' +
-    '<option>AMR Profiling</option><option>Viral Sequencing (SARS-CoV-2 / HIV / HBV)</option>' +
-    '<option>TB Drug Resistance (MTB-Seq)</option></select></div>' +
-    '<div class="form-row"><label class="form-label">Sample / Run ID</label><input class="form-input" id="bf-sid" type="text" placeholder="e.g. RUN-2026-04-001"/></div>' +
-    '<div class="form-row"><label class="form-label">Sequencing Platform</label>' +
-    '<select class="form-input" id="bf-platform"><option value="">— Select —</option>' +
-    '<option>Illumina MiSeq</option><option>Illumina NextSeq</option><option>Illumina NovaSeq</option>' +
-    '<option>Oxford Nanopore (MinION)</option><option>Oxford Nanopore (GridION)</option>' +
-    '<option>PacBio Sequel</option><option>Ion Torrent</option></select></div>' +
-    '<div class="form-row"><label class="form-label">Reference</label>' +
-    '<select class="form-input" id="bf-ref"><option value="">— Select —</option>' +
-    '<option>GRCh38 (Human)</option><option>GRCh37/hg19</option>' +
-    '<option>MTB H37Rv</option><option>HIV-1 HXB2</option>' +
-    '<option>SARS-CoV-2 Wuhan-Hu-1</option><option>CARD (AMR)</option>' +
-    '<option>SILVA (16S rRNA)</option><option>Custom</option></select></div>' +
-    '<div class="form-row"><label class="form-label">Mean Coverage (×)</label><input class="form-input" id="bf-cov" type="number" step="any" placeholder="e.g. 45"/><div class="form-help">ACMG: ≥30× WGS · ≥100× targeted panels</div></div>' +
-    '<div class="form-row"><label class="form-label">% Reads Mapped</label><input class="form-input" id="bf-map" type="number" step="any" placeholder="e.g. 92.5"/><div class="form-help">Flag below 85%</div></div>' +
-    '<div class="form-row"><label class="form-label">Mean Q-Score (Phred)</label><input class="form-input" id="bf-q" type="number" step="any" placeholder="e.g. 35"/><div class="form-help">Q30 = 99.9% accuracy</div></div>' +
-    '<div class="form-row"><label class="form-label">Duplication Rate (%)</label><input class="form-input" id="bf-dup" type="number" step="any" placeholder="e.g. 8.5"/><div class="form-help">Flag above 20%</div></div>' +
-    '<div class="form-row"><label class="form-label">GC Content (%)</label><input class="form-input" id="bf-gc" type="number" step="any" placeholder="e.g. 48"/></div>' +
-    '<div class="form-row"><label class="form-label">Contamination (%)</label><input class="form-input" id="bf-contam" type="number" step="any" placeholder="e.g. 1.2"/></div>' +
-    '<div class="form-row"><label class="form-label">Variants Called</label><input class="form-input" id="bf-vars" type="number" placeholder="e.g. 4200000"/></div>' +
-    '<div class="form-row"><label class="form-label">Pipeline</label>' +
-    '<select class="form-input" id="bf-pipe"><option value="">— Select —</option>' +
-    '<option>GATK Best Practices</option><option>BWA + GATK</option>' +
-    '<option>Trimmomatic + BWA + GATK</option><option>Nextflow nf-core/sarek</option>' +
-    '<option>Nextflow nf-core/rnaseq</option><option>Snippy (bacterial SNP)</option>' +
-    '<option>TB-Profiler</option><option>Abricate (AMR)</option>' +
-    '<option>Kraken2 + Bracken</option><option>Custom</option></select></div>' +
-    '<div class="form-row"><label class="form-label">Operator</label><input class="form-input" id="bf-op" type="text" placeholder="Initials or name"/></div>' +
-    '<div class="form-row span-2"><label class="form-label">Notes</label><input class="form-input" id="bf-notes" type="text" placeholder="Library prep kit, special parameters, known issues"/></div>' +
-    '</div>' +
-    '<div class="form-actions"><button class="btn btn-primary" onclick="submitBioEntry()">Submit analysis</button><button class="btn" onclick="goPage(\'dashboard\')">Cancel</button></div>' +
-    '</div>'
-}
+
 
 function submitBioEntry() {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
@@ -5398,77 +5141,7 @@ function submitBioEntry() {
 }
 
 // ── BIOINFORMATICS FULL REPORT GENERATOR ──
-function generateBioReport(e) {
-  const th = (STATE.thresholds && STATE.thresholds.ngs) || NGS_REF_RANGES
-  const cards = STATE.cards.filter(c => c.role === 'Bioinformatics' && Math.abs(c.ts - e.ts) < 120000)
-  const hasCrit = cards.some(c => c.severity === 'crit')
-  const hasWarn = cards.some(c => c.severity === 'warn')
-  const qcStatus = hasCrit ? 'FAIL' : hasWarn ? 'REVIEW' : 'PASS'
-  const qcColor = hasCrit ? 'var(--red)' : hasWarn ? 'var(--amber)' : 'var(--green)'
 
-  function metric(label, value, display, good, bad, threshold) {
-    const col = !isNaN(value) ? (good(value) ? 'var(--green)' : 'var(--red)') : 'var(--text-3)'
-    const status = !isNaN(value) ? (good(value) ? '✓ Within range' : '✗ Outside range') : 'Not provided'
-    return '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px 18px">' +
-      '<div style="font-size:10px;font-family:DM Mono,monospace;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">' + label + '</div>' +
-      '<div style="font-family:Syne,sans-serif;font-size:28px;font-weight:800;color:' + col + ';margin-bottom:4px">' + display + '</div>' +
-      '<div style="font-size:12px;color:' + col + ';font-weight:600;margin-bottom:6px">' + status + '</div>' +
-      '<div style="font-size:11px;color:var(--text-3);font-family:DM Mono,monospace">' + threshold + '</div></div>'
-  }
-
-  return '<div class="profile-card" style="background:linear-gradient(135deg,rgba(0,201,167,0.04),rgba(75,142,255,0.03));border-color:rgba(0,201,167,0.2);margin-bottom:18px">' +
-    '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap">' +
-    '<div><div style="font-size:10.5px;font-family:DM Mono,monospace;color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px">JLIGHT · NGS Analysis Report</div>' +
-    '<div style="font-family:Syne,sans-serif;font-size:22px;font-weight:800">' + esc(e.sampleId) + '</div>' +
-    '<div style="font-size:13px;color:var(--text-2);margin-top:4px">' + esc(e.analysisType || '—') + ' · ' + esc(e.platform || '—') + ' · ' + new Date(e.ts).toLocaleDateString() + '</div>' +
-    '<div style="font-size:11.5px;color:var(--text-3);margin-top:2px;font-family:DM Mono,monospace">Pipeline: ' + esc(e.pipeline || '—') + ' · Ref: ' + esc(e.reference || '—') + '</div></div>' +
-    '<div style="text-align:right"><div style="font-size:10px;font-family:DM Mono,monospace;color:var(--text-3);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px">QC Status</div>' +
-    '<div style="font-family:Syne,sans-serif;font-size:34px;font-weight:800;color:' + qcColor + '">' + qcStatus + '</div>' +
-    '<div style="font-size:11px;color:var(--text-3)">' + cards.length + ' flag' + (cards.length !== 1 ? 's' : '') + '</div></div></div></div>' +
-
-    // Clinical significance
-    '<div class="' + (qcStatus === 'FAIL' ? 'dc-rootcause' : qcStatus === 'REVIEW' ? 'dc-actions' : 'dc-insight') + '" style="margin-bottom:18px">' +
-    '<div style="font-size:10px;font-family:DM Mono,monospace;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;color:' + qcColor + '">Clinical Significance</div>' +
-    '<p style="font-size:13px;line-height:1.65">' + (
-      qcStatus === 'PASS' ? 'All QC metrics for ' + e.sampleId + ' are within acceptable limits. Results from the ' + (e.pipeline || 'specified') + ' pipeline are suitable for clinical interpretation.'
-      : qcStatus === 'FAIL' ? 'CRITICAL QC FAILURE in run ' + e.sampleId + '. Clinical variants must NOT be reported until QC issues are resolved. See troubleshooting below.'
-      : 'QC review required for ' + e.sampleId + '. Results may be reported with appropriate caveats. See troubleshooting below.'
-    ) + '</p></div>' +
-
-    // Metrics grid
-    '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin-bottom:14px">QC Metrics</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px">' +
-    metric('Mean Coverage', e.coverage, !isNaN(e.coverage) ? e.coverage + '×' : '—', v => v >= th.minCoverage, v => v < th.minCoverage, 'ACMG: ≥' + th.minCoverage + '× WGS') +
-    metric('Mapping Rate', e.mappingRate, !isNaN(e.mappingRate) ? e.mappingRate + '%' : '—', v => v >= th.minMappingRate, v => v < th.minMappingRate, 'Threshold: ≥' + th.minMappingRate + '%') +
-    metric('Q-Score', e.qscore, !isNaN(e.qscore) ? 'Q' + Math.round(e.qscore) : '—', v => v >= th.minQScore, v => v < th.minQScore, 'Threshold: Q' + th.minQScore + ' (99.9% accuracy)') +
-    metric('Duplication', e.dupRate, !isNaN(e.dupRate) ? e.dupRate + '%' : '—', v => v <= th.maxDupRate, v => v > th.maxDupRate, 'Threshold: ≤' + th.maxDupRate + '%') +
-    metric('GC Content', e.gcContent, !isNaN(e.gcContent) ? e.gcContent + '%' : '—', v => v >= th.minGC && v <= th.maxGC, v => v < th.minGC || v > th.maxGC, 'Expected: ' + th.minGC + '–' + th.maxGC + '% (species-dependent)') +
-    metric('Contamination', e.contamination, !isNaN(e.contamination) ? e.contamination + '%' : '—', v => v <= th.maxContamination, v => v > th.maxContamination, 'Threshold: ≤' + th.maxContamination + '%') +
-    '</div>' +
-
-    // Troubleshooting
-    (cards.length > 0 ? '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin-bottom:14px">Troubleshooting · ' + cards.length + ' Issue' + (cards.length !== 1 ? 's' : '') + '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">' +
-    cards.map(c => '<div style="background:var(--surface-2);border:1px solid var(--border);border-left:3px solid ' + (c.severity === 'crit' ? 'var(--red)' : c.severity === 'warn' ? 'var(--amber)' : 'var(--green)') + ';border-radius:0 12px 12px 0;padding:16px 18px">' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap"><span class="dc-pill ' + c.severity + '"><span class="dot"></span>' + (c.severity === 'crit' ? 'CRITICAL' : 'ATTENTION') + '</span><span style="font-size:10.5px;color:var(--text-3);font-family:DM Mono,monospace">' + esc(c.source) + '</span></div>' +
-      '<div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;margin-bottom:6px">' + esc(c.title) + '</div>' +
-      '<div style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:10px">' + esc(c.description) + '</div>' +
-      (c.insight ? '<div style="background:var(--teal-bg);border-left:2px solid var(--teal);padding:10px 14px;border-radius:0 8px 8px 0;margin-bottom:10px;font-size:12.5px;line-height:1.6">' + esc(c.insight) + '</div>' : '') +
-      (c.rootCause && c.rootCause.length ? '<div style="background:var(--purple-bg);border:1px solid rgba(167,139,250,0.18);border-radius:8px;padding:12px 14px;margin-bottom:10px">' +
-        '<div style="font-size:10px;font-family:DM Mono,monospace;color:var(--purple);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Root Cause Analysis</div>' +
-        c.rootCause.map(r => '<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:12.5px"><span style="color:var(--purple);font-family:DM Mono,monospace;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;min-width:90px;padding-top:2px">' + esc(r.stage) + '</span><span>' + esc(r.cause) + '</span></div>').join('') +
-        '</div>' : '') +
-      (c.actions && c.actions.length ? '<div style="background:var(--green-bg);border:1px solid rgba(46,232,154,0.18);border-radius:8px;padding:12px 14px">' +
-        '<div style="font-size:10px;font-family:DM Mono,monospace;color:var(--green);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Recommended Actions</div>' +
-        '<ul style="list-style:none;padding:0">' + c.actions.map(a => '<li style="font-size:12.5px;padding-left:18px;position:relative;margin-bottom:5px;line-height:1.55"><span style="position:absolute;left:0;color:var(--green);font-weight:700">→</span>' + esc(a) + '</li>').join('') + '</ul></div>' : '') +
-    '</div>').join('') + '</div>'
-    : '<div class="dc-insight" style="margin-bottom:24px"><p style="font-size:13px;line-height:1.65">No QC issues detected. All provided metrics are within acceptable thresholds. Proceed to variant annotation and clinical interpretation.</p></div>') +
-
-    // Report footer
-    '<div style="padding:14px 18px;background:var(--surface-2);border:1px solid var(--border);border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">' +
-    '<div style="font-size:11px;color:var(--text-3);font-family:DM Mono,monospace">Generated by JLIGHT v10.0 · ' + new Date().toLocaleString(undefined, { hour12: false }) + ' · ' + esc(getDisplayName()) + '</div>' +
-    '<button class="btn btn-sm btn-primary" onclick="exportBioReport(\'' + e.id + '\')">Export</button></div>'
-}
 
 
 // ── OFFLINE-TO-ONLINE MIGRATION ──
@@ -5550,136 +5223,17 @@ function mergeByTimestamp(arr1, arr2) {
 }
 
 // Manual migration trigger from Settings
-async function runOfflineMigration() {
-  localStorage.removeItem('jl_migrated_' + STATE.role + '_' + STATE.user)
-  await offerOfflineMigration()
-}
+
 
 
 // ── BIO RUN DETAIL PAGE ──
-function openBioRun(entryId) {
-  STATE._bioPipelineSelected = entryId
-  goPage('bio-run-detail')
-}
+
 
 
 
 
 // ── REGULATORY-GRADE WORKSPACE REPORT EXPORT ──
-function exportWorkspaceReport() {
-  const now = new Date()
-  const sep = '='.repeat(60)
-  const div = '-'.repeat(60)
-  const L = []
-  L.push(sep)
-  L.push('  JLIGHT v10.0 WORKSPACE QUALITY REPORT')
-  L.push('  Generated : ' + now.toISOString())
-  L.push('  Workspace : ' + STATE.role)
-  L.push('  Org       : ' + (MODE.organisationName || 'N/A') + (MODE.organisationCode ? ' [' + MODE.organisationCode + ']' : ''))
-  L.push('  User      : ' + getDisplayName() + ' (' + (STATE.user || '') + ')')
-  L.push(sep); L.push('')
 
-  L.push('SECTION 1  SUMMARY')
-  L.push(div)
-  if (STATE.role === 'Laboratory') {
-    L.push('Imported source records: ' + STATE.samples.length)
-    L.push('Source records with reported status: ' + STATE.samples.filter(s => s.stage === 'reported').length)
-    L.push('QC flags raised      : ' + STATE.samples.filter(s => s.flags && Object.keys(s.flags).length > 0).length)
-    L.push('Contamination flags  : ' + STATE.samples.filter(s => s.flags && s.flags.contamination).length)
-    L.push('Delta-check failures : ' + STATE.samples.filter(s => s.flags && s.flags.deltaCheckFail).length)
-  } else if (STATE.role === 'Trial') {
-    const pids = new Set(STATE.entries.map(e => e.participantId).filter(Boolean))
-    L.push('Events logged        : ' + STATE.entries.length)
-    L.push('Participants         : ' + pids.size)
-    L.push('Missed visits        : ' + STATE.entries.filter(e => e.attended === 'No — missed').length)
-    L.push('SAEs logged          : ' + STATE.entries.filter(e => e.eventCategory === 'Serious Adverse Event (SAE)').length)
-  } else if (STATE.role === 'Hospital') {
-    const th = (STATE.thresholds && STATE.thresholds.tat) || { Stat: 1, Urgent: 4, Routine: 24 }
-    const breaches = STATE.entries.filter(e => { const t = parseFloat(e.tatHours); return !isNaN(t) && t > (th[e.priority] || 24) }).length
-    L.push('Events logged        : ' + STATE.entries.length)
-    L.push('TAT breaches         : ' + breaches)
-    L.push('HAI events           : ' + STATE.entries.filter(e => ['HAI suspected','HAI confirmed'].includes(e.eventType)).length)
-  } else if (STATE.role === 'Bioinformatics') {
-    L.push('Analyses logged      : ' + STATE.entries.length)
-    L.push('Reported             : ' + STATE.entries.filter(e => e.pipelineStage === 'reported').length)
-    L.push('Failed               : ' + STATE.entries.filter(e => e.pipelineStage === 'failed').length)
-  }
-  L.push('')
-
-  L.push('SECTION 2  DECISION CARDS')
-  L.push(div)
-  const cards = STATE.cards.filter(c => c.role === STATE.role)
-  L.push('Total generated  : ' + cards.length)
-  L.push('Critical         : ' + cards.filter(c => c.severity === 'crit').length)
-  L.push('Warning          : ' + cards.filter(c => c.severity === 'warn').length)
-  L.push('Acknowledged     : ' + cards.filter(c => c.acknowledged && !c.falsePositive).length)
-  L.push('False positives  : ' + cards.filter(c => c.falsePositive).length)
-  L.push('Open             : ' + cards.filter(c => !c.acknowledged).length)
-  L.push('')
-
-  const fpCards = cards.filter(c => c.falsePositive)
-  if (fpCards.length > 0) {
-    L.push('SECTION 3  FALSE POSITIVE LOG  (ISO 15189 S5.9.1)')
-    L.push(div)
-    fpCards.forEach((c, i) => {
-      L.push('[' + (i+1) + '] ' + (c.title || ''))
-      L.push('    Engine   : ' + (c.source || ''))
-      L.push('    Reason   : ' + (c.falsePositiveReason || 'Not recorded'))
-      L.push('    By       : ' + (c.falsePositiveBy || '') + '  at  ' + (c.falsePositiveAt ? new Date(c.falsePositiveAt).toISOString() : ''))
-      L.push('')
-    })
-  }
-
-  L.push('SECTION 4  ACTIVE THRESHOLDS')
-  L.push(div)
-  const t = STATE.thresholds || defaultThresholds()
-  if (STATE.role === 'Laboratory') {
-    L.push('Westgard 1-3S        : ' + t.westgard.rule_1_3s + ' SD  [Westgard 2008]')
-    L.push('Westgard 1-2S        : ' + t.westgard.rule_1_2s + ' SD')
-    L.push('Delta-check  [Strathmann Am J Clin Pathol 2011]:')
-    Object.entries(t.deltaCheck).forEach(function(kv) { L.push('  ' + kv[0].padEnd(12) + ': abs=' + kv[1].abs + '  pct=' + kv[1].pct + '%  win=' + kv[1].hours + 'h') })
-  } else if (STATE.role === 'Trial') {
-    L.push('Visit window warn    : +/-' + t.visitWindow.warnDays + 'd  [ICH E6(R3)]')
-    L.push('Visit window crit    : +/-' + t.visitWindow.critDays + 'd')
-    L.push('SAE deadline         : ' + t.sae.hoursDeadline + 'h  [ICH E2A]')
-  } else if (STATE.role === 'Hospital') {
-    L.push('TAT Stat             : ' + t.tat.Stat + 'h  [CAP Q-Probes]')
-    L.push('TAT Urgent           : ' + t.tat.Urgent + 'h')
-    L.push('TAT Routine          : ' + t.tat.Routine + 'h')
-    L.push('HAI window           : ' + t.haiCluster.sameWardWindowDays + 'd  [CDC/WHO]')
-    L.push('HAI cluster warn     : ' + t.haiCluster.clusterSizeWarn + ' cases')
-  } else if (STATE.role === 'Bioinformatics') {
-    const ng = t.ngs
-    L.push('Min coverage         : ' + ng.minCoverage + 'x  [ACMG/AMP]')
-    L.push('Min mapping rate     : ' + ng.minMappingRate + '%  [GATK Best Practices]')
-    L.push('Min Q-score          : Q' + ng.minQScore)
-    L.push('Max duplication      : ' + ng.maxDupRate + '%')
-    L.push('GC content range     : ' + ng.minGC + '-' + ng.maxGC + '%')
-    L.push('Max contamination    : ' + ng.maxContamination + '%')
-  }
-  L.push('')
-
-  L.push('SECTION 5  AUDIT TRAIL')
-  L.push(div)
-  L.push('Total entries        : ' + STATE.audit.length)
-  L.push('Algorithm            : SHA-256 chain  [NIST FIPS 180-4]')
-  L.push('Last entry           : ' + (STATE.audit.length > 0 ? STATE.audit[STATE.audit.length-1].time + '  ' + STATE.audit[STATE.audit.length-1].action : 'None'))
-  L.push('')
-  L.push(sep)
-  L.push('  END OF REPORT  -  JLIGHT v10.0  -  Health Intelligence Platform')
-  L.push(sep)
-
-  const text = L.join('\n')
-  const blob = new Blob([text], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'JLIGHT-QualityReport-' + STATE.role + '-' + now.toISOString().slice(0, 10) + '.txt'
-  a.click()
-  URL.revokeObjectURL(url)
-  audit('Quality report exported', STATE.role + ' by ' + getDisplayName())
-  toast('Report exported', 'Quality report downloaded', 'good')
-}
 
 
 // ═══════════════════════════════════════════════════════════════════
@@ -5722,28 +5276,7 @@ function detectOfflineData() {
   return results
 }
 
-function renderMigrationWizard() {
-  const offline = detectOfflineData()
-  if (offline.length === 0) return '<div style="font-size:13px;color:var(--text-3)">No offline data found.</div>'
-  return '<div class="form-card" style="max-width:none;background:var(--amber-bg);border-color:rgba(245,166,35,0.25);margin-bottom:16px">' +
-    '<div style="font-family:Syne,sans-serif;font-size:15px;font-weight:700;color:var(--amber);margin-bottom:10px">⚠ Offline data detected</div>' +
-    '<div style="font-size:13px;color:var(--text);line-height:1.65;margin-bottom:14px">You have locally stored data from offline mode. If you signed in with a new online account, this data is not yet in the cloud. Migrate it now to preserve it — otherwise it may be overwritten when you sign out.</div>' +
-    '<div style="display:grid;gap:8px;margin-bottom:14px">' +
-    offline.map(d => '<div style="background:var(--surface-3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between">' +
-      '<div><span style="font-family:Syne,sans-serif;font-weight:700">' + esc(d.role) + '</span>' +
-      '<span style="font-size:11px;color:var(--text-2);margin-left:8px">' + d.total + ' records</span></div>' +
-      '<div style="font-size:11px;color:var(--text-3);font-family:DM Mono,monospace">' +
-      (d.samples > 0 ? d.samples + ' samples ' : '') +
-      (d.entries > 0 ? d.entries + ' entries ' : '') +
-      (d.cards > 0 ? d.cards + ' cards' : '') + '</div>' +
-      '</div>').join('') +
-    '</div>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-    '<button class="btn btn-primary" onclick="migrateOfflineData()">Migrate to online account</button>' +
-    '<button class="btn" onclick="exportOfflineDataBundle()">Export as backup first</button>' +
-    '<button class="btn" style="color:var(--red)" onclick="clearOfflineDataConfirm()">Discard offline data</button>' +
-    '</div></div>'
-}
+
 
 async function migrateOfflineData() {
   if (!MODE.isOnline) { toast('Sign in first', 'You must be signed into an online account to migrate data', 'crit'); return }
@@ -5951,74 +5484,13 @@ function toggleJoinType() {
   if (rr) rr.style.display = isNew ? 'flex' : 'none'
 }
 
-function generateOrgCode(prefix) {
-  // Generates deterministic 8-char code: PREFIX-XXXX
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no ambiguous chars
-  let code = ''
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)]
-  return (prefix || 'ORG') + '-' + code
-}
 
-async function createOrganisation(orgName, role, email) {
-  // Legacy compatibility wrapper: never write directly to jl_organisations.
-  // The database RPC owns code generation, creator identity, role restrictions,
-  // and owner-membership creation. Do not fabricate a local workspace on failure.
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) {
-    throw new Error('Workspace creation requires an online, authenticated session.')
-  }
-  const roleMap = {
-    'Laboratory': 'Laboratory',
-    'Hospital': 'Hospital',
-    'Hospital Operations': 'Hospital',
-    'Bioinformatics': 'Laboratory'
-  }
-  const organisationRole = roleMap[String(role || '').trim()]
-  if (!organisationRole) {
-    throw new Error('This workspace type must be provisioned through the approved organisation setup workflow.')
-  }
-  const { data: created, error } = await sb.rpc('jl_create_organisation', {
-    p_name: String(orgName || '').trim() || 'JLIGHT Health Intelligence Platform',
-    p_role: organisationRole
-  })
-  if (error) throw new Error('Workspace creation failed: ' + error.message)
-  if (!created?.id || !created?.org_code) {
-    throw new Error('Workspace creation failed: the database did not return a valid organisation.')
-  }
-  return created
-}
 
-async function joinOrganisation(orgCode) {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline) {
-    // Offline: accept the code and use it as the org identifier
-    return { org_code: orgCode.toUpperCase(), name: orgCode.toUpperCase(), role: null }
-  }
-  try {
-    const { data, error } = await sb
-      .from('jl_organisations')
-      .select('*')
-      .eq('org_code', orgCode.toUpperCase().trim())
-      .single()
-    if (error || !data) throw new Error('Organisation code not found. Check with your administrator.')
-    return data
-  } catch (e) {
-    throw new Error(e.message || 'Could not find organisation with that code')
-  }
-}
 
-async function getOrgMembers() {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline || !MODE.organisationCode) return []
-  try {
-    const { data } = await sb
-      .from('jl_user_profiles')
-      .select('full_name, job_title, workspace_role, employee_id')
-      .eq('organisation', MODE.organisationCode)
-      .order('workspace_role')
-    return data || []
-  } catch { return [] }
-}
+
+
+
+
 
 function renderOrgInfo() {
   // Shown in Settings — allows admin to share org code
@@ -6287,23 +5759,7 @@ function loadAllDomainData() {
   // Keep role-scoped STATE.entries loaded by enterApp; trial events must not be overwritten by legacy sample cache.
 }
 
-function saveAllDomainData() {
-  lsSet(PATIENT_KEY,   STATE.patients)
-  lsSet(ORDERS_KEY,    STATE.labOrders)
-  lsSet(RESULTS_KEY,   STATE.results)
-  lsSet(QC_KEY,        STATE.qcRuns)
-  lsSet(PROTOCOL_KEY,  STATE.protocols)
-  lsSet(PARTIC_KEY,    STATE.participants)
-  lsSet(VISITS_KEY,    STATE.visits)
-  lsSet(AE_KEY,        STATE.adverseEvents)
-  lsSet(ADMIT_KEY,     STATE.admissions)
-  lsSet(WARD_KEY,      STATE.wards)
-  lsSet(CORD_KEY,      STATE.clinicalOrders)
-  lsSet(INF_KEY,       STATE.infections)
-  lsSet(BIORUN_KEY,    STATE.bioRuns)
-  lsSet(REPORT_KEY,    STATE.reportArchive || [])
-  lsSet('jl_v10_samples', STATE.samples)
-}
+
 
 // ── PATIENT REGISTRY PAGE ──
 function renderPatients() {
@@ -7192,36 +6648,7 @@ function runJourneyGapEngine() {
 // Runs on every participant event — no manual trigger
 // ═══════════════════════════════════════════════════════════════════
 
-function enrolParticipant(patientId) {
-  const p = STATE.patients.find(x => x.id === patientId)
-  if (!p) return
-  if (STATE.protocols.length === 0) {
-    toast('No protocols', 'Register a protocol first in Clinical Trial → Protocols', 'warn')
-    return
-  }
-  let overlay = document.getElementById('enrol-overlay')
-  if (!overlay) {
-    overlay = document.createElement('div')
-    overlay.id = 'enrol-overlay'
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(5,8,15,0.95);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px'
-    document.body.appendChild(overlay)
-  }
-  overlay.innerHTML = '<div style="background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:36px;width:100%;max-width:500px">' +
-    '<div style="font-family:Syne,sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">Enrol in Trial</div>' +
-    '<div style="font-size:13px;color:var(--text-2);margin-bottom:20px">' + esc(p.fullName) + '</div>' +
-    '<div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">' +
-    '<div class="form-row"><label class="form-label">Protocol *</label><select class="form-input" id="en-proto"><option value="">— Select —</option>' + STATE.protocols.map(pr => '<option value="'+pr.id+'">'+esc(pr.protocolNumber)+' · '+esc(pr.title)+'</option>').join('') + '</select></div>' +
-    '<div class="form-row"><label class="form-label">Participant ID</label><input class="form-input" id="en-pid" placeholder="e.g. PTX-001 (auto if blank)"/></div>' +
-    '<div class="form-row"><label class="form-label">ICF Version *</label><input class="form-input" id="en-icf" placeholder="e.g. ICF v4.0 dated 2026-04-15"/></div>' +
-    '<div class="form-row"><label class="form-label">Enrolment Date</label><input class="form-input" type="date" id="en-date" value="' + new Date().toISOString().slice(0,10) + '"/></div>' +
-    '<div class="form-row"><label class="form-label">Distance to site (km)</label><input class="form-input" type="number" id="en-dist" placeholder="0"/></div>' +
-    '</div>' +
-    '<div class="form-actions">' +
-    '<button class="btn btn-primary" onclick="submitEnrolment(\'' + patientId + '\')">Enrol</button>' +
-    '<button class="btn" onclick="document.getElementById(\'enrol-overlay\').remove()">Cancel</button>' +
-    '</div></div>'
-  overlay.style.display = 'flex'
-}
+
 
 function submitEnrolment(patientId) {
   const protoId = document.getElementById('en-proto') ? document.getElementById('en-proto').value : ''
