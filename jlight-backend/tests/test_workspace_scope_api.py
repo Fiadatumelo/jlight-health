@@ -1,7 +1,7 @@
 """Regression tests for database-enforced JLIGHT organisation paths."""
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.app import app
@@ -58,9 +58,10 @@ def claims(**overrides):
 
 def test_csv_analysis_uses_database_path_not_x_role_or_json_role():
     db = FakeDatabase(org_type="laboratory", allowed=True)
+    analysis = Mock(return_value={"success": True, "rowCount": 4})
     with patch("api.app.verify_access_token", return_value=claims()), \
          patch("api.app.get_db", return_value=db), \
-         patch("api.app.analyse_csv", return_value={"success": True, "rowCount": 4}), \
+         patch("api.app.analyse_csv", analysis), \
          patch("api.app.log_audit"):
         response = app.test_client().post(
             "/api/analyse-csv",
@@ -71,6 +72,7 @@ def test_csv_analysis_uses_database_path_not_x_role_or_json_role():
             json={"csvText": "sample,result\nS1,positive", "role": "Bioinformatics"},
         )
     assert response.status_code == 200
+    assert analysis.call_args.kwargs["role"] == "Laboratory"
 
 
 def test_bioinformatics_api_rejects_laboratory_organisation():
