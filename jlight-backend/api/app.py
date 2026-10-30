@@ -342,7 +342,7 @@ def api_intelligence_summary():
 @app.route("/api/intelligence/clinical-trials-summary", methods=["POST"])
 @require_auth
 def api_clinical_trials_intelligence_summary():
-    """Run the isolated Clinical Trials JC tool using verified trial scope."""
+    """Run Clinical Trials JC against server-derived, verified database evidence."""
     claims = getattr(g, "auth_claims", None)
     if not isinstance(claims, dict):
         return jsonify({"success": False, "error": "Verified authentication required"}), 403
@@ -352,32 +352,51 @@ def api_clinical_trials_intelligence_summary():
     if scope_error:
         return scope_error
     org_id = scope["organisation_id"]
-    role = "clinical_trials"
-    # Trial read scope has already been independently verified in the database.
-    permissions = ["intelligence:read"]
 
     try:
         payload = request.get_json(silent=True)
-        if not isinstance(payload, dict) or set(payload) != {"clinical_trials_checks"}:
-            return jsonify({"success": False, "error": "Only clinical_trials_checks is accepted"}), 400
-        checks = payload.get("clinical_trials_checks")
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, dict) or payload:
+            return jsonify({
+                "success": False,
+                "error": "Client-supplied trial checks are not accepted; evidence is derived from the authorised database workspace",
+            }), 400
+
+        db = get_db()
+        if db is None:
+            return jsonify({"success": False, "error": "Clinical Trials evidence store unavailable"}), 503
+        try:
+            with db.cursor() as cur:
+                cur.execute(
+                    "SELECT set_config('request.jwt.claim.sub', %s, true)",
+                    (claims["sub"],),
+                )
+                cur.execute(
+                    "SELECT public.jl_build_trial_intelligence_checks(%s::uuid) AS checks",
+                    (org_id,),
+                )
+                row = cur.fetchone()
+                checks = row["checks"] if row else None
+            db.rollback()
+        except Exception:
+            db.rollback()
+            raise
+
         if not isinstance(checks, list) or len(checks) > 20:
-            return jsonify({"success": False, "error": "A bounded list of trial checks is required"}), 400
-        allowed_fields = {"check_id", "status", "severity", "evidence_count"}
-        if any(not isinstance(item, dict) or set(item) - allowed_fields for item in checks):
-            return jsonify({"success": False, "error": "Trial checks contain unsupported fields"}), 400
+            return jsonify({"success": False, "error": "Server-derived Clinical Trials evidence is invalid"}), 503
 
         context = JCContext(
             user_id=claims["sub"],
             organisation_id=org_id,
-            permissions=frozenset(permissions),
-            role=role,
+            permissions=frozenset({"intelligence:read"}),
+            role="clinical_trials",
             clinical_trials_scope=True,
         )
         agent = JCAgent(context=context, audit=_write_jc_audit)
         agent.register(JCTool(
             name="clinical_trials_summary",
-            description="Aggregate de-identified Clinical Trials workflow checks only.",
+            description="Aggregate de-identified Clinical Trials checks derived from authorised canonical database records.",
             handler=lambda _ctx, args: build_clinical_trials_intelligence_summary(
                 clinical_trials_checks=args.get("clinical_trials_checks"),
             ),
@@ -385,7 +404,10 @@ def api_clinical_trials_intelligence_summary():
             allowed_arguments=frozenset({"clinical_trials_checks"}),
             allowed_scopes=frozenset({"clinical_trials"}),
         ))
-        result = agent.execute("clinical_trials_summary", payload)
+        result = agent.execute(
+            "clinical_trials_summary",
+            {"clinical_trials_checks": checks},
+        )
         return jsonify({"success": True, "organisation_id": org_id, **result}), 200
     except JCApprovalRequired:
         return jsonify({"success": False, "error": "Explicit approval required"}), 409
