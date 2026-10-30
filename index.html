@@ -733,7 +733,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
-    <div class="path-picker"><div class="path-picker-title">Choose your path</div><div class="path-picker-sub">One intelligence platform. Choose a workspace to begin.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
+    <div class="path-picker"><div class="path-picker-title">Organisation workspace</div><div class="path-picker-sub">Your organisation has one registered path. JLIGHT verifies it after sign-in; selecting another path cannot grant access.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
       <button type="button" class="path-choice path-lab" data-path="Laboratory" aria-pressed="false" onclick="selectJlightPath('Laboratory')"><span class="path-choice-icon">LAB</span><span class="path-choice-copy"><strong>Laboratory</strong><small>Workflow traceability, turnaround time and source-data quality</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-hospital" data-path="Hospital" aria-pressed="false" onclick="selectJlightPath('Hospital')"><span class="path-choice-icon">HIS</span><span class="path-choice-copy"><strong>Hospital &amp; Health Informatics</strong><small>Patient journey, orders, results and operational bottlenecks</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-bio" data-path="Bioinformatics" aria-pressed="false" onclick="selectJlightPath('Bioinformatics')"><span class="path-choice-icon">BIO</span><span class="path-choice-copy"><strong>Bioinformatics</strong><small>Review imported analysis outputs and quality metrics</small></span><span class="path-choice-check">✓</span></button>
@@ -1107,7 +1107,7 @@ const BACKEND = IS_PRODUCTION_HOST
       url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
       key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
     }
-const MODE = { isOnline: true, organisationName: null, signupMode: false, hasRestoredSession: false }
+const MODE = { isOnline: true, organisationName: null, organisationType: null, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
 
@@ -1280,7 +1280,7 @@ function selectJlightPath(role) {
 async function continueWithSelectedPath() {
   const status = document.getElementById("si-status"), role = sessionStorage.getItem("jl_selected_path"), sb = getSupabase()
   if (!role || !ROLES[role]) { if(status){status.textContent="Choose a path first";status.className="auth-status error"} return }
-  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
+  try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:role||meta.role||"Laboratory",orgCode:meta.org_code||""}); await loadVerifiedOrganisationPath(user,role||null); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
 async function doSignIn(resend = false) {
@@ -1389,7 +1389,7 @@ async function ensureJlightOrganisation(user, options = {}) {
   const requestedRole = options.role || meta.role || "Laboratory";
   const role = ["Laboratory", "Trial", "Hospital", "Bioinformatics"].includes(requestedRole)
     ? requestedRole : "Laboratory";
-  const organisationRole = role === "Bioinformatics" ? "Laboratory" : role;
+  const organisationRole = role;
   const orgCode = String(options.orgCode || meta.org_code || "").trim().toUpperCase();
   const orgName = String(options.org || meta.org_name || "JLIGHT Health Intelligence Platform").trim();
 
@@ -1463,6 +1463,29 @@ async function ensureJlightOrganisation(user, options = {}) {
   await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode);
 }
 
+async function loadVerifiedOrganisationPath(user, requestedPath = null) {
+  const sb = getSupabase();
+  if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
+  const { data, error } = await sb.from("jl_organisations")
+    .select("id,name,org_code,role,type,active")
+    .eq("id", MODE.organisationId).maybeSingle();
+  if (error || !data) throw new Error("Could not verify the organisation's registered path. Access remains closed.");
+  if (data.active === false) throw new Error("This organisation is inactive. Contact JLIGHT support.");
+  const type = String(data.type || data.role || "").trim().toLowerCase();
+  const pathByType = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial", trial:"Trial", clinical_trial:"Trial" };
+  const verifiedPath = pathByType[type];
+  if (!verifiedPath || !ROLES[verifiedPath]) throw new Error("This organisation does not have a valid system-assigned JLIGHT path. Contact JLIGHT support.");
+  if (requestedPath && requestedPath !== verifiedPath) throw new Error("This organisation is registered for " + ROLES[verifiedPath].label + ". JLIGHT will not open " + ROLES[requestedPath].label + " for this organisation.");
+  MODE.organisationId = data.id;
+  MODE.organisationName = data.name;
+  MODE.organisationCode = data.org_code || MODE.organisationCode || "";
+  MODE.organisationType = type;
+  STATE.orgId = data.id;
+  STATE.orgName = data.name;
+  STATE.role = verifiedPath;
+  return verifiedPath;
+}
+
 async function verifyLoginCode() {
   const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
   const token = (document.getElementById("si-login-code") || {}).value?.trim() || "";
@@ -1494,6 +1517,7 @@ async function verifyLoginCode() {
       ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath, orgCode: pending.joinType === "join" ? pending.orgCode : "" }
       : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
     await ensureJlightOrganisation(user, orgOptions);
+    await loadVerifiedOrganisationPath(user, selectedPath);
     await loadOrCreateProfile(user);
     const codeButton = document.getElementById("si-send-org-code");
     if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
@@ -1634,7 +1658,7 @@ async function signOut() {
     const sb = getSupabase()
     if (sb) { try { await sb.auth.signOut() } catch(e) {} }
   }
-  MODE.isOnline = false; MODE.organisationName = null
+  MODE.isOnline = false; MODE.organisationName = null; MODE.organisationType = null
   STATE.role = null; STATE.user = null; STATE.userProfile = null
   STATE.pinBuf = ''; STATE.samples=[]; STATE.entries=[]; STATE.cards=[]; STATE.audit=[]
   STATE.currentCardId=null; STATE.currentSampleId=null; STATE.currentPage='dashboard'
