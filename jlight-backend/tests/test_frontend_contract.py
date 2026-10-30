@@ -42,6 +42,10 @@ require("patient-journey-summary" in html and "patient-data-quality-traceability
 require("journeyReport.correlationId = correlationId" in html and
         "qualityReport.correlationId = correlationId" in html,
         "The two patient reports must share a correlation ID")
+roles_start = html.index("const ROLES =")
+roles_end = html.index("const REF_RANGES", roles_start)
+role_block = html[roles_start:roles_end]
+
 # Clinical Trials has its own study-scoped participant timeline, never the routine patient journey.
 trial_nav_start = role_block.index("Trial:")
 trial_nav_end = role_block.index("Hospital:", trial_nav_start)
