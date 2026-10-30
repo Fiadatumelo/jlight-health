@@ -1,6 +1,11 @@
 name: JLIGHT public TBProfiler data validation
 
 on:
+  push:
+    branches: ["main"]
+    paths:
+      - "validation/tbprofiler/**"
+      - ".github/workflows/tbprofiler-public-data-validation.yml"
   pull_request:
     paths:
       - "validation/tbprofiler/**"
