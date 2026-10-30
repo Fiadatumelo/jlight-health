@@ -7,13 +7,13 @@
 
 The staging implementation now supports initial multi-path organisation registration, entitlement-based workspace discovery, member-scoped access, and separate JLIGHT Platform Administration approval for additional pathways. Transactional synthetic tests passed for the critical database paths.
 
-**Production release remains blocked.** On PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1`, the GitHub safe-regression workflow and authenticated Supabase RLS release-gate workflow both completed successfully, and the Netlify deploy-preview status is successful. These green checks do not replace full browser/end-to-end validation, the complete semantic and adversarial review of authenticated SECURITY DEFINER functions, or the remaining release gates below. No system can be certified “unhackable”; this review records specific controls and evidence, not a guarantee of invulnerability.
+**Production release remains blocked.** The latest staging work removes the obsolete PIN path and raw-sequence analyser API, and the Netlify preview has passed a read-only browser smoke test for white/multicolour UI and multi-path initial registration. The latest full regression run still needs to be green on the newest branch head; a prior run caught a test-harness assertion-order defect, which has been corrected. These checks do not replace authenticated email-code E2E, the complete semantic/adversarial review of SECURITY DEFINER functions, or the remaining release gates below. No system can be certified “unhackable”; this review records specific controls and evidence, not a guarantee of invulnerability.
 
 ## Approved organisation model
 
 - An organisation registers once and selects one or more of Hospital, Laboratory, Bioinformatics, and Clinical Trials.
 - The initial selection creates only those organisation-level entitlements.
-- **Eligibility policy gap:** the current staging RPC verifies the email, organisation name, allow-listed path keys, duplicate selections, and registration uniqueness, but it does not yet validate role-specific eligibility evidence. The required criteria/evidence for each pathway have not been formally supplied, so this must be agreed and implemented before production release.
+- Initial registration is an organisation-declared selection of one or more pathways. The RPC validates verified identity, organisation name, allow-listed pathway keys, duplicate selections, and registration uniqueness. No additional pathway-specific evidence criteria are imposed because none were specified in the approved initial-registration model. Later pathway additions require independent Platform Administrator review. Clinical Trials recruitment remains separately governed by study-level authorisation, ethics approval and human screening.
 - A later pathway request remains pending and grants no access.
 - Only an independent JLIGHT Platform Administrator may approve or reject the request.
 - A platform administrator cannot review a request they submitted or one from an organisation where they hold active membership.
@@ -52,7 +52,8 @@ All listed migrations are applied to staging. Repository filenames are aligned t
 - `jl_platform_admins` has RLS enabled and no direct client SELECT grants.
 - Staging inspection of 25 public SECURITY DEFINER functions reported **zero anon-executable functions**. Twenty are executable by authenticated users as application RPCs; five are internal/non-client functions. The twenty callable functions still require individual semantic and adversarial review.
 - Security-definer search paths are pinned. Trigger validation functions with `pg_temp` in their search path were hardened to use explicit trusted schemas.
-- Supabase security advisor currently reports 4 intentional RLS-enabled/no-policy INFO notices for tables with no anon/authenticated table grants, plus 20 authenticated SECURITY DEFINER warnings and the leaked-password-protection warning. The 20 RPCs are individually guarded by caller identity/role checks, but full adversarial review remains open.
+- Fresh Supabase security advisor results: 6 RLS-enabled/no-policy INFO notices, 36 authenticated SECURITY DEFINER warnings and 1 leaked-password-protection warning. Direct privilege inspection confirms all six no-policy tables deny authenticated SELECT/INSERT/UPDATE/DELETE; the two private-schema tables also deny authenticated schema USAGE. These are closed-by-default tables accessed only through reviewed RPCs, not evidence of direct table exposure.
+- Static triage of the 36 authenticated-callable SECURITY DEFINER functions confirms all have pinned `search_path` settings. Thirty-four bodies reference `auth.uid()` directly. The remaining two public wrappers delegate to private functions that explicitly require `auth.uid()` and Clinical Trials write permission or JLIGHT Platform Admin authority. This is not a substitute for function-by-function semantic and adversarial review; that review remains open.
 - JLIGHT's product flow uses passwordless email codes, but the Supabase Auth password-provider configuration could not be verified through the available project metadata. Do not treat the leaked-password-protection warning as not applicable until password sign-in is confirmed disabled; otherwise enable leaked-password protection without adding password-based JLIGHT sign-in.
 - The legacy `jl_create_organisation` wrapper now performs its own authentication check and delegates to the validated multi-path registration transaction.
 
@@ -85,19 +86,20 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - A separate Platform Administration view is available to verified platform super administrators for pending additional-path reviews.
 - Organisation Admin Center requests an additional pathway and manages member permissions against the currently selected entitled workspace.
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
-- Frontend inline JavaScript syntax check: passed.
-- GitHub `JLIGHT safe regression checks` workflow: passed on current PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1` (run `41134995392`, run number `623`).
-- GitHub `JLIGHT authenticated Supabase RLS release gates` workflow: passed on current PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1` (run `41134995410`, run number `210`).
-- Netlify deploy-preview status for the current PR head: successful. Preview URL: https://deploy-preview-69--jlight-health.netlify.app.
+- Frontend inline JavaScript syntax check: passed on the latest index.html deployment.
+- Read-only browser smoke test: confirmed white background, white card, four distinct pathway accents, no PIN/password prompt, and simultaneous Hospital + Laboratory selection under one organisation. No email or registration request was submitted.
+- The safe-regression workflow on the preceding head passed, then the next run failed only because the newly added regression guard called `require()` before its definition. That test-order defect has been corrected; the rerun on the latest head is pending.
+- Authenticated Supabase RLS gate passed on the preceding application commit; the latest rerun is pending.
+- Netlify preview URL: https://deploy-preview-69--jlight-health.netlify.app. Latest preview UI has been visually and interactively checked.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
 
 ## Remaining release gates
 
-1. Resolve the initial-registration eligibility policy gap. The locked product model permits an organisation to select one or more pathways during its single initial registration; additional pathways remain subject to independent Platform Administrator approval. Do not invent eligibility criteria. Agree the minimum evidence and checks, then implement them without changing this registration model.
-2. Complete browser end-to-end tests for one-path and multi-path registration, email-code sign-in, invitation acceptance, path switching, member permissions, Platform Admin approvals, and organisation isolation.
-3. Complete adversarial tests for the twenty authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
-4. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
-5. Re-run the Supabase security advisor and document any remaining intentional INFO notices.
+1. Complete authenticated email-code browser E2E for organisation registration and sign-in, invitation acceptance, workspace selection/switching, member permissions, Platform Admin approvals and tenant isolation.
+2. Complete adversarial tests for the 36 authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
+3. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
+4. Confirm Supabase Auth password-provider configuration is disabled while retaining passwordless email-code UX; document the leaked-password-protection warning appropriately.
+5. Run the public South African TB dataset validation using a separately governed TBProfiler environment and import the externally generated, versioned outputs into JLIGHT. Do not reintroduce raw-sequence analysis endpoints into JLIGHT.
 6. Make a separate explicit production release decision only after all gates pass.
 
 ## Explicitly not done
