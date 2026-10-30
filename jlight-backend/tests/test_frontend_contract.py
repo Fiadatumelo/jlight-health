@@ -99,10 +99,18 @@ roles_end = html.index("const REF_RANGES", roles_start)
 role_block = html[roles_start:roles_end]
 active_keys = set(re.findall(r"key:\s*'([^']+)'", role_block))
 route_start = html.index("function goPage(page)")
-route_end = html.index("document.addEventListener('keydown'", route_start)
+route_end = html.index("// ── Boot: restore an existing Supabase session", route_start)
 routes = set(re.findall(r"case\s+'([^']+)'\s*:", html[route_start:route_end]))
 require(not (active_keys - routes),
         "Navigation keys without routes: " + ", ".join(sorted(active_keys - routes)))
+
+# Authentication is passwordless and workspace authorization remains server-derived.
+require("sb.auth.verifyOtp({ email, token, type: \"email\" })" in html,
+        "Sign-in must verify a one-time email code")
+for legacy_auth in ("screen-pin", "pinPress(", "handleLogin()", "handleSetup()", "getPinHash", "setPinHash", "hashPin(", "doOfflineMode", "si-role-row"):
+    require(legacy_auth not in html, f"Legacy PIN/password authentication returned: {legacy_auth}")
+require('type="password"' not in html.lower(),
+        "JLIGHT must not expose password-based sign-in")
 
 # Prevent accidental reintroduction of analyser-like dashboard metrics or simulated imports.
 dash_start = html.index("function renderDashboard()")
