@@ -1726,16 +1726,30 @@ function buildNav() {
   const cfg = ROLES[STATE.role]
   const nav = $('sb-nav')
   const openCards = STATE.cards.filter(c => !c.acknowledged).length
-  nav.innerHTML = `
-    <div class="sb-section">${esc(cfg.label)}</div>
-    ${cfg.nav.map(item => {
-      const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
-      const badge = item.key === 'cards' && openCards > 0 ? `<span class="sb-link-badge">${openCards}</span>` : ''
-      return `<div class="sb-link ${isActive}" onclick="goPage('${item.key}')"><span class="sb-link-icon">${item.icon}</span><span>${esc(item.label)}</span>${badge}</div>`
-    }).join('')}
-  `
+  const groups = [
+    { label: 'Overview', keys: ['dashboard'] },
+    { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
+    { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
+    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
+    { label: 'Other', keys: ['instruments', 'samples', 'sample-detail', 'process', 'handover', 'bio-pipeline', 'bio-report', 'bio-run-detail', 'patient-profile'] },
+  ]
+  const used = new Set()
+  const renderLink = item => {
+    used.add(item.key)
+    const isActive = (STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards')) ? 'active' : ''
+    const badge = item.key === 'cards' && openCards > 0 ? '<span class="sb-link-badge">' + openCards + '</span>' : ''
+    return '<div class="sb-link ' + isActive + '" role="button" tabindex="0" onclick="goPage(\'' + item.key + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goPage(\'' + item.key + '\')}"><span class="sb-link-icon" aria-hidden="true">' + item.icon + '</span><span>' + esc(item.label) + '</span>' + badge + '</div>'
+  }
+  const markup = groups.map(group => {
+    const items = cfg.nav.filter(item => group.keys.includes(item.key))
+    if (!items.length) return ''
+    const isActive = items.some(item => STATE.currentPage === item.key || (STATE.currentPage === 'sample-detail' && item.key === 'samples') || (STATE.currentPage === 'detail' && item.key === 'cards'))
+    return '<details class="sb-nav-group" ' + (isActive ? 'open' : '') + '><summary>' + group.label + '</summary>' + items.map(renderLink).join('') + '</details>'
+  }).join('')
+  const remaining = cfg.nav.filter(item => !used.has(item.key))
+  nav.innerHTML = markup + (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
-
 function goPage(page) {
   STATE.currentPage = page
   $$('.page').forEach(p => p.classList.remove('active'))
