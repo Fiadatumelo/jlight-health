@@ -1991,7 +1991,7 @@ async function requestJlightClinicalTrialsSummary(checks) {
   const sessionResult = await sb.auth.getSession();
   const session = sessionResult && sessionResult.data && sessionResult.data.session;
   if (!session || !session.access_token) return { success: false, message: 'A verified Clinical Trials session is required.' };
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\\/+$/, '');
+  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
   try {
     const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
       method: 'POST',
