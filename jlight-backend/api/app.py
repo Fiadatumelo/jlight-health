@@ -254,6 +254,30 @@ def resolve_verified_workspace_scope(allowed_domains, access="read"):
         return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
 
 
+def require_domain_auth(allowed_domains, access="read"):
+    """Authenticate a request and resolve its current organisation/path permission.
+
+    The selected workspace header is only a context selector. The resolver
+    re-checks active organisation membership, pathway entitlement and the
+    requested read/write/report permission against PostgreSQL on every call.
+    """
+    allowed = frozenset(str(domain).strip().lower() for domain in allowed_domains)
+
+    def decorate(view):
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            claims = getattr(g, "auth_claims", None)
+            if not isinstance(claims, dict) or not claims.get("sub"):
+                return jsonify({"success": False, "error": "Verified authentication required"}), 401
+            scope, scope_error = resolve_verified_workspace_scope(allowed, access=access)
+            if scope_error:
+                return scope_error
+            g.jlight_scope = scope
+            return view(*args, **kwargs)
+        return wrapped
+    return decorate
+
+
 # ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
 
 def _write_jc_audit(event):
