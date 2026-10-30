@@ -119,7 +119,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                (organization_id, auth_subject, role, active, created_by)
                VALUES (%s, %s, 'owner', true, %s),
                       (%s, %s, 'owner', true, %s),
-                      (%s, %s, 'member', true, %s)
+                      (%s, %s, 'operator', true, %s)
                ON CONFLICT (organization_id, auth_subject)
                DO UPDATE SET role = EXCLUDED.role, active = true""",
             (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b, cls.org_a, cls.hospital_only, cls.a),
