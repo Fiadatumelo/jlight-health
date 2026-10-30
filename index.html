@@ -3747,7 +3747,7 @@ function renderAdminArchivedPatientsHtml() {
     '<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
     '<div><div style="font-size:12.5px;font-weight:700">' + esc(patient.fullName || patient.name || 'Archived patient') + '</div>' +
     '<div style="font-size:11px;color:var(--text-3)">' + esc(patient.archivedAt || '') + '</div></div>' +
-    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedPatient(\\'' + esc(patient.id) + '\\')">Permanently delete</button>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedPatient(\'' + esc(patient.id) + '\')">Permanently delete</button>' +
     '</div>'
   ).join('') + '</div>'
 }
