@@ -868,6 +868,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-connectors" class="page"></div>
         <div id="page-audit" class="page"></div>
         <div id="page-settings" class="page"></div>
+        <div id="page-admin" class="page"></div>
         <div id="page-patients" class="page"></div>
         <div id="page-journey" class="page"></div>
         <div id="page-jc" class="page"></div>
@@ -1679,6 +1680,10 @@ async function signOut() {
 async function enterApp() {
   const cfg = ROLES[STATE.role]
   if (!cfg) throw new Error('The selected JLIGHT module is not configured.')
+  if (MODE.isOnline && MODE.organisationType) {
+    const verifiedRoles = { hospital:'Hospital', laboratory:'Laboratory', bioinformatics:'Bioinformatics', clinical_trials:'Trial', trial:'Trial', clinical_trial:'Trial' }
+    if (verifiedRoles[MODE.organisationType] !== STATE.role) throw new Error('Workspace path does not match the organisation\'s registered path. Access has been stopped.')
+  }
   // Resolve the active workspace before loading or syncing domain records.
   STATE.orgId = MODE.organisationId || localStorage.getItem('jl_org_id') || 'default'
   STATE.orgName = MODE.organisationName || localStorage.getItem('jl_org_name') || 'Workspace'
@@ -1693,15 +1698,13 @@ async function enterApp() {
   loadAllDomainData()
   if (!Array.isArray(STATE.reportArchive)) STATE.reportArchive = []
   if (MODE.isOnline) {
-    const remote = await loadFromBackend()
+    const [remote] = await Promise.all([loadFromBackend(), loadReqsFromSupa(), loadDomainDataFromBackend()])
     if (remote) {
       if (remote.samples && remote.samples.length) STATE.samples = remote.samples
       if (remote.entries && remote.entries.length) STATE.entries = remote.entries
-      if (remote.cards   && remote.cards.length)   STATE.cards   = remote.cards
-      if (remote.audit   && remote.audit.length)    STATE.audit   = remote.audit
+      if (remote.cards && remote.cards.length) STATE.cards = remote.cards
+      if (remote.audit && remote.audit.length) STATE.audit = remote.audit
     }
-    loadReqsFromSupa()
-    await loadDomainDataFromBackend()
   }
   $('sb-username').textContent = cfg.user
   $('sb-userrole').textContent = cfg.label
@@ -1725,8 +1728,8 @@ function buildNav() {
     { label: 'Overview', keys: ['dashboard'] },
     { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
     { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
-    { label: 'Insights', keys: ['predictive', 'analytics', 'jc'] },
-    { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
+    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Connections', keys: ['connectors', 'audit', 'settings'] },
   ]
   const used = new Set()
   const renderLink = item => {
@@ -1735,6 +1738,10 @@ function buildNav() {
     const badge = item.key === 'cards' && openCards > 0 ? '<span class="sb-link-badge">' + openCards + '</span>' : ''
     return '<div class="sb-link ' + isActive + '" role="button" tabindex="0" onclick="goPage(\'' + item.key + '\')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();goPage(\'' + item.key + '\')}"><span class="sb-link-icon" aria-hidden="true">' + item.icon + '</span><span>' + esc(item.label) + '</span>' + badge + '</div>'
   }
+  const pinned = cfg.nav.filter(item => item.key === 'jc')
+  const adminItems = MODE.isOnline && STATE.userProfile?.workspace_role === 'admin'
+    ? [{ key: 'admin', label: 'Admin Center', icon: '⚙' }]
+    : []
   const markup = groups.map(group => {
     const items = cfg.nav.filter(item => group.keys.includes(item.key))
     if (!items.length) return ''
@@ -1742,7 +1749,11 @@ function buildNav() {
     return '<details class="sb-nav-group" ' + (isActive ? 'open' : '') + '><summary>' + group.label + '</summary>' + items.map(renderLink).join('') + '</details>'
   }).join('')
   const remaining = cfg.nav.filter(item => !used.has(item.key))
-  nav.innerHTML = markup + (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
+  nav.innerHTML =
+    (pinned.length ? '<div class="sb-nav-pinned">' + pinned.map(renderLink).join('') + '</div>' : '') +
+    (adminItems.length ? '<div class="sb-nav-pinned sb-nav-admin">' + adminItems.map(renderLink).join('') + '</div>' : '') +
+    markup +
+    (remaining.length ? '<details class="sb-nav-group"><summary>More</summary>' + remaining.map(renderLink).join('') + '</details>' : '')
 }
 function goPage(page) {
   STATE.currentPage = page
@@ -1753,7 +1764,7 @@ function goPage(page) {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
-    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent',
+    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent', admin: 'Admin Center',
   }
   $('tb-title').textContent = titles[page] || page
   buildNav()
@@ -1768,6 +1779,7 @@ function goPage(page) {
     case 'connectors': renderConnectors(); break
     case 'audit':     renderAudit(); break
     case 'settings':    renderSettings(); break
+    case 'admin':        renderAdminCenter(); break
     case 'patients':      renderPatients(); break
     case 'journey':       renderJourney(); break
     case 'jc':             renderJCAgent(); break
