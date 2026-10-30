@@ -3,9 +3,12 @@
 Run only against a disposable Supabase staging database. Fixtures stay inside one
 outer transaction and are rolled back at class teardown. Never use production.
 """
+import csv
+import json
 import os
 import unittest
 import uuid
+from pathlib import Path
 
 try:
     import psycopg2
@@ -191,6 +194,26 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (cls.bio_amr, cls.org_a, cls.bio_run),
         )
 
+        # Load the public TBProfiler CSV fixture through the same bioRuns payload
+        # contract used by the JLIGHT source importer. It contains no patient link.
+        fixture = Path(__file__).resolve().parents[2] / "validation" / "tbprofiler" / "fixtures" / "public_tbprofiler_bioruns.csv"
+        with fixture.open(newline="", encoding="utf-8") as handle:
+            for row in csv.DictReader(handle):
+                c.execute(
+                    """INSERT INTO public.jl_entries
+                       (id, jl_id, user_id, organisation, role, ts, payload, created_at, org_id, domain)
+                       VALUES (%s, %s, %s, 'RLS Org A', 'Bioinformatics', %s, %s::jsonb, %s, %s, 'bioinformatics')""",
+                    (
+                        str(uuid.uuid4()),
+                        "TBP-" + row["sourceRecordId"],
+                        cls.a,
+                        row["createdAt"],
+                        json.dumps(row),
+                        row["createdAt"],
+                        cls.org_a,
+                    ),
+                )
+
         # Trial organisation is intentionally not added to the hospital-domain membership model.
         c.execute(
             """INSERT INTO public.jl_patients (id, org_id, mrn, full_name)
@@ -337,6 +360,38 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT code_only_invitation")
         c.execute("SELECT public.jl_list_my_workspaces(NULL)")
         self.assertEqual(c.fetchone()[0], [])
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_public_tbprofiler_import_records_are_workspace_and_tenant_scoped(self):
+        c = self._as_user(self.a)
+        c.execute(
+            """SELECT jl_id, payload FROM public.jl_entries
+               WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%' ORDER BY jl_id"""
+        )
+        rows = c.fetchall()
+        self.assertEqual(len(rows), 2)
+        summaries = {
+            row[1]["sourceRecordId"]: json.loads(row[1]["summary"])
+            for row in rows
+        }
+        self.assertEqual(summaries["ERR10610053"]["drugResistanceCall"], "Pre-XDR-TB")
+        self.assertEqual(summaries["ERR10610053"]["medianCoverage"], 48.0)
+        self.assertEqual(summaries["ERR10610083"]["medianCoverage"], 12.0)
+        self.assertTrue(summaries["ERR10610083"]["qcWarnings"])
+        self.assertNotIn("patientId", summaries["ERR10610053"])
+
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.hospital_only,))
+        c.execute(
+            "SELECT jl_id FROM public.jl_entries WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%'"
+        )
+        self.assertEqual(c.fetchall(), [])
+
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.b,))
+        c.execute(
+            "SELECT jl_id FROM public.jl_entries WHERE domain='bioinformatics' AND jl_id LIKE 'TBP-%'"
+        )
+        self.assertEqual(c.fetchall(), [])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
