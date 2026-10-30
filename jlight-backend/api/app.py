@@ -33,6 +33,12 @@ from flask_cors import CORS
 from engine.csv_engine import analyse_csv
 from api.security import verify_access_token
 
+from engine.intelligence_engine import build_intelligence_summary
+from agent.jc_agent import (
+    JCContext, JCAgent, JCTool, JCError, JCApprovalRequired,
+    JCForbidden, JCInvalidRequest,
+)
+
 from engine.bio_engine import (
     screen_tb_resistance,
     detect_variants,
@@ -153,6 +159,111 @@ def require_auth(view):
         g.auth_claims = claims
         return view(*args, **kwargs)
     return wrapped
+
+
+
+# ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
+
+def _write_jc_audit(event):
+    """Persist metadata-only JC audit events; fail closed if audit storage is unavailable."""
+    db = get_db()
+    if db is None:
+        raise RuntimeError("Audit storage unavailable")
+    with db.cursor() as cur:
+        cur.execute(
+            "INSERT INTO audit_log (action, role, details, timestamp) VALUES (%s, %s, %s, %s)",
+            (
+                "jc_" + str(event.get("outcome", "unknown")),
+                "JC",
+                json.dumps({
+                    "agent": "JC",
+                    "tool": event.get("tool"),
+                    "outcome": event.get("outcome"),
+                    "reason": event.get("reason"),
+                    "user_id": event.get("user_id"),
+                    "organisation_id": event.get("organisation_id"),
+                }),
+                datetime.now(timezone.utc),
+            ),
+        )
+    db.commit()
+
+
+@app.route("/api/intelligence/summary", methods=["POST"])
+@require_auth
+def api_intelligence_summary():
+    """Run deterministic intelligence aggregation under verified tenant scope."""
+    claims = getattr(g, "auth_claims", None)
+    app_metadata = claims.get("app_metadata") if isinstance(claims, dict) else {}
+    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
+
+    org_id = (
+        claims.get("organisation_id") or claims.get("org_id")
+        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
+    )
+    permissions = claims.get("permissions")
+    if permissions is None:
+        permissions = app_metadata.get("permissions", [])
+    token_role = str(claims.get("role", "")).strip().lower()
+    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
+    role = str(
+        claims.get("jlight_role") or claims.get("workspace_role")
+        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
+        or app_metadata.get("role") or custom_role or ""
+    ).strip().lower()
+    trial_scope = (
+        role in {"trial", "clinical_trials"}
+        or claims.get("clinical_trials_scope") is True
+        or app_metadata.get("clinical_trials_scope") is True
+    )
+
+    if not isinstance(org_id, str) or not org_id.strip():
+        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
+    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
+        return jsonify({"success": False, "error": "Verified permissions required"}), 403
+    if trial_scope:
+        return jsonify({"success": False, "error": "JC intelligence is not enabled for Clinical Trials scope"}), 403
+
+    try:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"success": False, "error": "A JSON object is required"}), 400
+        allowed = {"csv_analysis", "bioinformatics", "journey_checks"}
+        if set(payload) - allowed:
+            return jsonify({"success": False, "error": "Unsupported input fields"}), 400
+
+        context = JCContext(
+            user_id=claims["sub"],
+            organisation_id=org_id,
+            permissions=frozenset(permissions),
+            role=role,
+            clinical_trials_scope=trial_scope,
+        )
+        agent = JCAgent(context=context, audit=_write_jc_audit)
+        agent.register(JCTool(
+            name="intelligence_summary",
+            description="Aggregate existing structured QC and patient-journey checks.",
+            handler=lambda _ctx, args: build_intelligence_summary(
+                csv_analysis=args.get("csv_analysis"),
+                bioinformatics=args.get("bioinformatics"),
+                journey_checks=args.get("journey_checks"),
+            ),
+            required_permissions=frozenset({"intelligence:read"}),
+            allowed_arguments=frozenset(allowed),
+        ))
+        result = agent.execute("intelligence_summary", payload)
+        return jsonify({"success": True, "organisation_id": org_id, **result}), 200
+    except JCApprovalRequired:
+        return jsonify({"success": False, "error": "Explicit approval required"}), 409
+    except JCForbidden:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
+    except JCInvalidRequest:
+        return jsonify({"success": False, "error": "Invalid intelligence request"}), 400
+    except JCError:
+        return jsonify({"success": False, "error": "JC execution unavailable; check audit service"}), 503
+    except Exception:
+        app.logger.exception("Intelligence summary failed")
+        return jsonify({"success": False, "error": "Intelligence summary unavailable"}), 503
 
 
 # ─── Health Check ─────────────────────────────────────────────────────────────
