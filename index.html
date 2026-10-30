@@ -731,10 +731,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <label class="form-label">Email</label>
         <input class="form-input" id="si-email" type="email" placeholder="you@facility.org" autocomplete="email"/>
       </div>
-      <div class="form-row">
-        <label class="form-label">Password</label>
-        <input class="form-input" id="si-password" type="password" placeholder="At least 8 characters"
-          onkeydown="if(event.key==='Enter')doSignIn()"/>
+      <div class="form-row" id="si-login-code-row" style="display:none">
+        <label class="form-label">Email verification code</label>
+        <input class="form-input" id="si-login-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter the code from your email"
+          onkeydown="if(event.key==='Enter')verifyLoginCode()"/>
+        <div class="form-help">Use the one-time code sent to your email. It expires and cannot be reused.</div>
       </div>
       <div id="si-org-row" style="display:none" class="form-row">
         <label class="form-label">How are you joining?</label>
@@ -749,8 +750,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       </div>
       <div id="si-org-code-row" style="display:none" class="form-row">
         <label class="form-label">Organisation Code</label>
-        <input class="form-input" id="si-org-code" type="text" placeholder="e.g. LAB-XK9F" style="text-transform:uppercase"/>
-        <div class="form-help">Ask your administrator for the 8-character organisation code</div>
+        <input class="form-input" id="si-org-code" type="text" placeholder="e.g. JLI-AB12" style="text-transform:uppercase"/>
+        <div class="form-help">Enter the 8-character code supplied by your organisation administrator (for example, JLI-AB12)</div>
       </div>
       <div id="si-role-row" style="display:none" class="form-row">
         <label class="form-label">Workspace Role <span style="color:var(--amber);font-size:10px">(permanent — one account per role)</span></label>
@@ -765,42 +766,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
     <div style="display:flex;justify-content:flex-end;margin-top:10px"><button type="button" class="btn btn-sm" id="si-send-org-code" onclick="sendOrganisationCodeEmail()" style="display:none">Email my organisation code</button></div>
     <div class="auth-status" id="si-status"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
-      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Sign in</button>
+      <button class="btn btn-primary" id="si-btn" onclick="doSignIn()" style="width:100%;justify-content:center;padding:11px">Email me a login code</button>
+      <button class="btn btn-primary" id="si-verify-btn" onclick="verifyLoginCode()" style="display:none;width:100%;justify-content:center;padding:11px">Verify code and continue</button>
+      <button class="btn" id="si-resend-btn" onclick="doSignIn(true)" style="display:none;width:100%;justify-content:center;padding:11px">Send a new code</button>
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:14px;font-size:12px">
-      <a onclick="doForgotPassword()" style="color:var(--text-2);cursor:pointer">Forgot password?</a>
+      <button type="button" class="auth-link-button" id="si-forgot-password" aria-label="Request a password reset email">Forgot password?</button>
       <a onclick="doOfflineMode()" style="color:var(--text-3);cursor:pointer">Work offline →</a>
-    </div>
-  </div>
-</div>
-
-<div id="screen-reset-pw" class="auth-screen">
-  <div class="auth-bg-grid"></div><div class="auth-glow"></div><div class="auth-glow-2"></div>
-  <div class="auth-card">
-    <div class="auth-brand">
-      <div class="auth-mark"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <div class="auth-name">JLIGHT</div>
-    </div>
-    <div class="auth-tagline">Health Intelligence Platform</div>
-    <div class="auth-title">Set new password</div>
-    <div class="auth-sub">Enter and confirm your new password</div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
-      <div class="form-row">
-        <label class="form-label">New Password</label>
-        <input class="form-input" id="rp-new" type="password" placeholder="At least 8 characters"/>
-      </div>
-      <div class="form-row">
-        <label class="form-label">Confirm Password</label>
-        <input class="form-input" id="rp-confirm" type="password" placeholder="Repeat password"
-          onkeydown="if(event.key==='Enter')doResetPassword()"/>
-      </div>
-    </div>
-    <div class="auth-status" id="rp-status"></div>
-    <button class="btn btn-primary" onclick="doResetPassword()" style="width:100%;justify-content:center;padding:11px;margin-top:16px">Set password</button>
-    <div style="text-align:center;margin-top:12px;font-size:12px">
-      <a onclick="showScreen('screen-signin')" style="color:var(--text-3);cursor:pointer">Back to sign in</a>
     </div>
   </div>
 </div>
@@ -1243,12 +1217,17 @@ function validateConsent(val) {
 // ─── Sign-in / sign-up ───
 function toggleSignupMode() {
   MODE.signupMode = !MODE.signupMode
+  MODE.loginCodeSent = false
   const t = document.getElementById('si-title')
   const s = document.getElementById('si-sub')
   const o = document.getElementById('si-org-row')
   const r = document.getElementById('si-role-row')
   const b = document.getElementById('si-btn')
   const g = document.getElementById('si-toggle')
+  const codeRow = document.getElementById('si-login-code-row')
+  const verifyBtn = document.getElementById('si-verify-btn')
+  const resendBtn = document.getElementById('si-resend-btn')
+  const status = document.getElementById('si-status')
   // A fresh registration defaults to creating a new organisation. Joining is
   // an explicit choice for users who already have a code from an administrator.
   if (MODE.signupMode) {
@@ -1259,7 +1238,11 @@ function toggleSignupMode() {
   if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
   if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
-  if (b) b.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
+  if (b) { b.textContent = MODE.signupMode ? 'Email me a code to create workspace' : 'Email me a login code'; b.style.display = 'flex'; b.disabled = false; }
+  if (codeRow) codeRow.style.display = 'none'
+  if (verifyBtn) { verifyBtn.style.display = 'none'; verifyBtn.disabled = false; verifyBtn.textContent = 'Verify code and continue'; }
+  if (resendBtn) { resendBtn.style.display = 'none'; resendBtn.disabled = false; resendBtn.textContent = 'Send a new code'; }
+  if (status) { status.textContent = ''; status.className = 'auth-status'; }
   if (g) g.textContent = MODE.signupMode ? 'I already have an account' : 'Create new workspace'
   toggleJoinType()
 }
@@ -1279,245 +1262,132 @@ async function continueWithSelectedPath() {
   try { const {data,error}=await sb.auth.getSession(); if(error) throw error; if(!data?.session?.user) throw new Error("Your session expired. Sign in again."); const user=data.session.user,meta=user.user_metadata||{}; MODE.isOnline=true; MODE.hasRestoredSession=false; STATE.user=user.email||""; STATE.role=role; await ensureJlightOrganisation(user,{org:meta.org_name||"",role:meta.role||role,orgCode:meta.org_code||""}); await loadOrCreateProfile(user); await enterApp() }
   catch(e) { if(status){status.textContent=e.message||"Could not open the selected path";status.className="auth-status error"} }
 }
-async function doSignIn() {
-  const email = (document.getElementById("si-email")||{}).value?.trim() || ""
-  const pass  = (document.getElementById("si-password")||{}).value || ""
-  const status = document.getElementById("si-status")
-  const selectedPath = sessionStorage.getItem("jl_selected_path")
-  if (!selectedPath || !ROLES[selectedPath]) { if(status){status.textContent="Choose a JLIGHT path before signing in";status.className="auth-status error"} return }
-  if (!email || !pass) { if(status){status.textContent='Email and password required';status.className='auth-status error'} return }
-  if (pass.length < 8) { if(status){status.textContent='Password must be at least 8 characters';status.className='auth-status error'} return }
-  const btn = document.getElementById('si-btn')
-  if (btn) { btn.disabled = true; btn.textContent = MODE.signupMode ? 'Creating...' : 'Signing in...' }
-  if (status) { status.textContent = ''; status.className = 'auth-status' }
-  const sb = getSupabase()
-  if (!sb) { if(status){status.textContent='Backend unavailable — use Work offline below';status.className='auth-status error'} return }
-  try {
+async function doSignIn(resend = false) {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const status = document.getElementById("si-status");
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const sb = getSupabase();
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus("Enter a valid email address."); return; }
+  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
+  if (!resend) {
+    pending = { email, signup: !!MODE.signupMode, role: selectedPath, createdAt: Date.now() };
     if (MODE.signupMode) {
-      const joinType = (document.getElementById('si-join-type') || {}).value || 'new'
-      const org = (document.getElementById('si-org') || {}).value?.trim() || ''
-      const role = sessionStorage.getItem("jl_selected_path") || (document.getElementById('si-role') || {}).value || 'Laboratory'
-      const orgCode = (document.getElementById('si-org-code') || {}).value?.trim().toUpperCase() || ''
-
-      // Shared-workspace membership is verified by the server-side
-      // jl_link_user_to_organisation RPC after email confirmation/sign-in.
-      // The client never assigns org_id or elevated workspace permissions.
-      if (joinType === 'join' && !orgCode) {
-        throw new Error('Enter the organisation code supplied by your administrator.')
+      pending.joinType = (document.getElementById("si-join-type") || {}).value || "new";
+      pending.orgName = (document.getElementById("si-org") || {}).value?.trim() || "JLIGHT Health Intelligence Platform";
+      pending.orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
+      if (pending.joinType === "join" && !/^[A-Z0-9]{3}-[A-Z0-9]{4}$/.test(pending.orgCode)) {
+        showStatus("Enter the 8-character organisation code in the format JLI-AB12."); return;
       }
-      const organisationName = joinType === 'join'
-        ? ''
-        : (org || 'JLIGHT Health Intelligence Platform')
-
-      const { data, error } = await sb.auth.signUp({
-        email, password: pass,
-        options: { data: { org_name: organisationName, role, org_code: joinType === 'join' ? orgCode : null } }
-      })
-      if (error) throw error
-      if (!data.user) throw new Error('Supabase did not return a user. Please try again.')
-
-      // With email confirmation enabled, signUp returns no session. RLS-protected
-      // organisation creation must wait until the user confirms and signs in.
-      if (!data.session) {
-        if (status) {
-          status.textContent = 'Account created. Check your email to confirm it, then sign in to finish setting up your workspace.'
-          status.className = 'auth-status success'
-        }
-        MODE.signupMode = false
-        const title = document.getElementById('si-title')
-        const sub = document.getElementById('si-sub')
-        const orgRow = document.getElementById('si-org-row')
-        const roleRow = document.getElementById('si-role-row')
-        const toggle = document.getElementById('si-toggle')
-        const submit = document.getElementById('si-btn')
-        if (title) title.textContent = 'Sign in'
-        if (sub) sub.textContent = 'Confirm your email, then sign in to finish workspace setup'
-        if (orgRow) orgRow.style.display = 'none'
-        if (roleRow) roleRow.style.display = 'none'
-        if (toggle) toggle.textContent = 'Create new workspace'
-        if (submit) submit.textContent = 'Sign in'
-        return
-      }
-
-      MODE.isOnline = true
-      STATE.user = data.user.email || email
-      STATE.role = role
-      await ensureJlightOrganisation(data.user, { org: organisationName, role, orgCode: joinType === 'join' ? orgCode : '' })
-      await loadOrCreateProfile(data.user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && joinType === 'new') codeButton.style.display = 'inline-flex'
-      let deliveryNote = ''
-      if (joinType === 'new' && MODE.organisationId && MODE.organisationCode) {
-        try {
-          const { data: activeSession, error: sessionError } = await sb.auth.getSession()
-          if (sessionError) throw sessionError
-          const accessToken = activeSession?.session?.access_token
-          if (!accessToken) throw new Error('No active session available for secure code delivery.')
-          const mailResponse = await fetch(BACKEND.url + '/functions/v1/send-organisation-code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key, 'Authorization': 'Bearer ' + accessToken },
-            body: JSON.stringify({ organisation_id: MODE.organisationId })
-          })
-          const mailResult = await mailResponse.json().catch(() => ({}))
-          if (!mailResponse.ok) throw new Error(mailResult.error || 'Email delivery could not be confirmed.')
-          if (mailResult.email_sent === false) {
-            deliveryNote = ' Email is not configured; the organisation code is shown above. Copy it and share only with authorised colleagues.'
-          } else {
-            deliveryNote = ' The organisation code was emailed to your verified account address.'
-          }
-        } catch (mailError) { console.error('[JLIGHT] organisation-code email failed:', mailError); deliveryNote = ' Email delivery could not be confirmed; copy the code below and keep it safe.' }
-      }
-      if (status) {
-        const codeMsg = MODE.organisationCode ? ' · Organisation code: ' + MODE.organisationCode : ''
-        status.textContent = (joinType === 'new' ? 'Workspace created successfully' : 'Workspace joined successfully') + codeMsg + deliveryNote + (MODE.organisationCode ? ' You can also copy this code later in Settings → Organisation.' : '')
-        status.className = 'auth-status success'
-      }
-      // Give the owner time to read the generated code before entering the app.
-      setTimeout(()=>enterApp(), 4500)
     } else {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password: pass })
-      if (error) throw error
-      if (!data.session) throw new Error('Sign-in failed: no active session was returned.')
-      MODE.isOnline = true
-      const user = data.session.user
-      const meta = user.user_metadata || {}
-      const needsFirstCodeDelivery = !meta.org_id && !meta.org_code && !!meta.org_name
-      STATE.user = user.email || email
-      STATE.role = selectedPath
-      await ensureJlightOrganisation(user, {
-        org: meta.org_name || '',
-        role: meta.role || selectedPath,
-        orgCode: meta.org_code || ''
-      })
-      await loadOrCreateProfile(user)
-      const codeButton = document.getElementById('si-send-org-code')
-      if (codeButton && MODE.organisationId) codeButton.style.display = 'inline-flex'
-      // If email confirmation delayed workspace setup, finish delivery after the
-      // first authenticated sign-in rather than leaving the owner without a code.
-      if (needsFirstCodeDelivery && MODE.organisationCode) await sendOrganisationCodeEmail()
-      enterApp()
+      pending.joinType = "existing"; pending.orgName = ""; pending.orgCode = "";
     }
-  } catch(e) {
-    console.error('[JLIGHT] sign-in/workspace creation failed:', e)
-    if (status) { status.textContent = e.message || 'Authentication failed'; status.className = 'auth-status error' }
+    sessionStorage.setItem("jl_pending_auth", JSON.stringify(pending));
+  } else if (!pending || pending.email !== email) {
+    showStatus("Start again by requesting a login code for this email address."); return;
+  }
+
+  const btn = document.getElementById("si-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Sending code…"; }
+  showStatus("", "");
+  try {
+    const options = { shouldCreateUser: !!pending.signup };
+    if (pending.signup) options.data = {
+      org_name: pending.joinType === "new" ? pending.orgName : "",
+      role: pending.role,
+      org_code: pending.joinType === "join" ? pending.orgCode : null,
+      jl_join_type: pending.joinType
+    };
+    const { error } = await sb.auth.signInWithOtp({ email, options });
+    if (error) throw error;
+    MODE.loginCodeSent = true;
+    const codeRow = document.getElementById("si-login-code-row");
+    const verifyBtn = document.getElementById("si-verify-btn");
+    const resendBtn = document.getElementById("si-resend-btn");
+    if (codeRow) codeRow.style.display = "flex";
+    if (verifyBtn) verifyBtn.style.display = "flex";
+    if (resendBtn) resendBtn.style.display = "flex";
+    if (btn) btn.style.display = "none";
+    showStatus("A one-time login code has been requested. Check your inbox and spam folder.", "success");
+    const codeInput = document.getElementById("si-login-code");
+    if (codeInput) codeInput.focus();
+  } catch (e) {
+    console.error("[JLIGHT] login code request failed:", e);
+    showStatus(e.message || "Could not request a login code. Please try again.");
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in' }
+    if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = pending?.signup ? "Email me a code to create workspace" : "Email me a login code"; }
   }
 }
 
-// Ensure an organisation is linked to the authenticated user. Do not hide RLS errors.
-async function linkJlightWorkspaceMembership(user, orgId, orgCode) {
-  const sb = getSupabase()
-  if (!sb || !MODE.isOnline || !user?.id) throw new Error('Cannot verify workspace membership without an authenticated online session.')
-  if (!orgId) throw new Error('Workspace ID is missing; refusing to enable cloud persistence.')
-  const cachedProfile = STATE.userProfile || {}
-  const { data, error } = await sb.rpc('jl_link_user_to_organisation', {
-    p_org_id: orgId,
-    p_org_code: orgCode || null,
-    p_full_name: cachedProfile.full_name || user.user_metadata?.full_name || null,
-    p_workspace_role: cachedProfile.workspace_role || 'operator'
-  })
-  if (error) throw new Error('Workspace membership could not be verified: ' + error.message)
-  if (String(data || '') !== String(orgId)) throw new Error('Workspace membership verification returned a different organisation.')
-  localStorage.setItem('jl_org_id', String(orgId))
-  if (MODE.organisationName) localStorage.setItem('jl_org_name', MODE.organisationName)
+async function verifyLoginCode() {
+  const email = (document.getElementById("si-email") || {}).value?.trim().toLowerCase() || "";
+  const token = (document.getElementById("si-login-code") || {}).value?.trim() || "";
+  const selectedPath = sessionStorage.getItem("jl_selected_path");
+  const status = document.getElementById("si-status");
+  const verifyBtn = document.getElementById("si-verify-btn");
+  const showStatus = (message, kind = "error") => {
+    if (status) { status.textContent = message; status.className = "auth-status " + kind; }
+  };
+  if (!email) { showStatus("Enter the same email address used to request the code."); return; }
+  if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
+  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
+  let pending = null;
+  try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
+  if (!pending || pending.email !== email || pending.role !== selectedPath) {
+    showStatus("Your sign-in request has expired. Request a new email code."); return;
+  }
+  const sb = getSupabase();
+  if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+  if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = "Verifying…"; }
+  showStatus("", "");
+  try {
+    const { data, error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    if (error) throw error;
+    if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
+    const user = data.user;
+    MODE.isOnline = true; STATE.user = user.email || email; STATE.role = selectedPath;
+    const orgOptions = pending.signup
+      ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath, orgCode: pending.joinType === "join" ? pending.orgCode : "" }
+      : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
+    await ensureJlightOrganisation(user, orgOptions);
+    await loadOrCreateProfile(user);
+    const codeButton = document.getElementById("si-send-org-code");
+    if (codeButton && MODE.organisationId) codeButton.style.display = "inline-flex";
+    let deliveryNote = "";
+    if (pending.signup && pending.joinType === "new" && MODE.organisationId && MODE.organisationCode) {
+      try {
+        const mailResult = await sendOrganisationCodeEmail();
+        deliveryNote = mailResult?.email_sent === false
+          ? " Email delivery is not configured; your code is shown below."
+          : " The organisation code was emailed to your verified account address.";
+      } catch (mailError) {
+        console.error("[JLIGHT] organisation-code email failed:", mailError);
+        deliveryNote = " Email delivery could not be confirmed; your code remains available in Settings → Organisation.";
+      }
+    }
+    sessionStorage.removeItem("jl_pending_auth");
+    const codeMessage = pending.signup && pending.joinType === "new" && MODE.organisationCode
+      ? " Organisation code: " + MODE.organisationCode + ". Save it and share only with authorised colleagues."
+      : "";
+    showStatus((pending.signup
+      ? (pending.joinType === "join" ? "Workspace joined successfully." : "Workspace created successfully.")
+      : "Email verified. Secure workspace opened.") + codeMessage + deliveryNote, "success");
+    setTimeout(() => enterApp(), pending.signup && pending.joinType === "new" ? 4500 : 350);
+  } catch (e) {
+    console.error("[JLIGHT] login code verification failed:", e);
+    showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+  } finally {
+    if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
+  }
 }
 
-async function ensureJlightOrganisation(user, options = {}) {
-  const sb = getSupabase()
-  if (!sb || !user?.id) throw new Error('Cannot set up workspace: authenticated Supabase user is missing.')
-  const { data: sessionResult, error: sessionError } = await sb.auth.getSession()
-  if (sessionError) throw sessionError
-  if (!sessionResult?.session?.user?.id || sessionResult.session.user.id !== user.id) {
-    throw new Error('No active session for this account. Confirm your email if required, then sign in again.')
-  }
-  // Verify the access token against Supabase, not just the browser's local
-  // session cache, before attempting an RLS-protected insert.
-  const { data: verifiedUser, error: verifyError } = await sb.auth.getUser()
-  if (verifyError || verifiedUser?.user?.id !== user.id) {
-    throw new Error('Supabase could not verify your active login. Sign out, sign in again, then retry workspace setup.')
-  }
 
-  const meta = user.user_metadata || {}
-  // JLIGHT is the platform organisation; a first-time authenticated account
-  // without organisation metadata gets a JLIGHT workspace rather than a dead end.
-  const org = (options.org || meta.org_name || 'JLIGHT Health Intelligence Platform').trim()
-  const requestedRole = options.role || meta.role || 'Laboratory'
-  const role = ['Laboratory','Trial','Hospital','Bioinformatics'].includes(requestedRole) ? requestedRole : 'Laboratory'
-  // The organisation table's legacy CHECK constraint currently supports
-  // Laboratory/Trial/Hospital only. Bioinformatics is a module, not a separate
-  // organisation type, so use Laboratory as the organisation's legacy type.
-  const organisationRole = role === 'Bioinformatics' ? 'Laboratory' : role
-  const orgCode = (options.orgCode || meta.org_code || '').trim()
-
-  // Existing user metadata may already identify their organisation.
-  if (meta.org_id) {
-    MODE.organisationId = meta.org_id
-    MODE.organisationName = meta.org_name || org || 'Workspace'
-    MODE.organisationCode = meta.org_code || orgCode || ''
-    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
-    return
-  }
-
-  // Recover an organisation already owned by this authenticated user.
-  const { data: owned, error: lookupError } = await sb
-    .from('jl_organisations')
-    .select('id,name,org_code,role,owner_user_id,owner_email')
-    .eq('owner_user_id', user.id)
-    .maybeSingle()
-  if (lookupError) throw new Error('Could not check existing workspace: ' + lookupError.message)
-  if (owned) {
-    MODE.organisationId = owned.id
-    MODE.organisationName = owned.name
-    MODE.organisationCode = owned.org_code || ''
-    const { error } = await sb.auth.updateUser({ data: {
-      org_name: owned.name, org_id: owned.id, org_code: owned.org_code || null,
-      // Preserve the user's active module preference; organisation role is
-      // legacy metadata and must not overwrite the module role.
-      role
-    } })
-    if (error) throw new Error('Workspace found, but account metadata could not be updated: ' + error.message)
-    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
-    return
-  }
-
-  if (orgCode) {
-    const { data: existing, error: codeError } = await sb
-      .from('jl_organisations')
-      .select('id,name,org_code,role')
-      .eq('org_code', orgCode)
-      .maybeSingle()
-    if (codeError) throw new Error('Could not verify organisation code: ' + codeError.message)
-    if (!existing) throw new Error('Organisation code not found. Check it with your administrator.')
-    MODE.organisationId = existing.id
-    MODE.organisationName = existing.name
-    MODE.organisationCode = existing.org_code || orgCode
-    const { error } = await sb.auth.updateUser({ data: {
-      org_name: existing.name, org_id: existing.id, org_code: existing.org_code || orgCode, role
-    } })
-    if (error) throw new Error('Joined workspace, but account metadata could not be updated: ' + error.message)
-    await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
-    return
-  }
-
-  if (!org) throw new Error('Organisation name is missing. Switch to Create new workspace and enter a name.')
-  // Organisation creation and code generation happen in a single database
-  // function so browser-side code generation cannot collide or bypass RLS.
-  const { data: created, error: createError } = await sb.rpc('jl_create_organisation', {
-    p_name: org || 'JLIGHT Health Intelligence Platform',
-    p_role: organisationRole
-  })
-  if (createError) throw new Error('Workspace creation failed: ' + createError.message)
-  if (!created?.id || !created?.org_code) throw new Error('Workspace creation failed: the database did not return an organisation code.')
-
-  MODE.organisationId = created.id
-  MODE.organisationName = created.name
-  MODE.organisationCode = created.org_code
-  const { error: metadataError } = await sb.auth.updateUser({ data: {
-    org_name: created.name, org_id: created.id, org_code: created.org_code, role
-  } })
-  if (metadataError) throw new Error('Workspace created, but account metadata could not be updated: ' + metadataError.message)
-  await linkJlightWorkspaceMembership(user, MODE.organisationId, MODE.organisationCode)
-}
 async function sendOrganisationCodeEmail() {
   const sb = getSupabase(), status = document.getElementById('si-status')
   const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
@@ -1538,80 +1408,11 @@ async function sendOrganisationCodeEmail() {
     if (!response.ok) throw new Error(result.error || 'Organisation-code email could not be sent.')
     if (result.email_sent === false && result.organisation_code) {
       setStatus('Email delivery is not configured. Your organisation code is: ' + result.organisation_code + '. Copy it now and share it only with authorised colleagues.', 'error')
-      return
+      return result
     }
     setStatus('Organisation code emailed to your verified account address.', 'success')
+    return result
   } catch (e) { console.error('[JLIGHT] organisation-code request failed:', e); setStatus(e.message || 'Organisation-code email could not be sent.', 'error') }
-}
-
-async function doForgotPassword() {
-  const emailInput = document.getElementById('si-email')
-  const addr = (emailInput?.value || '').trim()
-  const status = document.getElementById('si-status')
-  const setStatus = (message, kind = '') => { if (status) { status.textContent = message; status.className = 'auth-status' + (kind ? ' ' + kind : '') } }
-  if (!addr) { if (emailInput) emailInput.focus(); setStatus('Enter your account email first, then choose Forgot password.', 'error'); return }
-  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(addr)) { setStatus('Enter a valid email address.', 'error'); return }
-  const sb = getSupabase()
-  if (!sb) { setStatus('Authentication service is unavailable. Please try again shortly.', 'error'); return }
-  setStatus('Requesting a secure password-reset email…')
-  try {
-    const response = await fetch(BACKEND.url + '/functions/v1/send-password-reset', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': BACKEND.key },
-      body: JSON.stringify({ email: addr })
-    })
-    const result = await response.json().catch(() => ({}))
-    if (!response.ok) throw new Error(result.error || 'Password-reset service is temporarily unavailable.')
-    setStatus('If an account exists for this address, a reset email has been requested. Check your inbox and spam folder.', 'success')
-    toast('Password-reset request submitted', 'Check your inbox and spam folder', 'good')
-  } catch (e) {
-    console.error('[JLIGHT] password reset request failed:', e)
-    setStatus(e.message || 'Could not request a reset email. Please try again.', 'error')
-    toast('Password reset unavailable', e.message || 'Please try again', 'crit')
-  }
-}
-
-async function doResetPassword() {
-  const np = (document.getElementById('rp-new')||{}).value || ''
-  const cp = (document.getElementById('rp-confirm')||{}).value || ''
-  const st = document.getElementById('rp-status')
-  if (np.length < 8) { if (st) { st.textContent = 'Password must be at least 8 characters'; st.className = 'auth-status error' } return }
-  if (np !== cp) { if (st) { st.textContent = 'Passwords do not match'; st.className = 'auth-status error' } return }
-  const sb = getSupabase()
-  if (!sb) { if (st) { st.textContent = 'Backend unavailable'; st.className = 'auth-status error' } return }
-  if (st) { st.textContent = 'Setting password...'; st.className = 'auth-status' }
-  try {
-    // Support Supabase PKCE codes, recovery token hashes and implicit recovery tokens.
-    const query = new URLSearchParams(window.location.search)
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-    const recoveryType = query.get('type') || hash.get('type')
-    const code = query.get('code')
-    const tokenHash = query.get('token_hash') || hash.get('token_hash')
-    if (code) {
-      const { error } = await sb.auth.exchangeCodeForSession(code)
-      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
-    } else if (tokenHash && recoveryType === 'recovery') {
-      const { error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' })
-      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
-    } else if (hash.get('access_token')) {
-      if (recoveryType !== 'recovery') throw new Error('This is not a password-recovery link. Request a new reset email.')
-      const { error } = await sb.auth.setSession({ access_token: hash.get('access_token'), refresh_token: hash.get('refresh_token') || '' })
-      if (error) throw new Error('This password-reset link is invalid or expired. Request a new one.')
-    }
-    const { data: sessionData, error: sessionError } = await sb.auth.getSession()
-    if (sessionError) throw sessionError
-    if (!sessionData?.session?.user) throw new Error('The recovery link could not establish a valid session. Request a new reset email and open the newest link.')
-    const { error } = await sb.auth.updateUser({ password: np })
-    if (error) throw error
-    if (st) { st.textContent = 'Password updated. Redirecting to sign in...'; st.className = 'auth-status success' }
-    window.history.replaceState(null, '', window.location.pathname)
-    setTimeout(() => {
-      showScreen('screen-signin')
-      const si = document.getElementById('si-status')
-      if (si) { si.textContent = 'Password updated — sign in with your new password'; si.className = 'auth-status success' }
-    }, 1500)
-  } catch (e) {
-    if (st) { st.textContent = (e.message || 'Reset failed') + ' — link may have expired. Request a new one.'; st.className = 'auth-status error' }
-  }
 }
 
 function doOfflineMode() {
@@ -1826,77 +1627,39 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-// ── Boot: handle Supabase password-recovery links and restore session ──
+// ── Boot: restore an existing Supabase session (passwordless email-code auth) ──
 setTimeout(async () => {
-  // Every fresh app load requires an explicit workspace-path choice.
-  sessionStorage.removeItem('jl_selected_path')
-  const sb = getSupabase()
-  if (!sb) { showScreen('screen-signin'); return }
-
-  const url = new URL(window.location.href)
-  const hashParams = new URLSearchParams(url.hash.startsWith('#') ? url.hash.slice(1) : url.hash)
-  const recoveryType = url.searchParams.get('type') === 'recovery' || hashParams.get('type') === 'recovery' || url.searchParams.has('code')
-  const code = url.searchParams.get('code')
-  const accessToken = hashParams.get('access_token')
-  const refreshToken = hashParams.get('refresh_token')
-
+  sessionStorage.removeItem('jl_selected_path');
+  const sb = getSupabase();
+  if (!sb) { showScreen('screen-signin'); return; }
   try {
-    // Supabase may use PKCE (?code=...) or implicit tokens (#access_token=...).
-    // Complete the exchange before checking whether a recovery session exists.
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
     if (code) {
-      const { error } = await sb.auth.exchangeCodeForSession(code)
-      if (error) throw error
-      url.searchParams.delete('code')
-      window.history.replaceState(null, '', url.pathname + url.search + url.hash)
-    } else if (accessToken && refreshToken) {
-      const { error } = await sb.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken
-      })
-      if (error) throw error
+      const { error } = await sb.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      url.searchParams.delete('code');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
     }
-
-    const { data, error } = await sb.auth.getSession()
-    if (error) throw error
-    if (recoveryType || (accessToken && hashParams.get('type') === 'recovery')) {
-      if (data.session) {
-        showScreen('screen-reset-pw')
-      } else {
-        const status = document.getElementById('rp-status')
-        if (status) {
-          status.textContent = 'The recovery link could not establish a session. Request a new password-reset email and open the newest link.'
-          status.className = 'auth-status error'
-        }
-        showScreen('screen-reset-pw')
-      }
-      return
-    }
-
+    const { data, error } = await sb.auth.getSession();
+    if (error) throw error;
     if (data.session) {
-      MODE.isOnline = true; MODE.hasRestoredSession = true
-      const meta = data.session.user.user_metadata || {}
-      STATE.user = data.session.user.email
-      MODE.organisationName = meta.org_name || "Workspace"
-      await loadOrCreateProfile(data.session.user)
-      showScreen("screen-signin")
-      const sub = document.getElementById("si-sub"); if(sub) sub.textContent="Session restored. Choose a path, then continue without signing in again."
-      const next = document.getElementById("si-continue"); if(next) next.style.display=sessionStorage.getItem("jl_selected_path")?"flex":"none"
-      const status = document.getElementById("si-status"); if(status){status.textContent="Signed in as "+(data.session.user.email||"your account");status.className="auth-status success"}
-    } else {
-      showScreen('screen-signin')
-    }
+      MODE.isOnline = true; MODE.hasRestoredSession = true;
+      const meta = data.session.user.user_metadata || {};
+      STATE.user = data.session.user.email || '';
+      MODE.organisationName = meta.org_name || "Workspace";
+      await loadOrCreateProfile(data.session.user);
+      showScreen("screen-signin");
+      const sub = document.getElementById("si-sub");
+      if (sub) sub.textContent = "Session restored. Choose a path, then continue without requesting another code.";
+      const status = document.getElementById("si-status");
+      if (status) { status.textContent = "Secure session restored for " + (data.session.user.email || "your account"); status.className = "auth-status success"; }
+    } else showScreen('screen-signin');
   } catch (e) {
-    console.error('[JLIGHT] Auth/recovery link handling failed:', e)
-    if (recoveryType || code || accessToken) {
-      showScreen('screen-reset-pw')
-      const status = document.getElementById('rp-status')
-      if (status) {
-        status.textContent = (e.message || 'Could not verify this recovery link') + '. Request a new reset email if the link has expired.'
-        status.className = 'auth-status error'
-      }
-    } else {
-      showScreen('screen-signin')
-    }
+    console.error('[JLIGHT] Passwordless session restore failed:', e);
+    showScreen('screen-signin');
+    const status = document.getElementById('si-status');
+    if (status) { status.textContent = 'Your secure session could not be restored. Request a new email code to continue.'; status.className = 'auth-status error'; }
   }
 }, 0)
 
