@@ -63,6 +63,10 @@ require("key: 'trial-referrals'" in role_block and "function createHospitalTrial
 require("jl_create_trial_recruitment_referral" in html and
         "jl_create_trial_participant_from_referral" in html,
         "Recruitment hand-off and screening creation must use governed database functions")
+require("jl_list_trial_recruitment_approval_queue" in html and
+        "jl_list_active_trial_recruitment_authorisations" in html and
+        "jl_revoke_trial_recruitment" in html,
+        "Platform administration must support independent recruitment approval and revocation")
 require("function submitTrialEntry()" not in html and "function analyseTrialEvent(e)" not in html,
         "Legacy local-storage Clinical Trials event entry and analysis must be removed")
 require("function buildClinicalTrialsJCChecks()" not in html and
