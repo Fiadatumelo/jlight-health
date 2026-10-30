@@ -112,25 +112,20 @@ def test_raw_or_unknown_payload_fields_are_rejected():
     assert response.status_code == 400
 
 
-def test_clinical_trials_route_uses_database_trial_scope():
+def test_clinical_trials_route_rejects_browser_supplied_checks():
     claims = verified_claims()
     trial_scope = scope("clinical_trials", "org-trial-db", claims["sub"])
     with patch("api.app.verify_access_token", return_value=claims), \
-         patch("api.app.resolve_verified_workspace_scope", return_value=trial_scope), \
-         patch("api.app._write_jc_audit"):
+         patch("api.app.resolve_verified_workspace_scope", return_value=trial_scope):
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
             headers={"Authorization": "Bearer verified-test-token"},
             json={"clinical_trials_checks": [
                 {"check_id": "overdue_visit", "status": "review", "severity": "medium", "evidence_count": 2},
-                {"check_id": "adverse_event_followup", "status": "pass", "severity": "info", "evidence_count": 0},
             ]},
         )
-    assert response.status_code == 200
-    body = response.get_json()
-    assert body["organisation_id"] == "org-trial-db"
-    assert body["tool"] == "clinical_trials_summary"
-    assert body["result"]["human_review_required"] is True
+    assert response.status_code == 400
+    assert "Client-supplied trial checks are not accepted" in response.get_json()["error"]
 
 
 def test_clinical_trials_route_rejects_non_trial_database_scope():
