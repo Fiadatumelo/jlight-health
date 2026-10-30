@@ -870,6 +870,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-settings" class="page"></div>
         <div id="page-patients" class="page"></div>
         <div id="page-journey" class="page"></div>
+        <div id="page-jc" class="page"></div>
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
         <div id="page-hl7" class="page"></div>
@@ -939,6 +940,8 @@ const STATE = {
   notifications: [],
   syncConflicts: [],
   pendingRequestCount: 0,
+  jcLastRun: null,
+  jcRunPatientId: null,
 }
 
 const ROLES = {
@@ -949,6 +952,7 @@ const ROLES = {
       { key: 'cards',      label: 'Decision Cards',     icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
       { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
+      { key: 'jc',          label: 'JC Agent',             icon: '✦' },
       { key: 'lab-orders', label: 'Orders · Worklist',  icon: '≡' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'requests',   label: 'Sample Requests',    icon: '⇄' },
@@ -985,6 +989,7 @@ const ROLES = {
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'patients',   label: 'Patient Registry',   icon: '⊕' },
       { key: 'journey',    label: 'Patient Journey',    icon: '↗' },
+      { key: 'jc',          label: 'JC Agent',             icon: '✦' },
       { key: 'register',   label: 'Log Event',           icon: '+' },
       { key: 'hl7',        label: 'HL7 Integration',    icon: '⇌' },
       { key: 'wards',      label: 'Ward Registry',      icon: '⊞' },
@@ -1003,6 +1008,7 @@ const ROLES = {
       { key: 'dashboard',  label: 'Dashboard',           icon: '◇' },
       { key: 'cards',      label: 'Decision Cards',      icon: '◈' },
       { key: 'journey',    label: 'Patient Journey',     icon: '↗' },
+      { key: 'jc',          label: 'JC Agent',             icon: '✦' },
       { key: 'register',   label: 'Review Imported Data', icon: '+' },
       { key: 'connectors', label: 'Data Sources',        icon: '⇆' },
       { key: 'analytics',  label: 'Analytics',            icon: '◊' },
@@ -1694,7 +1700,7 @@ function buildNav() {
     { label: 'Overview', keys: ['dashboard'] },
     { label: 'Review & journeys', keys: ['cards', 'patients', 'journey'] },
     { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
-    { label: 'Insights', keys: ['predictive', 'analytics'] },
+    { label: 'Insights', keys: ['predictive', 'analytics', 'jc'] },
     { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
   ]
   const used = new Set()
@@ -1722,7 +1728,7 @@ function goPage(page) {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
-    audit: 'Audit Trail', settings: 'Settings',
+    audit: 'Audit Trail', settings: 'Settings', jc: 'JC Agent',
   }
   $('tb-title').textContent = titles[page] || page
   buildNav()
@@ -1739,6 +1745,7 @@ function goPage(page) {
     case 'settings':    renderSettings(); break
     case 'patients':      renderPatients(); break
     case 'journey':       renderJourney(); break
+    case 'jc':             renderJCAgent(); break
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
     case 'hl7':           renderHL7Receiver(); break
@@ -1931,6 +1938,94 @@ async function requestJlightIntelligenceSummary(patient, events) {
     return { success: true, summary: body.result, engine: body.result && body.result.engine_version || null };
   } catch (_) {
     return { success: false, message: 'Intelligence service could not be reached. The two local reports can still be generated.' };
+  }
+}
+
+function renderJCAgent() {
+  const page = $('page-jc');
+  if (!page) return;
+  if (STATE.role === 'Trial') {
+    page.innerHTML = '<div class="page-head"><div><div class="page-title">JC Agent</div><div class="page-sub">JC is not enabled in the isolated Clinical Trials workspace.</div></div></div>';
+    return;
+  }
+  const patient = (STATE.patients || []).find(p =>
+    String(p.id) === String(STATE.currentPatientId) && !p.archivedAt &&
+    (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId))
+  );
+  const execution = STATE.jcLastRun && STATE.jcRunPatientId === String(STATE.currentPatientId)
+    ? STATE.jcLastRun : null;
+  const summary = execution && execution.result ? execution.result : null;
+  const findings = summary && Array.isArray(summary.findings) ? summary.findings : [];
+  const counts = summary && summary.status_counts ? summary.status_counts : {};
+  const findingMarkup = findings.length ? findings.map(item =>
+    '<article class="form-card" style="margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' +
+    esc(String(item.rule_id || item.finding_id || 'Intelligence finding').replace(/_/g, ' ')) +
+    '</strong><span class="journey-status ' + (item.status === 'pass' ? '' : 'status-open') + '">' +
+    esc(item.status || 'unknown') + ' · ' + esc(item.severity || 'unclassified') +
+    '</span></div><p style="margin:8px 0 0;color:var(--text-2);font-size:13px">' +
+    esc(item.recommended_next_step || 'Review the authorised source record.') +
+    '</p></article>'
+  ).join('') : '';
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">JC Agent</div><div class="page-sub">JLIGHT Control Agent · policy-controlled access to existing intelligence checks</div></div>' +
+    '<button class="btn" onclick="goPage(\'journey\')">Select patient in Patient Journey</button></div>' +
+    '<section class="form-card" style="max-width:none"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">' +
+    '<div><div class="section-title">JC · Intelligence orchestration</div><p style="margin:8px 0;color:var(--text-2);line-height:1.65">' +
+    'JC runs the existing JLIGHT intelligence-summary tool using approved, structured checks. It does not diagnose, change source records, or make clinical decisions.</p>' +
+    '<div class="journey-footnote">Workspace: ' + esc(STATE.orgName || 'Current organisation') +
+    ' · Selected record: ' + (patient ? 'Patient record selected' : 'None selected') +
+    ' · Tool: intelligence_summary</div></div>' +
+    '<button class="btn btn-primary" id="jc-run-button" onclick="runJCAgent()" ' + (patient ? '' : 'disabled') + '>Run JC analysis</button></div>' +
+    '<div id="jc-agent-status" class="journey-footnote" role="status" aria-live="polite" style="margin-top:14px">' +
+    (patient ? 'Ready. Run an analysis for the patient currently selected in Patient Journey.' :
+      'Select an authorised patient in Patient Journey first. JC does not list or expose patient identifiers here.') +
+    '</div></section>' +
+    (summary ? '<section class="section"><div class="section-head"><div><div class="section-title">Latest JC result</div><div class="section-sub">' +
+      esc(summary.engine || 'JLIGHT Intelligence Engine') + ' · version ' + esc(summary.engine_version || '—') +
+      ' · ' + esc(summary.overall_status || 'status unavailable') + '</div></div></div>' +
+      '<div class="kpis"><div class="kpi"><div class="kpi-label">Findings</div><div class="kpi-value">' + esc(summary.finding_count || 0) + '</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Passed</div><div class="kpi-value">' + esc(counts.pass || 0) + '</div></div>' +
+      '<div class="kpi ' + ((counts.review || counts.fail || counts.unknown) ? 'warn' : 'good') + '"><div class="kpi-label">Review / fail / unknown</div><div class="kpi-value">' + esc((counts.review || 0) + (counts.fail || 0) + (counts.unknown || 0)) + '</div></div></div>' +
+      '<div class="dc-list" style="margin-top:14px">' + (findingMarkup || '<div class="form-card">No findings were generated from the supplied checks. This does not establish that the source data is error-free.</div>') + '</div>' +
+      '<p class="journey-footnote" style="margin-top:12px">Human review required: ' + (summary.human_review_required ? 'Yes' : 'No') +
+      '. A flag is a review prompt, not a diagnosis. Missing inputs are unknown, not normal.</p></section>' : '') +
+    '<section class="form-card" style="max-width:none"><div class="section-title">Operating boundaries</div>' +
+    '<ul class="journey-notes"><li>Uses the existing authenticated JC endpoint and organisation permissions.</li>' +
+    '<li>Audit events are written by the existing backend JC audit sink.</li>' +
+    '<li>Only bounded structured check counts are sent; patient names, MRNs and raw clinical text are not sent to JC.</li>' +
+    '<li>Clinical Trials remains isolated and cannot access this JC workspace.</li>' +
+    '<li>This is the existing deterministic intelligence agent, not a connected generative chat model.</li></ul></section>';
+}
+
+async function runJCAgent() {
+  const patient = (STATE.patients || []).find(p =>
+    String(p.id) === String(STATE.currentPatientId) && !p.archivedAt &&
+    (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId))
+  );
+  const status = $('jc-agent-status');
+  const button = $('jc-run-button');
+  if (!patient) {
+    if (status) status.textContent = 'Select an authorised patient in Patient Journey before running JC.';
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Running JC…'; }
+  if (status) status.textContent = 'JC is checking the existing structured patient-journey signals. No source records are being changed.';
+  try {
+    const events = buildPatientJourneyEvents(patient);
+    const response = await requestJlightIntelligenceSummary(patient, events);
+    if (!response || !response.success) throw new Error(response && response.message ? response.message : 'JC could not complete this request.');
+    const execution = response.summary || {};
+    if (execution.status !== 'succeeded' || !execution.result) {
+      throw new Error('JC did not return a completed intelligence result. Check permissions and the audit service.');
+    }
+    STATE.jcLastRun = execution;
+    STATE.jcRunPatientId = String(patient.id);
+    renderJCAgent();
+    const nextStatus = $('jc-agent-status');
+    if (nextStatus) nextStatus.textContent = 'JC completed successfully. Results are shown below; review all findings against the originating source systems.';
+  } catch (error) {
+    if (status) status.textContent = error && error.message ? error.message : 'JC could not complete the request. No source records were changed.';
+    if (button) { button.disabled = false; button.textContent = 'Retry JC analysis'; }
   }
 }
 
