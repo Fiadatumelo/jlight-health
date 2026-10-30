@@ -90,7 +90,7 @@ removed_legacy_handlers = (
     "exportWorkspaceReport", "renderMigrationWizard", "generateOrgCode",
     "createOrganisation", "joinOrganisation", "getOrgMembers", "saveAllDomainData",
     "enrolParticipant", "submitNewRequest", "acceptLabRequest", "rejectLabRequest",
-    "releaseResult", "generateResultReceivedCard",
+    "releaseResult", "generateResultReceivedCard",\n    "computeAuditHash", "sha256hex", "validateConsentRef", "mergeByTimestamp",\n    "detectOfflineData", "startAutoEngines",
 )
 for name in removed_legacy_handlers:
     require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
@@ -99,7 +99,7 @@ for name in removed_legacy_handlers:
 declarations = re.findall(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html)
 duplicates = sorted({name for name in declarations if declarations.count(name) > 1})
 require(not duplicates, "Duplicate frontend function declarations: " + ", ".join(duplicates))
-require("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
+require("NGS_REF_RANGES" not in html, "Obsolete NGS analyser form thresholds returned")\nrequire("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
         "Direct-browser legacy AI client must remain removed")
 
 print("JLIGHT frontend contract checks passed.")
