@@ -42,8 +42,7 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030174607` | Enforce Clinical Trials-specific membership in multi-path organisations; require Laboratory entitlement in legacy Lab code resolution |
 | `20261030174807` | Require an explicit workspace domain for legacy member-access listings on multi-path organisations |
 | `20261030194237` | Require active Laboratory entitlement and caller Laboratory read permission when resolving an organisation by code |
-| `20261031000200` | Prevent a Platform Administrator from authorising Clinical Trials recruitment for a study they created or an organisation where they hold active membership |
-| `20261031000300` | Require an active Clinical Trials entitlement and active study status for recruitment authorisation and Hospital-to-Trial referral creation |
+| `20261030233043` | Enforce independent Platform Admin recruitment review, active Clinical Trials entitlement, active-study status and active-study referral creation |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
