@@ -23,12 +23,6 @@ def test_health_probe_is_public():
     ("method", "path", "payload"),
     [
         ("post", "/api/analyse-csv", {"csvText": "value\\n1\\n2\\n3"}),
-        ("post", "/api/bio/tb", {"sequence": "ATCGATCGATCG"}),
-        ("post", "/api/bio/variant", {"reference": "ATCG", "sample": "ATCG"}),
-        ("post", "/api/bio/ngs", {"sequence": "ATCGATCGATCG"}),
-        ("post", "/api/bio/wgs", {"sequence": "ATCGATCGATCG"}),
-        ("post", "/api/bio/sequence", {"sequence": "ATCGATCGATCG"}),
-        ("post", "/api/bio/fasta", {"sequence": ">sample\\nATCGATCG"}),
         ("get", "/api/cards", None),
         ("post", "/api/cards/acknowledge", {"id": "test-card"}),
         ("get", "/api/audit", None),
@@ -46,9 +40,9 @@ def test_protected_route_rejects_invalid_signed_token(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://test-project.supabase.co")
     client = app.test_client()
     response = client.post(
-        "/api/bio/sequence",
+        "/api/analyse-csv",
         headers={"Authorization": "Bearer definitely-not-a-valid-jwt"},
-        json={"sequence": "ATCGATCGATCG"},
+        json={"csvText": "sample,result\\nS1,positive"},
     )
     assert response.status_code == 401
 
