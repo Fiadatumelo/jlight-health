@@ -3,12 +3,6 @@ JLIGHT v4 — Flask REST API
 =============================
 Endpoints:
   POST /api/analyse-csv       — CSV/XLSX QC analysis
-  POST /api/bio/tb            — TB drug resistance screening
-  POST /api/bio/variant       — Variant analysis
-  POST /api/bio/ngs           — NGS QC metrics
-  POST /api/bio/wgs           — WGS assembly metrics
-  POST /api/bio/sequence      — Sequence analysis
-  POST /api/bio/fasta         — Parse FASTA/FASTQ file
   GET  /api/health            — System health check
   GET  /api/cards             — Decision cards (from DB or static)
   POST /api/cards/acknowledge — Acknowledge a card
@@ -39,14 +33,6 @@ from agent.jc_agent import (
     JCForbidden, JCInvalidRequest,
 )
 
-from engine.bio_engine import (
-    screen_tb_resistance,
-    detect_variants,
-    analyse_ngs_quality,
-    calculate_wgs_metrics,
-    analyse_sequence,
-    parse_fasta,
-)
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
@@ -538,157 +524,10 @@ def api_analyse_csv():
 
 # ─── Bioinformatics Endpoints ─────────────────────────────────────────────────
 
-@app.route("/api/bio/tb", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_tb_resistance():
-    """Screen a DNA sequence for TB drug resistance mutations."""
-    try:
-        data = request.get_json()
-        sequence = get_json_field(data, "sequence")
-
-        if len(sequence.replace("\n", "").replace(">", "")) < 50:
-            return error("Sequence too short — minimum 50 nucleotides required")
-
-        report = screen_tb_resistance(sequence)
-
-        log_audit("bio_tb_resistance", g.jlight_scope["organisation_type"], {
-            "seq_length": report.sequence_length,
-            "who_category": report.who_category,
-            "resistant_count": len(report.resistant_mutations),
-        })
-
-        return success({"report": report.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        app.logger.error(f"TB resistance error: {traceback.format_exc()}")
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/variant", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_variant():
-    """Detect variants between reference and sample sequences."""
-    try:
-        data = request.get_json()
-        ref = get_json_field(data, "reference")
-        sample = get_json_field(data, "sample")
-
-        if len(ref.replace("\n", "")) < 10 or len(sample.replace("\n", "")) < 10:
-            return error("Sequences too short — minimum 10 nucleotides each")
-
-        report = detect_variants(ref, sample)
-
-        log_audit("bio_variant", data.get("role", ""), {
-            "total_variants": report.total_variants,
-            "snvs": report.snvs,
-            "indels": report.indels,
-        })
-
-        return success({"report": report.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/ngs", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_ngs():
-    """Compute NGS QC metrics from sequences or file."""
-    try:
-        sequences = []
-        quality_scores = []
-        filename = "upload"
-
-        if request.files.get("file"):
-            f = request.files["file"]
-            filename = f.filename or "reads.fastq"
-            records = parse_fasta(f.read())
-            sequences = [r["sequence"] for r in records]
-            quality_scores = [r["quality"] for r in records if r.get("quality")]
-
-        elif request.is_json:
-            data = request.get_json()
-            sequences = data.get("sequences", [])
-            quality_scores = data.get("quality_scores", [])
-
-        if not sequences:
-            sequences = ["ATCGATCGATCG" * 10]  # Demo
-
-        result = analyse_ngs_quality(sequences, quality_scores or None)
-        return success({"result": result.to_dict(), "filename": filename})
-
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/wgs", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_wgs():
-    """Calculate WGS assembly metrics (N50, L50, etc.)."""
-    try:
-        sequences_or_lengths = []
-        filename = "assembly"
-
-        if request.files.get("file"):
-            f = request.files["file"]
-            filename = f.filename or "assembly.fasta"
-            records = parse_fasta(f.read())
-            sequences_or_lengths = [r["sequence"] for r in records if r["sequence"]]
-
-        elif request.is_json:
-            data = request.get_json()
-            sequences_or_lengths = data.get("lengths") or data.get("sequences") or []
-
-        if not sequences_or_lengths:
-            return error("No contig sequences or lengths provided")
-
-        result = calculate_wgs_metrics(sequences_or_lengths)
-        return success({"result": result.to_dict(), "filename": filename})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/sequence", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_sequence():
-    """Full sequence analysis: GC%, ORFs, Tm, MW, reverse complement."""
-    try:
-        data = request.get_json()
-        sequence = get_json_field(data, "sequence")
-
-        result = analyse_sequence(sequence)
-        return success({"result": result.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/fasta", methods=["POST"])
-@require_domain_auth({"bioinformatics"}, access="write")
-def api_fasta():
-    """Parse a FASTA/FASTQ file and return records."""
-    try:
-        if not request.files.get("file"):
-            return error("No file provided")
-        f = request.files["file"]
-        records = parse_fasta(f.read())
-        return success({
-            "record_count": len(records),
-            "records": records[:100],  # Cap at 100 records in response
-            "filename": f.filename,
-        })
-    except Exception as e:
-        return error(str(e), 500)
-
+# Raw sequence analysis endpoints are intentionally not exposed by JLIGHT.
+# JLIGHT ingests authorised, externally generated bioinformatics outputs and
+# provides provenance, QC review and cross-domain intelligence; it is not a
+# specimen analyser or a substitute for TBProfiler/BWA/GATK pipelines.
 
 # ─── Decision Cards ───────────────────────────────────────────────────────────
 
