@@ -17,18 +17,32 @@ require("sessionStorage.removeItem('jl_selected_path')" in html,
 require("Choose a JLIGHT path before signing in" in html,
         "Sign-in must require an explicit path choice")
 
-# Shared non-trial journey and report outputs.
+# Shared patient journey and patient-scoped report outputs.
 require('id="page-journey"' in html, "Patient Journey page container missing")
 require("case 'journey':" in html and "function renderJourney()" in html,
         "Patient Journey navigation is not wired")
-require("function buildJourneyReport()" in html and "function generateJourneyReport()" in html,
-        "Traceability report generation is missing")
-require("Clinical Trials remain a separate workflow" in html,
-        "Clinical Trial separation statement missing")
+require('onclick="generatePatientJourneyReports()"' in html,
+        "Patient Journey UI does not invoke the two-report workflow")
+require('id="patient-journey-report-status"' in html,
+        "Patient Journey report status region is missing")
+require("async function generatePatientJourneyReports()" in html,
+        "Patient-specific report generation is missing")
+require("patient-journey-summary" in html and "patient-data-quality-traceability" in html,
+        "Both patient-specific report types must be generated")
+require("journeyReport.correlationId = correlationId" in html and
+        "qualityReport.correlationId = correlationId" in html,
+        "The two patient reports must share a correlation ID")
+require("if(STATE.role==='Trial')" in html and "return events;" in html,
+        "Clinical Trials must remain isolated in the patient journey")
+journey_start = html.index("function buildPatientJourneyEvents(patient)")
+journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
+journey = html[journey_start:journey_end]
 for field in ("STATE.admissions", "STATE.clinicalOrders", "STATE.labOrders",
               "STATE.results", "STATE.bioRuns"):
-    require(field in html[html.index("function buildJourneyReport()"):html.index("function renderJourney()")],
-            f"Cross-domain report does not read {field}")
+    require(field in journey, f"Patient journey does not read {field}")
+require("function buildJourneyReport()" not in html and
+        "async function generateJourneyReport()" not in html,
+        "Obsolete aggregate traceability export must be removed")
 
 # Active navigation entries must have a route.
 roles_start = html.index("const ROLES =")
