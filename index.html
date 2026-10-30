@@ -1933,13 +1933,14 @@ async function refreshClinicalTrialData() {
   const sb=getSupabase();
   if(!sb||!MODE.isOnline||!STATE.orgId||STATE.orgId==='default') throw new Error('A verified online organisation workspace is required.');
   if(STATE.role==='Trial') {
-    const [studies,participants,referrals]=await Promise.all([
+    const [studies,participants,referrals,events]=await Promise.all([
       sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
       sb.from('jl_trial_participants').select('id,organisation_id,study_id,participant_code,status,site_code,screening_number,consent_status,consent_version,consent_record_reference,consented_at,withdrawn_at,completed_at,created_at,updated_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(1000),
-      sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+      sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500),
+      sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,metadata').eq('organisation_id',STATE.orgId).order('occurred_at',{ascending:false}).limit(5000)
     ]);
-    if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;
-    STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];
+    if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;if(events.error)throw events.error;
+    STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];STATE.trialTimelineEvents=events.data||[];
   } else if(STATE.role==='Hospital') {
     const [studies,referrals]=await Promise.all([
       sb.rpc('jl_list_recruitable_trial_studies',{p_org_id:STATE.orgId}),
@@ -1950,6 +1951,7 @@ async function refreshClinicalTrialData() {
   }
   return true;
 }
+
 
 async function activateTrialStudy(id) {
   const sb=getSupabase();const {error}=await sb.from('jl_trial_studies').update({status:'active',updated_at:new Date().toISOString()}).eq('id',id).eq('organisation_id',STATE.orgId);
@@ -2171,44 +2173,40 @@ async function requestJlightIntelligenceSummary(patient, events) {
 
 
 function buildClinicalTrialsJCChecks() {
-  const participants = Array.isArray(STATE.participants) ? STATE.participants : [];
-  const visits = Array.isArray(STATE.visits) ? STATE.visits : [];
-  const deviations = Array.isArray(STATE.deviations) ? STATE.deviations : [];
-  const adverseEvents = Array.isArray(STATE.adverseEvents) ? STATE.adverseEvents : [];
-  const consents = Array.isArray(STATE.consents) ? STATE.consents : [];
-  const protocols = Array.isArray(STATE.protocols) ? STATE.protocols : [];
-  const protocolIds = new Set(protocols.map(p => String(p && p.id || '')).filter(Boolean));
-  const consentIds = new Set(consents.map(c => String(c && (c.participantId || c.patientId) || '')).filter(Boolean));
-  const missingProtocol = participants.filter(p => !p || !p.protocolId || !protocolIds.has(String(p.protocolId))).length;
-  const missingConsent = participants.filter(p => {
-    const id = String(p && (p.id || p.participantId || p.patientId) || '');
-    return id && !consentIds.has(id);
+  const participants=Array.isArray(STATE.trialParticipants)?STATE.trialParticipants:[];
+  const studies=Array.isArray(STATE.trialStudies)?STATE.trialStudies:[];
+  const events=Array.isArray(STATE.trialTimelineEvents)?STATE.trialTimelineEvents:[];
+  const studyIds=new Set(studies.map(s=>String(s.id)));
+  const missingStudy=participants.filter(p=>!studyIds.has(String(p.study_id))).length;
+  const enrolledWithoutConsent=participants.filter(p=>p.status==='enrolled'&&
+    (p.consent_status!=='obtained'||!p.consent_record_reference||!p.consent_version||!p.consented_at)).length;
+  const missedVisits=events.filter(e=>{
+    if(e.event_type==='visit_missed')return true;
+    if(e.event_type!=='visit_scheduled'||!e.occurred_at||new Date(e.occurred_at).getTime()>=Date.now())return false;
+    return !events.some(done=>done.participant_id===e.participant_id&&done.event_type==='visit_completed'&&
+      new Date(done.occurred_at).getTime()>=new Date(e.occurred_at).getTime());
   }).length;
-  const missedVisits = visits.filter(v => {
-    const status = String(v && (v.status || v.attended || '') || '').toLowerCase();
-    return /missed|no.show|overdue|not attended/.test(status);
+  const deviations=events.filter(e=>e.event_type==='protocol_deviation_recorded').length;
+  const safetyFollowups=events.filter(e=>{
+    if(e.event_type!=='adverse_event_recorded'&&e.event_type!=='serious_adverse_event_recorded')return false;
+    const status=String(e.status||'').toLowerCase();
+    return /open|pending|unresolved|follow.?up required/.test(status)||
+      (e.event_type==='serious_adverse_event_recorded'&&!e.metadata?.sae_reported_at);
   }).length;
-  const openSafetyFollowups = adverseEvents.filter(e => {
-    const status = String(e && (e.followUpStatus || e.resolutionStatus || e.status || '') || '').toLowerCase();
-    return /open|pending|unresolved|follow.?up required/.test(status);
-  }).length;
-  const retentionSignals = participants.filter(p => {
-    const status = String(p && (p.status || p.retentionStatus || '') || '').toLowerCase();
-    return /withdrawn|lost to follow.?up|at risk/.test(status);
-  }).length;
-  const checks = [
-    ['overdue_visit', missedVisits],
-    ['protocol_deviation', deviations.length],
-    ['incomplete_trial_record', missingProtocol],
-    ['consent_record_incomplete', missingConsent],
-    ['adverse_event_followup', openSafetyFollowups],
-    ['retention_risk', retentionSignals],
+  const retentionSignals=events.filter(e=>e.event_type==='withdrawn').length+
+    participants.filter(p=>p.status==='withdrawn').length;
+  const checks=[
+    ['overdue_visit',missedVisits],
+    ['protocol_deviation',deviations],
+    ['incomplete_trial_record',missingStudy],
+    ['consent_record_incomplete',enrolledWithoutConsent],
+    ['adverse_event_followup',safetyFollowups],
+    ['retention_risk',retentionSignals],
   ];
-  return checks.map(([check_id, count]) => ({
-    check_id,
-    status: count > 0 ? 'review' : 'pass',
-    severity: count > 0 ? (check_id === 'adverse_event_followup' || check_id === 'consent_record_incomplete' ? 'high' : 'medium') : 'info',
-    evidence_count: Math.min(1000000, count),
+  return checks.map(([check_id,count])=>({
+    check_id,status:count>0?'review':'pass',
+    severity:count>0?(check_id==='adverse_event_followup'||check_id==='consent_record_incomplete'?'high':'medium'):'info',
+    evidence_count:Math.min(1000000,count),
   }));
 }
 
