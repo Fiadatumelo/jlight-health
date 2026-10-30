@@ -475,13 +475,41 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         )
         self.assertEqual(c.fetchone(), ('enrolled', 'obtained', 'SYNTH-CONSENT-001'))
 
+        # Server-side intelligence derives its evidence counts from canonical records,
+        # not from client-supplied aggregate numbers.
+        c.execute(
+            """SELECT public.jl_record_trial_participant_event(
+                 %s,%s,'visit_scheduled',now()-interval '2 days','scheduled',
+                 'Synthetic overdue baseline visit','{"visit_name":"Baseline"}'::jsonb)""",
+            (self.org_a, participant_id),
+        )
+        c.execute(
+            """SELECT public.jl_record_trial_participant_event(
+                 %s,%s,'protocol_deviation_recorded',now(),'recorded',
+                 'Synthetic protocol deviation',
+                 '{"deviation_category":"major","deviation_impact":"study_data"}'::jsonb)""",
+            (self.org_a, participant_id),
+        )
+        c.execute(
+            """SELECT public.jl_record_trial_participant_event(
+                 %s,%s,'serious_adverse_event_recorded',now(),'open',
+                 'Synthetic SAE follow-up record','{}'::jsonb)""",
+            (self.org_a, participant_id),
+        )
+        c.execute("SELECT public.jl_build_trial_intelligence_checks(%s)", (self.org_a,))
+        derived_checks = {item["check_id"]: item for item in c.fetchone()[0]}
+        self.assertEqual(derived_checks["overdue_visit"]["evidence_count"], 1)
+        self.assertEqual(derived_checks["protocol_deviation"]["evidence_count"], 1)
+        self.assertEqual(derived_checks["adverse_event_followup"]["evidence_count"], 1)
+        self.assertEqual(derived_checks["consent_record_incomplete"]["evidence_count"], 0)
+
         # The authorised Trial member can read the participant timeline and referral,
         # but cannot resolve the linked Hospital identity.
         c.execute(
             "SELECT count(*) FROM public.jl_trial_participant_events WHERE participant_id=%s",
             (participant_id,),
         )
-        self.assertEqual(c.fetchone()[0], 3)
+        self.assertEqual(c.fetchone()[0], 6)
         c.execute(
             "SELECT status FROM public.jl_trial_recruitment_referrals WHERE id=%s",
             (referral_id,),
