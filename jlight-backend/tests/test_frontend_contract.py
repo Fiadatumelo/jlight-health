@@ -35,7 +35,8 @@ require("journeyReport.correlationId = correlationId" in html and
 require("if(STATE.role==='Trial')" in html and "return events;" in html,
         "Clinical Trials must remain isolated in the patient journey")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
-journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
+journey_end = html.index("
+function selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
 for field in ("STATE.admissions", "STATE.clinicalOrders", "STATE.labOrders",
               "STATE.results", "STATE.bioRuns"):
@@ -90,7 +91,9 @@ removed_legacy_handlers = (
     "exportWorkspaceReport", "renderMigrationWizard", "generateOrgCode",
     "createOrganisation", "joinOrganisation", "getOrgMembers", "saveAllDomainData",
     "enrolParticipant", "submitNewRequest", "acceptLabRequest", "rejectLabRequest",
-    "releaseResult", "generateResultReceivedCard",\n    "computeAuditHash", "sha256hex", "validateConsentRef", "mergeByTimestamp",\n    "detectOfflineData", "startAutoEngines",
+    "releaseResult", "generateResultReceivedCard",
+    "computeAuditHash", "sha256hex", "validateConsentRef", "mergeByTimestamp",
+    "detectOfflineData", "startAutoEngines",
 )
 for name in removed_legacy_handlers:
     require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
@@ -99,7 +102,8 @@ for name in removed_legacy_handlers:
 declarations = re.findall(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html)
 duplicates = sorted({name for name in declarations if declarations.count(name) > 1})
 require(not duplicates, "Duplicate frontend function declarations: " + ", ".join(duplicates))
-require("NGS_REF_RANGES" not in html, "Obsolete NGS analyser form thresholds returned")\nrequire("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
+require("NGS_REF_RANGES" not in html, "Obsolete NGS analyser form thresholds returned")
+require("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
         "Direct-browser legacy AI client must remain removed")
 
 print("JLIGHT frontend contract checks passed.")
