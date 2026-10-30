@@ -874,9 +874,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-cards" class="page"></div>
         <div id="page-detail" class="page"></div>
         <div id="page-register" class="page"></div>
-        <div id="page-process" class="page"></div>
-        <div id="page-samples" class="page"></div>
-        <div id="page-sample-detail" class="page"></div>
         <div id="page-predictive" class="page"></div>
         <div id="page-handover" class="page"></div>
         <div id="page-analytics" class="page"></div>
@@ -888,7 +885,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
         <div id="page-patient-profile" class="page"></div>
         <div id="page-lab-orders" class="page"></div>
         <div id="page-hl7" class="page"></div>
-        <div id="page-instruments" class="page"></div>
         <div id="page-wards" class="page"></div>
         <div id="page-protocols" class="page"></div>
 
@@ -1789,7 +1785,6 @@ function buildNav() {
     { label: 'Workflows', keys: ['lab-orders', 'hl7', 'requests', 'protocols', 'register', 'wards'] },
     { label: 'Insights', keys: ['predictive', 'analytics'] },
     { label: 'Connections & admin', keys: ['connectors', 'audit', 'settings'] },
-    { label: 'Other', keys: ['instruments', 'samples', 'sample-detail', 'process', 'handover', 'bio-pipeline', 'bio-report', 'bio-run-detail', 'patient-profile'] },
   ]
   const used = new Set()
   const renderLink = item => {
@@ -1815,7 +1810,6 @@ function goPage(page) {
   const titles = {
     dashboard: 'Intelligence Dashboard', cards: 'Decision Cards', detail: 'Card Detail', journey: 'Cross-Domain Patient Journey',
     register: STATE.role === 'Laboratory' ? 'Review Source Data' : (STATE.role === 'Trial' ? 'Log Visit' : 'Log Event'),
-    process: 'Source Data Review', samples: 'Laboratory Data Traceability', 'sample-detail': 'Source Data Detail',
     predictive: 'Data Trends & Signals', handover: 'Daily Handover Summary', analytics: 'Analytics', connectors: 'Data Sources',
     audit: 'Audit Trail', settings: 'Settings',
   }
@@ -1826,9 +1820,6 @@ function goPage(page) {
     case 'cards':     renderCards(); break
     case 'detail':    renderDetail(); break
     case 'register':  renderRegister(); break
-    case 'process':   renderProcess(); break
-    case 'samples':   renderSamples(); break
-    case 'sample-detail': renderSampleDetail(); break
     case 'predictive': renderPredictive(); break
     case 'handover': renderHandover(); break
     case 'analytics': renderAnalytics(); break
@@ -1840,7 +1831,6 @@ function goPage(page) {
     case 'patient-profile': renderPatientProfile(); break
     case 'lab-orders':    renderLabOrders(); break
     case 'hl7':           renderHL7Receiver(); break
-    case 'instruments':  renderInstruments(); break
     case 'wards':        renderWards(); break
     case 'protocols':    renderProtocols(); break
 
@@ -2430,32 +2420,14 @@ function renderLabRegister() {
   page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Intake</div><div class="page-sub">Authorised source data only</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">JLIGHT does not register, process, or test physical specimens. Use a validated data source to review existing laboratory information. Integrations are not operational until configured and tested.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
 }
 
-function submitSampleRegistration() {
-  toast('Out of scope', 'JLIGHT does not register physical specimens. Use an authorised source system and validated data import.', 'warn');
-  goPage('connectors');
-}
 
-function renderProcess() {
-  const page = document.getElementById('page-process');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Review</div><div class="page-sub">JLIGHT does not run tests or create laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Review existing results only after they are imported from an authorised, validated source system.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
 
 // ═══════════════════════════════════════════════════════════
 // SAMPLE LIST + DETAIL
 // ═══════════════════════════════════════════════════════════
-function renderSamples() {
-  const page = document.getElementById('page-samples');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review authorised imported data and its audit trail.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">This workspace does not register specimens or generate test results. Connect a validated source system to use data quality and traceability features.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
 
-function renderSampleListItem() { return ''; }
 
-function openSample() { goPage('connectors'); }
 
-function renderSampleDetail() {
-  const page = document.getElementById('page-sample-detail');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Detail</div><div class="page-sub">JLIGHT does not create or process laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2)">Open Data Sources to configure an authorised import.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
 // ═══════════════════════════════════════════════════════════
 // LABORATORY INTELLIGENCE ENGINES
 // ═══════════════════════════════════════════════════════════
@@ -5003,7 +4975,6 @@ function changePage(key, newPage) {
   if (newPage < 1 || newPage > max) return
   STATE.pagination[key] = newPage
   if (key === 'cards')   renderCards()
-  if (key === 'samples') renderSamples()
 }
 
 function applyCardFilter() {
@@ -6874,15 +6845,6 @@ function receiveOrder(orderId) {
   renderLabOrders()
 }
 
-function enterResult() {
-  toast('Result entry disabled', 'Enter results in the authorised laboratory system, then import validated source data into JLIGHT.', 'warn');
-  goPage('connectors');
-}
-
-function submitResults() {
-  toast('Result entry disabled', 'JLIGHT does not generate results or operate analysers. Import authorised source data instead.', 'warn');
-  goPage('connectors');
-}
 
 function viewOrderResults(orderId) {
   const o = STATE.labOrders.find(x => x.id === orderId)
@@ -7654,16 +7616,6 @@ function startAutoEngines() {
 
 
 // v10.0 nav hook — called from enterApp after all domains loaded
-function renderPage_v10(page) {
-  const map = {
-    'patients':         renderPatients,
-    'patient-profile':  renderPatientProfile,
-    'lab-orders':       renderLabOrders,
-    'hl7':              renderHL7Receiver,
-  }
-  if (map[page]) { map[page](); return true }
-  return false
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // JLIGHT v10.0 — MANAGEMENT PAGES
@@ -7672,18 +7624,6 @@ function renderPage_v10(page) {
 // ═══════════════════════════════════════════════════════════════════
 
 // ── INSTRUMENTS ──
-function renderInstruments() {
-  const page = document.getElementById('page-instruments');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Data Sources</div><div class="page-sub">Authorised system data ingestion</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Instrument registration, calibration tracking, and instrument control are outside JLIGHT scope. Configure supported data sources here; each integration must be implemented, tested, and validated before use.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
-
-function renderInstrumentCard() { return ''; }
-
-function showInstrumentForm() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
-
-function editInstrument() { toast('Out of scope', 'Instrument management is outside JLIGHT scope.', 'warn'); }
-
-function saveInstrument() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
 
 // ── WARDS ──
 function renderWards() {
@@ -8157,22 +8097,10 @@ function renderEmpty(title, desc, page, btnLabel) {
   return `<div class="empty"><div class="empty-icon">◌</div><div class="empty-title">${esc(title)}</div>${desc ? `<div class="empty-desc">${esc(desc)}</div>` : ''}${page && btnLabel ? `<button class="btn btn-primary" onclick="goPage('${page}')">${esc(btnLabel)}</button>` : ''}</div>`
 }
 
-function renderSamples() {
-  const page = document.getElementById('page-samples');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Laboratory Data Traceability</div><div class="page-sub">Review authorised imported data and its audit trail.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">This workspace does not register specimens or generate test results. Connect a validated source system to use data quality and traceability features.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
-function renderProcess() {
-  const page = document.getElementById('page-process');
-  if (page) page.innerHTML = '<div class="page-head"><div><div class="page-title">Source Data Review</div><div class="page-sub">JLIGHT does not run tests or create laboratory results.</div></div></div><div class="form-card"><p style="color:var(--text-2);line-height:1.7">Review existing results only after they are imported from an authorised, validated source system.</p><button class="btn btn-primary" onclick="goPage(\'connectors\')">Open Data Sources</button></div>';
-}
-function submitSampleRegistration() {
-  toast('Out of scope', 'JLIGHT does not register physical specimens. Use an authorised source system and validated data import.', 'warn');
-  goPage('connectors');
-}
-function showInstrumentForm() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
-function saveInstrument() { toast('Out of scope', 'JLIGHT does not manage or control laboratory instruments.', 'warn'); }
+
+
+
 function enterResult() { toast('Use an authorised laboratory system', 'JLIGHT analyses supplied data; it does not create or validate laboratory results.', 'warn'); goPage('connectors'); }
-function submitResults() { toast('Result entry disabled', 'Import results from an authorised, validated source system instead.', 'warn'); goPage('connectors'); }
 
 </script>
 </body>
