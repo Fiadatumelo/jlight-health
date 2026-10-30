@@ -2628,12 +2628,18 @@ function normaliseTBProfilerResult(source) {
   })
   const version = String(pipeline.version || pipeline.tbprofiler_version || source.tbprofiler_version || '')
   const databaseVersion = String(pipeline.db_version || pipeline.database_version || source.db_version || '')
+  const medianDepth = qc.median_depth ?? qc.median_coverage ?? qc.median_depth_of_coverage ?? null
+  const qcNotes = Array.isArray(qc.notes) ? qc.notes.slice(0,20).map(String) : []
+  if (medianDepth != null && Number(medianDepth) < 30 && !qcNotes.some(note => /below.*30x|30x.*below/i.test(note))) {
+    qcNotes.push('Median coverage is below the 30x review threshold; some mutations may not be detected.')
+  }
+  const qcStatus = String(qc.status || qc.qc_status || (medianDepth != null && Number(medianDepth) < 30 ? 'review_required_low_coverage' : ''))
   const timestamp = String(source.timestamp || source.created_at || new Date().toISOString())
   return {
     id:'tbprofiler:'+sampleId, sourceRecordId:sampleId, sampleId,
     pathogen:'Mycobacterium tuberculosis complex', analysisType:'TBProfiler',
     outputType:'TBProfiler result JSON', status:'completed',
-    qualityStatus:String(qc.status || qc.qc_status || 'QC status not supplied'),
+    qualityStatus:qcStatus || 'QC status not supplied',
     drtype:drtype || 'Not reported', mainLineage:mainLineage || 'Not reported',
     subLineage:subLineage || 'Not reported', lineage:Array.isArray(source.lineage)?source.lineage:[],
     spoligotype:String(source.spoligotype||''), pipelineName:String(pipeline.name||pipeline.software||'TBProfiler'),
@@ -2642,7 +2648,7 @@ function normaliseTBProfilerResult(source) {
     tbProfiler:{
       schemaVersion:String(source.schema_version||''),
       pipeline:{name:String(pipeline.name||pipeline.software||'TBProfiler'),version,databaseVersion},
-      qc:{status:String(qc.status||qc.qc_status||''),medianDepth:qc.median_depth??null,pctReadsMapped:qc.pct_reads_mapped??null,numReads:qc.num_reads??null,meanDepth:qc.mean_depth??null},
+      qc:{status:qcStatus,medianDepth,pctReadsMapped:qc.pct_reads_mapped??qc.percent_reads_mapped??qc.percentage_reads_mapped??null,numReads:qc.num_reads??qc.number_of_reads??null,meanDepth:qc.mean_depth??qc.mean_coverage??null,notes:qcNotes},
       resistanceEvidence:annotations, drVariants:drVariants.slice(0,2000),
       otherVariants:otherVariants.slice(0,2000),
       qcFailVariants:Array.isArray(source.qc_fail_variants)?source.qc_fail_variants.slice(0,500):[],
