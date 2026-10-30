@@ -194,4 +194,26 @@ for legacy_bio_symbol in (
 require("function renderBioinformaticsReview()" in html,
         "Current imported-output Bioinformatics review page must remain")
 
+# Tuberculosis workspace compartments use versioned TBProfiler output only.
+require("id=\"page-tb\"" in html and "key: 'tb'" in role_block,
+        "Dedicated Tuberculosis Intelligence page and navigation are required")
+require("function renderBioinformaticsTB()" in html and "function setBioinformaticsTBTab(" in html,
+        "TB intelligence compartments are not wired")
+for tb_compartment in ("overview", "resistance", "lineage", "variants", "qc"):
+    require("['" + tb_compartment + "'" in html or ",'" + tb_compartment + "'" in html,
+            "Missing TB compartment: " + tb_compartment)
+for tb_field in ("drtype", "main_lineage", "sub_lineage", "dr_variants",
+                 "other_variants", "qc_fail_variants", "spoligotype"):
+    require(tb_field in html, "TBProfiler output mapping is missing " + tb_field)
+require("function normaliseTBProfilerResult(" in html and
+        "function handleTBProfilerJsonFile(" in html and
+        "function commitTBProfilerJson(" in html,
+        "TBProfiler JSON validation and import workflow is incomplete")
+require("syncDomainToBackend('bioRuns',imported)" in html,
+        "TBProfiler records must persist through the organisation-scoped Bioinformatics domain")
+require("patientLinkStatus:'not linked'" in html,
+        "TBProfiler sample IDs must not be silently treated as patient IDs")
+require("requirePermission('supervisor','Import TBProfiler result')" in html,
+        "TBProfiler import must require supervisor-level permission")
+
 print("JLIGHT frontend contract checks passed.")
