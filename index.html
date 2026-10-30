@@ -2215,7 +2215,8 @@ async function requestJlightClinicalTrialsSummary() {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
-        'X-JLIGHT-Workspace': 'clinical_trials'
+        'X-JLIGHT-Workspace': 'clinical_trials',
+        'X-JLIGHT-Organisation': String(STATE.orgId || '')
       },
       body: JSON.stringify({})
     });
