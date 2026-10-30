@@ -2729,11 +2729,12 @@ function hydrateTBProfilerRecord(record) {
     try { summary = JSON.parse(summary) } catch (_) { return record }
   }
   if (!summary || typeof summary !== 'object') return record
-  const variants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants.map(v => ({
+  const sourceVariants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants : (Array.isArray(summary.resistanceAssociatedVariants) ? summary.resistanceAssociatedVariants : [])
+  const variants = sourceVariants.map(v => ({
     gene_name:v.gene||v.locus_tag||'', pos:v.position??null,
     protein_change:v.proteinChange||v.mutation||'', nucleotide_change:v.nucleotideChange||'', type:v.type||'',
-    freq:v.frequency??null, depth:v.depth??null,
-    annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:typeof drug==='string'?drug:(drug.drug||drug.name||JSON.stringify(drug))})))
+    freq:v.frequency??v.estimatedFraction??null, depth:v.depth??null,
+    annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:typeof drug==='string'?drug:(drug.drug||drug.name||JSON.stringify(drug)),confidence:v.confidence||''})))
   })) : []
   const qcNotes = Array.isArray(summary.qcWarnings) ? summary.qcWarnings : []
   return {
@@ -2741,14 +2742,14 @@ function hydrateTBProfilerRecord(record) {
     pathogen:'Mycobacterium tuberculosis complex',
     analysisType:'TBProfiler',
     sampleId:String(summary.runAccession||record.sourceRecordId||record.id||''),
-    drtype:String(summary.drugResistanceType||'Not reported'),
+    drtype:String(summary.drugResistanceType||summary.drugResistanceCall||'Not reported'),
     mainLineage:String(summary.mainLineage|| (typeof summary.lineage==='string'?summary.lineage:JSON.stringify(summary.lineage||'Not reported'))),
     subLineage:String(summary.subLineage||'Not reported'),
     spoligotype:String(summary.spoligotype||''),
     pipelineVersion:String(summary.pipelineVersion||record.pipelineVersion||'Not supplied'),
     databaseVersion:String(summary.databaseVersion||'Not supplied'),
     tbProfiler:{
-      qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,pctReadsMapped:summary.mappingRatePercent??null,numReads:summary.readCount??null,notes:qcNotes},
+      qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,pctReadsMapped:summary.mappingRatePercent??summary.percentReadsMapped??null,numReads:summary.readCount??summary.numberOfReads??null,notes:qcNotes},
       drVariants:variants,
       otherVariants:[],
       resistanceEvidence:variants.flatMap(v=>v.annotation.map(a=>({gene:v.gene_name,mutation:v.protein_change||v.type,drug:String(a.drug||''),confidence:String(a.confidence||''),source:String(a.source||''),comment:String(a.comment||''),depth:v.depth??null,frequency:v.freq??null})))
