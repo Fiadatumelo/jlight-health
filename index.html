@@ -1270,7 +1270,7 @@ async function doSignIn(resend = false) {
     if (status) { status.textContent = message; status.className = "auth-status " + kind; }
   };
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showStatus("Enter a valid email address."); return; }
-  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before continuing."); return; }
+  if (!selectedPath || !ROLES[selectedPath]) { showStatus("Choose a JLIGHT path before signing in."); return; }
   if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
 
   let pending = null;
