@@ -2735,7 +2735,7 @@ function hydrateTBProfilerRecord(record) {
     protein_change:v.proteinChange||v.mutation||'', nucleotide_change:v.nucleotideChange||'', type:v.type||'',
     freq:v.frequency??v.estimatedFraction??null, depth:v.depth??null,
     annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:typeof drug==='string'?drug:(drug.drug||drug.name||JSON.stringify(drug)),confidence:v.confidence||''})))
-  })) : []
+  }))
   const qcNotes = Array.isArray(summary.qcWarnings) ? summary.qcWarnings : []
   return {
     ...record,
