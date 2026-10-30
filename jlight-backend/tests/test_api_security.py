@@ -18,7 +18,7 @@ def test_health_probe_is_public():
 @pytest.mark.parametrize(
     ("method", "path", "payload"),
     [
-        ("post", "/api/analyse-csv", {"csvText": "cv\\n2.1\\n2.3\\n2.8"}),
+        ("post", "/api/analyse-csv", {"csvText": "cv\n2.1\n2.3\n2.8"}),
         ("get", "/api/cards", None),
         ("post", "/api/cards/acknowledge", {"card_number": "test-card"}),
         ("get", "/api/audit", None),
@@ -52,7 +52,7 @@ def test_protected_route_rejects_invalid_signed_token(monkeypatch):
     response = app.test_client().post(
         "/api/analyse-csv",
         headers={"Authorization": "Bearer definitely-not-a-valid-jwt"},
-        json={"csvText": "cv\\n2.1\\n2.3\\n2.8"},
+        json={"csvText": "cv\n2.1\n2.3\n2.8"},
     )
     assert response.status_code == 401
 
@@ -62,7 +62,7 @@ def test_protected_route_returns_503_when_verifier_unavailable():
         response = app.test_client().post(
             "/api/analyse-csv",
             headers={"Authorization": "Bearer invalid"},
-            json={"csvText": "cv\\n2.1\\n2.3\\n2.8"},
+            json={"csvText": "cv\n2.1\n2.3\n2.8"},
         )
     assert response.status_code == 503
 
@@ -83,7 +83,7 @@ def test_protected_route_accepts_verified_session(monkeypatch):
         response = app.test_client().post(
             "/api/analyse-csv",
             headers={"Authorization": f"Bearer {token}"},
-            json={"csvText": "cv\\n2.1\\n2.3\\n2.8", "fileName": "test.csv"},
+            json={"csvText": "cv\n2.1\n2.3\n2.8", "fileName": "test.csv"},
         )
     assert response.status_code == 200
     assert response.get_json()["success"] is True
