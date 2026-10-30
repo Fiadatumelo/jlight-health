@@ -2603,10 +2603,10 @@ let TB_PROFILER_IMPORT_NAME = ''
 function renderBioinformaticsReview() {
   const page = document.getElementById('page-register')
   if (!page) return
-  const runs = (STATE.bioRuns || []).filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler')
+  const runs = (STATE.bioRuns || []).map(hydrateTBProfilerRecord).filter(r => r.pathogen === 'Mycobacterium tuberculosis complex' || r.analysisType === 'TBProfiler' || r.outputType === 'TBProfiler JSON summary')
   page.innerHTML = '<div class="page-head"><div><div class="page-title">Bioinformatics Data Intake</div><div class="page-sub">Validated external analysis outputs only. JLIGHT does not process raw reads or call variants.</div></div><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence →</button></div>' +
     '<div class="kpis"><div class="kpi"><div class="kpi-label">TB Profiles</div><div class="kpi-value">' + runs.length + '</div><div class="kpi-trend">Imported TBProfiler results</div></div><div class="kpi"><div class="kpi-label">Open Decisions</div><div class="kpi-value">' + (STATE.cards || []).filter(c => !c.acknowledged).length + '</div><div class="kpi-trend">For professional review</div></div></div>' +
-    '<div class="form-card"><h3>Import TBProfiler result JSON</h3><p class="form-help">Select a completed .results.json file. JLIGHT extracts resistance classification, lineage, variant evidence, QC and pipeline/database provenance. FASTQ/FASTA and BAM files are not accepted. Sample identifiers are not automatically linked to patients.</p><div class="form-row" style="margin-top:14px"><label class="form-label" for="tb-profiler-json">TBProfiler JSON result</label><input class="form-input" id="tb-profiler-json" type="file" accept=".json,application/json" onchange="handleTBProfilerJsonFile(event)"/></div><div id="tb-profiler-preview" class="source-import-preview"><p class="form-help">Preview validates structure without saving.</p></div><button class="btn btn-primary" id="tb-profiler-import" onclick="commitTBProfilerJson()" disabled>Import validated TB profile</button></div>' +
+    '<div class="form-card"><h3>Import TBProfiler result JSON or JLIGHT CSV</h3><p class="form-help">Select a completed .results.json file. The public-data validation workflow also produces a JLIGHT-normalized CSV; import that through Data Sources → Bioinformatics outputs. JLIGHT extracts resistance classification, lineage, variant evidence, QC and pipeline/database provenance. FASTQ/FASTA and BAM files are not accepted. Sample identifiers are not automatically linked to patients.</p><div class="form-row" style="margin-top:14px"><label class="form-label" for="tb-profiler-json">TBProfiler JSON result</label><input class="form-input" id="tb-profiler-json" type="file" accept=".json,application/json" onchange="handleTBProfilerJsonFile(event)"/></div><div id="tb-profiler-preview" class="source-import-preview"><p class="form-help">Preview validates structure without saving.</p></div><button class="btn btn-primary" id="tb-profiler-import" onclick="commitTBProfilerJson()" disabled>Import validated TB profile</button></div>' +
     '<div class="form-card"><h3>Imported TBProfiler profiles · ' + runs.length + '</h3>' + (runs.length ? '<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>Resistance class</th><th>Lineage</th><th>QC</th><th>Pipeline</th></tr></thead><tbody>' + runs.map(r=>'<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.drtype||'Not reported')+'</td><td>'+esc(r.mainLineage||'Not reported')+'</td><td>'+esc(r.tbProfiler?.qc?.status||r.qualityStatus||'Not reported')+'</td><td>'+esc(r.pipelineVersion||'Not supplied')+'</td></tr>').join('') + '</tbody></table></div>' : '<div class="empty">No TBProfiler outputs imported yet.</div>') + '</div>'
 }
 
@@ -2715,10 +2715,44 @@ async function retryTBProfilerCloudSync() {
   if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Cloud sync confirmed</strong><p>'+pending.length+' profile(s) synchronised.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
 }
 
+function hydrateTBProfilerRecord(record) {
+  if (!record || typeof record !== 'object') return record
+  if (record.tbProfiler) return record
+  let summary = record.summary
+  if (typeof summary === 'string') {
+    try { summary = JSON.parse(summary) } catch (_) { return record }
+  }
+  if (!summary || typeof summary !== 'object') return record
+  const variants = Array.isArray(summary.resistanceVariants) ? summary.resistanceVariants.map(v => ({
+    gene_name:v.gene||v.locus_tag||'', pos:v.position??null,
+    protein_change:v.mutation||'', type:v.type||'',
+    freq:v.frequency??null,
+    annotation:(Array.isArray(v.annotations)?v.annotations:[]).concat((Array.isArray(v.drugs)?v.drugs:[]).map(drug=>({drug:String(drug)})))
+  })) : []
+  const qcNotes = Array.isArray(summary.qcWarnings) ? summary.qcWarnings : []
+  return {
+    ...record,
+    pathogen:'Mycobacterium tuberculosis complex',
+    analysisType:'TBProfiler',
+    sampleId:String(summary.runAccession||record.sourceRecordId||record.id||''),
+    drtype:String(summary.drugResistanceType||'Not reported'),
+    mainLineage:typeof summary.lineage==='string'?summary.lineage:JSON.stringify(summary.lineage||'Not reported'),
+    pipelineVersion:String(summary.pipelineVersion||record.pipelineVersion||'Not supplied'),
+    databaseVersion:String(summary.databaseVersion||'Not supplied'),
+    tbProfiler:{
+      qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,pctReadsMapped:summary.mappingRatePercent??null,numReads:summary.readCount??null,notes:qcNotes},
+      drVariants:variants,
+      otherVariants:[],
+      resistanceEvidence:variants.flatMap(v=>v.annotation.map(a=>({gene:v.gene_name,mutation:v.protein_change||v.type,drug:String(a.drug||''),confidence:String(a.confidence||''),source:String(a.source||''),comment:String(a.comment||''),depth:v.depth??null,frequency:v.freq??null})))
+    },
+    provenance:{format:'JLIGHT-normalized TBProfiler CSV',sourceSampleId:String(summary.runAccession||record.sourceRecordId||''),importedAt:record.sourceImportedAt?new Date(record.sourceImportedAt).toISOString():null,patientLinkStatus:'not linked'}
+  }
+}
+
 function renderBioinformaticsTB() {
   const page=document.getElementById('page-tb')
   if(!page)return
-  const all=(STATE.bioRuns||[]).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler')
+  const all=(STATE.bioRuns||[]).map(hydrateTBProfilerRecord).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler'||r.outputType==='TBProfiler JSON summary')
   const tab=STATE.bioTbTab||'overview'
   const tabs=[['overview','Overview'],['resistance','Drug resistance'],['lineage','Lineage'],['variants','Variant evidence'],['qc','QC & provenance']]
   const tabbar='<div class="tb-tabs" role="tablist">'+tabs.map(x=>'<button class="tb-tab '+(tab===x[0]?'active':'')+'" role="tab" aria-selected="'+(tab===x[0]?'true':'false')+'" onclick="setBioinformaticsTBTab(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'</div>'
