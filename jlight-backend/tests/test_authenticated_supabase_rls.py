@@ -550,7 +550,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute(
             """INSERT INTO public.jl_organisation_workspaces
                (org_id, workspace_key, status, provisioning_source, approved_at)
-               VALUES (%s, 'clinical_trials', 'active', 'admin_approval', now())
+               VALUES (%s, 'clinical_trials', 'active', 'legacy_backfill', now())
                ON CONFLICT (org_id, workspace_key) DO UPDATE SET status='active'""",
             (self.org_a,),
         )
