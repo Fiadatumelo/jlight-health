@@ -7,7 +7,7 @@
 
 The staging implementation now supports initial multi-path organisation registration, entitlement-based workspace discovery, member-scoped access, and separate JLIGHT Platform Administration approval for additional pathways. Transactional synthetic tests passed for the critical database paths.
 
-**Production release remains blocked.** GitHub regression and authenticated RLS workflows are still pending; full browser/end-to-end validation and the complete semantic review of authenticated SECURITY DEFINER functions remain outstanding. No system can be certified “unhackable”; this review records specific controls and evidence, not a guarantee of invulnerability.
+**Production release remains blocked.** On PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1`, the GitHub safe-regression workflow and authenticated Supabase RLS release-gate workflow both completed successfully, and the Netlify deploy-preview status is successful. These green checks do not replace full browser/end-to-end validation, the complete semantic and adversarial review of authenticated SECURITY DEFINER functions, or the remaining release gates below. No system can be certified “unhackable”; this review records specific controls and evidence, not a guarantee of invulnerability.
 
 ## Approved organisation model
 
@@ -86,14 +86,14 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - Organisation Admin Center requests an additional pathway and manages member permissions against the currently selected entitled workspace.
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
 - Frontend inline JavaScript syntax check: passed.
-- GitHub `regression` workflow: passed on commit `3326efc45385acf701cb43652290923444eb2b3c`; inline JavaScript, frontend contract, patient-journey privacy, CSV parser, interoperability, API/JC security, and analytical engine regression steps all passed.
-- GitHub `authenticated-rls` workflow: passed on the same commit; authenticated tenant, patient-match, report-permission, and Clinical Trials isolation tests passed.
-- Netlify: the latest PR commit's redirect/header/page checks completed as neutral (no redirect/header rules configured; one asset changed). The deploy preview is still processing at https://app.netlify.com/projects/jlight-health/deploys/6ae4d937b05a356e46da97ec.
+- GitHub `JLIGHT safe regression checks` workflow: passed on current PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1` (run `41134995392`, run number `623`).
+- GitHub `JLIGHT authenticated Supabase RLS release gates` workflow: passed on current PR head `c1df07bdbd7aec302c71a11bfe75e6c80eb13da1` (run `41134995410`, run number `210`).
+- Netlify deploy-preview status for the current PR head: successful. Preview URL: https://deploy-preview-69--jlight-health.netlify.app.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
 
 ## Remaining release gates
 
-1. Define and implement the eligibility criteria/evidence requirements for each initial-registration pathway; the current staging RPC does not yet enforce them.
+1. Resolve the initial-registration eligibility policy gap. The locked product model permits an organisation to select one or more pathways during its single initial registration; additional pathways remain subject to independent Platform Administrator approval. Do not invent eligibility criteria. Agree the minimum evidence and checks, then implement them without changing this registration model.
 2. Complete browser end-to-end tests for one-path and multi-path registration, email-code sign-in, invitation acceptance, path switching, member permissions, Platform Admin approvals, and organisation isolation.
 3. Complete adversarial tests for the twenty authenticated SECURITY DEFINER RPCs: cross-tenant IDs, forged metadata/headers, inactive and revoked memberships, invalid roles, privilege escalation, and Clinical Trials boundaries.
 4. Revalidate patient matching, patient journey reports, issue-resolution history, report permissions, worker/sequence-data controls, and Clinical Trials data isolation.
@@ -107,3 +107,8 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - No production deployment.
 - No destructive removal of legacy schema or code before compatibility tests.
 - No password-based authentication added; JLIGHT remains passwordless email-code authentication.
+
+
+## Architecture alignment note
+
+PR #69 is an implementation branch, not the product specification. The approved JLIGHT model is one organisation identity with one or more explicitly entitled operational workspaces; it is not a one-organisation-per-pathway or one-active-path-only design. Member permissions are independently scoped within each entitled workspace. The routine-care Patient Journey is a governed linkage layer across Hospital, Laboratory and Bioinformatics, not another workspace. Clinical Trials remains a separately permissioned research domain with a restricted Hospital-to-Trial recruitment link, study-specific participant identity, consent-controlled lifecycle and auditable linkage. Preserve working legacy compatibility until dependencies and regression evidence support safe removal. The intelligence roadmap remains data ingestion/interoperability, deterministic and governed analytical processing, evidence/provenance-backed Decision Cards, and authorised human review; JC is not to be represented as a substitute for this full intelligence architecture.
