@@ -105,4 +105,18 @@ require("NGS_REF_RANGES" not in html, "Obsolete NGS analyser form thresholds ret
 require("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
         "Direct-browser legacy AI client must remain removed")
 
+
+# The old simulated NGS queue/report UI is not part of the imported-output workflow.
+for legacy_bio_symbol in (
+    "page-bio-pipeline", "page-bio-report", "page-bio-run-detail",
+    "bio-pipeline", "bio-run-detail", "bio-report", "BIO_STAGES",
+    "renderBioPipeline", "bioPipelineCard", "updateBioStage", "resubmitBio",
+    "renderBioReport", "bioReportBody", "exportBioReport",
+    "renderBioRunDetail", "promptBioStageUpdate",
+):
+    require(legacy_bio_symbol not in html,
+            f"Superseded simulated Bioinformatics pipeline returned: {legacy_bio_symbol}")
+require("function renderBioinformaticsReview()" in html,
+        "Current imported-output Bioinformatics review page must remain")
+
 print("JLIGHT frontend contract checks passed.")
