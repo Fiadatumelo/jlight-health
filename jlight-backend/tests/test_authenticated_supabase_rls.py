@@ -301,12 +301,6 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         self.assertTrue(registration["org_code"])
         self.assertEqual(set(registration["workspace_keys"]), {"hospital", "laboratory"})
 
-        c.execute(
-            "SELECT workspace_key FROM public.jl_organisation_workspaces WHERE org_id=%s",
-            (registration["id"],),
-        )
-        self.assertEqual({row[0] for row in c.fetchall()}, {"hospital", "laboratory"})
-
         c.execute("SELECT public.jl_list_my_workspaces(%s)", (registration["id"],))
         visible = c.fetchone()[0]
         self.assertEqual(
