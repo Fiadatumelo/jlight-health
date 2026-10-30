@@ -516,6 +516,31 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         )
         self.assertEqual(c.fetchone()[0], 'enrolled')
 
+        # Organisation owners cannot revoke independent recruitment approval.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute("SAVEPOINT recruitment_revocation_denial")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute("SELECT public.jl_revoke_trial_recruitment(%s,'unauthorised test revocation')", (study_id,))
+        c.execute("ROLLBACK TO SAVEPOINT recruitment_revocation_denial")
+
+        # Platform Admin revocation is audited and immediately removes the study
+        # from Hospital referral options.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.platform_admin,))
+        c.execute("SELECT public.jl_revoke_trial_recruitment(%s,'synthetic test revocation')", (study_id,))
+        c.execute("SELECT recruitment_enabled FROM public.jl_trial_studies WHERE id=%s", (study_id,))
+        self.assertFalse(c.fetchone()[0])
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (self.a,))
+        c.execute("SELECT * FROM public.jl_list_recruitable_trial_studies(%s)", (self.org_a,))
+        self.assertEqual(c.fetchall(), [])
+        c.execute("SAVEPOINT referral_after_revocation")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                """SELECT public.jl_create_trial_recruitment_referral(
+                     %s,%s,%s,%s,'{"screening_priority":"routine"}'::jsonb,'criteria-v1')""",
+                (self.org_a, study_id, self.patient_a, 'REF-REVOKED-' + study_id[:8]),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT referral_after_revocation")
+
         c.execute("ROLLBACK TO SAVEPOINT governed_trial_recruitment_test")
         c.execute("RELEASE SAVEPOINT governed_trial_recruitment_test")
 
