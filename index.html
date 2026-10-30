@@ -3738,7 +3738,10 @@ async function loadAdminDomainAccess() {
   const isTrial = MODE.organisationType === 'clinical_trials'
   const { data, error } = isTrial
     ? await sb.rpc('jl_list_trial_members', { p_org_id: MODE.organisationId })
-    : await sb.rpc('jlight_list_org_domain_access', { p_organization_id: MODE.organisationId })
+    : await sb.rpc('jlight_list_org_domain_access', {
+        p_organization_id: MODE.organisationId,
+        p_domain: MODE.organisationType
+      })
   return { rows: Array.isArray(data) ? data : [], error: error?.message || null }
 }
 
