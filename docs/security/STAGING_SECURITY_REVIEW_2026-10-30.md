@@ -43,6 +43,7 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030174807` | Require an explicit workspace domain for legacy member-access listings on multi-path organisations |
 | `20261030194237` | Require active Laboratory entitlement and caller Laboratory read permission when resolving an organisation by code |
 | `20261030233043` | Enforce independent Platform Admin recruitment review, active Clinical Trials entitlement, active-study status and active-study referral creation |
+| `20261030233959` | Restore the separate Clinical Trials read permission requirement on Hospital-to-Trial referrals; entitlement alone is not member authorisation |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
@@ -115,8 +116,8 @@ These are targeted database tests. They do not establish that every RLS policy, 
 
 - Recruitment approval is restricted to an independent JLIGHT Platform Administrator who did not create the study and is not an active member of the study organisation.
 - The study must already be active, and the organisation must have an active Clinical Trials entitlement before recruitment can be authorised.
-- Hospital-to-Trial referral creation now also requires an active study in addition to the existing Hospital write permission, active Clinical Trials entitlement, ethics approval, criteria-version match, minimum-necessary candidate summary and restricted identity-link creation.
-- These are staging-only additive migrations. They do not change production. Authenticated regression tests cover own-organisation denial, independent approval success and non-active-study denial.
+- Hospital-to-Trial referral creation requires both Hospital write and Clinical Trials read permission, an active Clinical Trials entitlement, an active study, ethics approval, a criteria-version match, a minimum-necessary candidate summary and restricted identity-link creation. A Hospital-only member cannot create a referral merely because the organisation has a Clinical Trials entitlement.
+- These are staging-only additive migrations. They do not change production. Authenticated regression tests cover own-organisation denial, independent approval success, non-active-study denial, and denial of Hospital-to-Trial referral creation for a Hospital-only member without Clinical Trials read permission.
 
 ## Explicitly not done
 
