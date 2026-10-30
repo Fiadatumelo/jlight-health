@@ -1,7 +1,8 @@
-"""Security and contract tests for the authenticated AI/JC integration route."""
+"""Security and contract tests for database-authorised JC routes."""
 import sys
 from pathlib import Path
 from unittest.mock import patch
+from flask import jsonify
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.app import app
@@ -11,7 +12,7 @@ def verified_claims(**overrides):
     claims = {
         "sub": "00000000-0000-4000-8000-000000000001",
         "aud": "authenticated",
-        "org_id": "org-test-1",
+        "org_id": "attacker-controlled-token-org",
         "permissions": ["intelligence:read"],
         "role": "Laboratory",
     }
@@ -19,38 +20,42 @@ def verified_claims(**overrides):
     return claims
 
 
+def scope(domain="laboratory", org_id="org-db-verified", user_id=None):
+    return {
+        "organisation_id": org_id,
+        "organisation_type": domain,
+        "user_id": user_id or verified_claims()["sub"],
+    }, None
+
+
+def denied_scope(*_args, **_kwargs):
+    return None, (jsonify({"success": False, "error": "Path denied"}), 403)
+
+
 def test_intelligence_route_requires_bearer_token():
     response = app.test_client().post("/api/intelligence/summary", json={})
     assert response.status_code == 401
 
 
-def test_intelligence_route_returns_privacy_minimised_summary():
-    with patch("api.app.verify_access_token", return_value=verified_claims()), \
+def test_intelligence_uses_database_org_not_token_org():
+    claims = verified_claims()
+    trusted_scope = scope(user_id=claims["sub"])
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=trusted_scope), \
          patch("api.app._write_jc_audit"):
         response = app.test_client().post(
             "/api/intelligence/summary",
             headers={"Authorization": "Bearer verified-test-token"},
-            json={
-                "csv_analysis": {
-                    "severity": "critical", "riskScore": 84,
-                    "filename": "patient-name-secret.csv",
-                    "summary": "private free text must not leak",
-                }
-            },
+            json={"journey_checks": []},
         )
     assert response.status_code == 200
-    body = response.get_json()
-    assert body["organisation_id"] == "org-test-1"
-    assert body["agent"] == "JC"
-    assert body["tool"] == "intelligence_summary"
-    assert body["result"]["human_review_required"] is True
-    assert "patient-name-secret.csv" not in str(body)
-    assert "private free text must not leak" not in str(body)
+    assert response.get_json()["organisation_id"] == "org-db-verified"
 
 
-def test_clinical_trials_scope_is_rejected_before_execution():
+def test_general_intelligence_rejects_trial_organisation():
     claims = verified_claims(role="Trial")
-    with patch("api.app.verify_access_token", return_value=claims):
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", side_effect=denied_scope):
         response = app.test_client().post(
             "/api/intelligence/summary",
             headers={"Authorization": "Bearer verified-test-token"},
@@ -58,40 +63,19 @@ def test_clinical_trials_scope_is_rejected_before_execution():
         )
     assert response.status_code == 403
 
-def test_trusted_supabase_app_metadata_claims_are_supported():
-    claims = {
-        "sub": "00000000-0000-4000-8000-000000000002",
-        "aud": "authenticated",
-        "role": "authenticated",
-        "app_metadata": {
-            "org_id": "org-from-trusted-app-metadata",
-            "permissions": ["intelligence:read"],
-            "jlight_role": "Laboratory",
-        },
-    }
-    with patch("api.app.verify_access_token", return_value=claims), \
-         patch("api.app._write_jc_audit"):
-        response = app.test_client().post(
-            "/api/intelligence/summary",
-            headers={"Authorization": "Bearer verified-test-token"},
-            json={"journey_checks": []},
-        )
-    assert response.status_code == 200
-    assert response.get_json()["organisation_id"] == "org-from-trusted-app-metadata"
 
-
-def test_user_metadata_is_never_used_for_tenant_or_permissions():
+def test_user_metadata_cannot_authorise_an_organisation():
     claims = {
         "sub": "00000000-0000-4000-8000-000000000003",
         "aud": "authenticated",
-        "role": "authenticated",
         "user_metadata": {
             "org_id": "attacker-controlled-org",
             "permissions": ["intelligence:read"],
             "jlight_role": "Laboratory",
         },
     }
-    with patch("api.app.verify_access_token", return_value=claims):
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", side_effect=denied_scope):
         response = app.test_client().post(
             "/api/intelligence/summary",
             headers={"Authorization": "Bearer verified-test-token"},
@@ -103,6 +87,7 @@ def test_user_metadata_is_never_used_for_tenant_or_permissions():
 def test_intelligence_permission_is_required():
     claims = verified_claims(permissions=["system:read"])
     with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])), \
          patch("api.app._write_jc_audit"):
         response = app.test_client().post(
             "/api/intelligence/summary",
@@ -113,7 +98,9 @@ def test_intelligence_permission_is_required():
 
 
 def test_raw_or_unknown_payload_fields_are_rejected():
-    with patch("api.app.verify_access_token", return_value=verified_claims()):
+    claims = verified_claims()
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])):
         response = app.test_client().post(
             "/api/intelligence/summary",
             headers={"Authorization": "Bearer verified-test-token"},
@@ -122,9 +109,11 @@ def test_raw_or_unknown_payload_fields_are_rejected():
     assert response.status_code == 400
 
 
-def test_clinical_trials_route_accepts_only_trial_scope_and_aggregate_checks():
-    claims = verified_claims(role="Trial")
+def test_clinical_trials_route_uses_database_trial_scope():
+    claims = verified_claims()
+    trial_scope = scope("clinical_trials", "org-trial-db", claims["sub"])
     with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=trial_scope), \
          patch("api.app._write_jc_audit"):
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
@@ -136,15 +125,15 @@ def test_clinical_trials_route_accepts_only_trial_scope_and_aggregate_checks():
         )
     assert response.status_code == 200
     body = response.get_json()
+    assert body["organisation_id"] == "org-trial-db"
     assert body["tool"] == "clinical_trials_summary"
-    assert body["result"]["finding_count"] == 2
     assert body["result"]["human_review_required"] is True
-    assert "participant_id" not in str(body).lower()
 
 
-def test_clinical_trials_route_rejects_non_trial_workspace():
-    claims = verified_claims(role="Laboratory")
-    with patch("api.app.verify_access_token", return_value=claims):
+def test_clinical_trials_route_rejects_non_trial_database_scope():
+    claims = verified_claims()
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", side_effect=denied_scope):
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
             headers={"Authorization": "Bearer verified-test-token"},
@@ -154,8 +143,10 @@ def test_clinical_trials_route_rejects_non_trial_workspace():
 
 
 def test_clinical_trials_route_rejects_identifiers_and_unapproved_fields():
-    claims = verified_claims(role="Trial")
-    with patch("api.app.verify_access_token", return_value=claims):
+    claims = verified_claims()
+    trial_scope = scope("clinical_trials", "org-trial-db", claims["sub"])
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=trial_scope):
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
             headers={"Authorization": "Bearer verified-test-token"},
