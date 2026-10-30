@@ -32,10 +32,10 @@ require("patient-journey-summary" in html and "patient-data-quality-traceability
 require("journeyReport.correlationId = correlationId" in html and
         "qualityReport.correlationId = correlationId" in html,
         "The two patient reports must share a correlation ID")
-require("Clinical Trials remain a separate workflow" in html,
-        "Clinical Trial separation statement missing")
+require("if(STATE.role==='Trial')" in html and "return events;" in html,
+        "Clinical Trials must remain isolated in the patient journey")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
-journey_end = html.index("\\nfunction selectJourneyPatient", journey_start)
+journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
 for field in ("STATE.admissions", "STATE.clinicalOrders", "STATE.labOrders",
               "STATE.results", "STATE.bioRuns"):
