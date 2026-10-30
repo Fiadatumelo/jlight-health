@@ -735,7 +735,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <div class="auth-name">JLIGHT<span class="auth-rose" aria-label="FT signature" title="FT"><svg viewBox="0 0 20 20" role="img" aria-hidden="true"><path d="M10 3.1c-2.1-1.8-4.5.5-2.7 2.4C4.6 5.1 4.1 8.4 7 9c-1.7 2.2.5 4.2 2.5 2.6 1.9 1.6 4.3-.5 2.6-2.6 2.9-.7 2.4-3.9-.4-3.5C13.4 3.6 11.8 2.3 10 3.1Z" fill="#fffdf8" stroke="#d9b66b" stroke-width=".7"/><path d="M10 5.1c-1.6 1.1-1.5 2.7.2 3.1 1.4-.7 1.3-2.2-.2-3.1Z" fill="#f5e7c2" stroke="#d9b66b" stroke-width=".45"/><path d="M7.5 11.2 5.9 13.7M12.3 11.1l1.7 2.3" stroke="#588b65" stroke-width="1" stroke-linecap="round"/><path d="M7 12.3 4.7 11.7 5.7 14ZM12.7 12.1l2.6-.6-1 2.5Z" fill="#72a77b"/><text x="10" y="18" text-anchor="middle" font-size="4.2" font-family="Georgia,serif" font-weight="bold" fill="#b58a38">FT</text></svg></span></div>
     </div>
     <div class="auth-tagline">Health Intelligence Platform</div>
-    <div class="path-picker"><div class="path-picker-title">Organisation workspace</div><div class="path-picker-sub">Your organisation has one registered path. JLIGHT verifies it after sign-in; selecting another path cannot grant access.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
+    <div class="path-picker"><div class="path-picker-title">Organisation workspace</div><div class="path-picker-sub">Choose a workspace to sign in. JLIGHT displays only pathways approved for your organisation and your individual account.</div><div class="path-picker-grid" role="group" aria-label="Choose a JLIGHT workspace">
       <button type="button" class="path-choice path-lab" data-path="Laboratory" aria-pressed="false" onclick="selectJlightPath('Laboratory')"><span class="path-choice-icon">LAB</span><span class="path-choice-copy"><strong>Laboratory</strong><small>Workflow traceability, turnaround time and source-data quality</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-hospital" data-path="Hospital" aria-pressed="false" onclick="selectJlightPath('Hospital')"><span class="path-choice-icon">HIS</span><span class="path-choice-copy"><strong>Hospital &amp; Health Informatics</strong><small>Patient journey, orders, results and operational bottlenecks</small></span><span class="path-choice-check">✓</span></button>
       <button type="button" class="path-choice path-bio" data-path="Bioinformatics" aria-pressed="false" onclick="selectJlightPath('Bioinformatics')"><span class="path-choice-icon">BIO</span><span class="path-choice-copy"><strong>Bioinformatics</strong><small>Review imported analysis outputs and quality metrics</small></span><span class="path-choice-check">✓</span></button>
@@ -1266,9 +1266,9 @@ function toggleSignupMode() {
     if (first) selectJlightPath(first)
   }
   if (t) t.textContent = MODE.signupMode ? 'Create workspace' : 'Sign in'
-  if (s) s.textContent = MODE.signupMode ? 'Create a new organisation or join one using its code' : 'Access your workspace'
+  if (s) s.textContent = MODE.signupMode ? 'Select one or more pathways for initial organisation registration, or join an existing organisation' : 'Access your approved workspace'
   if (o) o.style.display = MODE.signupMode ? 'flex' : 'none'
-  if (r) r.style.display = MODE.signupMode ? 'flex' : 'none'
+  if (r) r.style.display = 'none'
   if (b) { b.textContent = MODE.signupMode ? 'Email me a code to create workspace' : 'Email me a login code'; b.style.display = 'flex'; b.disabled = false; }
   if (codeRow) codeRow.style.display = 'none'
   if (verifyBtn) { verifyBtn.style.display = 'none'; verifyBtn.disabled = false; verifyBtn.textContent = 'Verify code and continue'; }
@@ -1343,9 +1343,6 @@ async function doSignIn(resend = false) {
       pending.orgCode = (document.getElementById("si-org-code") || {}).value?.trim().toUpperCase() || "";
       if (pending.joinType === "join" && !/^[A-Z0-9]{3}-[A-Z0-9]{4,32}$/.test(pending.orgCode)) {
         showStatus("Enter the organisation code supplied by your administrator (for example, JLI-AB12)."); return;
-      }
-      if (pending.role === "Trial") {
-        showStatus("Clinical Trials workspaces require administrator-approved provisioning. Contact your JLIGHT administrator, then sign in with your email code."); return;
       }
     } else {
       pending.joinType = "existing"; pending.orgName = ""; pending.orgCode = "";
