@@ -35,8 +35,7 @@ require("journeyReport.correlationId = correlationId" in html and
 require("if(STATE.role==='Trial')" in html and "return events;" in html,
         "Clinical Trials must remain isolated in the patient journey")
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
-journey_end = html.index("
-function selectJourneyPatient", journey_start)
+journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
 for field in ("STATE.admissions", "STATE.clinicalOrders", "STATE.labOrders",
               "STATE.results", "STATE.bioRuns"):
@@ -91,9 +90,9 @@ removed_legacy_handlers = (
     "exportWorkspaceReport", "renderMigrationWizard", "generateOrgCode",
     "createOrganisation", "joinOrganisation", "getOrgMembers", "saveAllDomainData",
     "enrolParticipant", "submitNewRequest", "acceptLabRequest", "rejectLabRequest",
-    "releaseResult", "generateResultReceivedCard",
-    "computeAuditHash", "sha256hex", "validateConsentRef", "mergeByTimestamp",
-    "detectOfflineData", "startAutoEngines", "updateRequestBadge",
+    "releaseResult", "generateResultReceivedCard", "computeAuditHash", "sha256hex",
+    "validateConsentRef", "mergeByTimestamp", "detectOfflineData", "startAutoEngines",
+    "updateRequestBadge",
 )
 for name in removed_legacy_handlers:
     require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
