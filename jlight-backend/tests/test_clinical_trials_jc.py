@@ -17,11 +17,12 @@ class ClinicalTrialsJCTests(unittest.TestCase):
             clinical_trials_checks=[
                 {"check_id": "overdue_visit", "status": "review", "severity": "medium", "evidence_count": 3},
                 {"check_id": "unapproved_free_text", "status": "fail", "severity": "critical", "evidence_count": 99},
+                {"check_id": "participant_withdrawal", "status": "review", "severity": "low", "evidence_count": 1},
                 {"check_id": "adverse_event_followup", "status": "pass", "severity": "info", "evidence_count": 0},
             ]
         )
-        self.assertEqual(result["finding_count"], 2)
-        self.assertEqual(result["status_counts"]["review"], 1)
+        self.assertEqual(result["finding_count"], 3)
+        self.assertEqual(result["status_counts"]["review"], 2)
         self.assertEqual(result["status_counts"]["pass"], 1)
         self.assertTrue(result["human_review_required"])
         self.assertNotIn("participant_id", str(result).lower())
