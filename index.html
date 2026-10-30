@@ -1907,7 +1907,7 @@ function renderJourney() {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-async async function requestJlightIntelligenceSummary(patient, events) {
+async function requestJlightIntelligenceSummary(patient, events) {
   if (String(STATE.role || '').toLowerCase() === 'trial') {
     return { success: false, skipped: true, message: 'Intelligence summary is not available in the isolated Clinical Trials workspace.' };
   }
@@ -1951,7 +1951,7 @@ function buildClinicalTrialsJCChecks() {
   const consents = Array.isArray(STATE.consents) ? STATE.consents : [];
   const protocols = Array.isArray(STATE.protocols) ? STATE.protocols : [];
   const protocolIds = new Set(protocols.map(p => String(p && p.id || '')).filter(Boolean));
-  const consentIds = new Set(consents.map(c => String(c && (c.participantId || c.patientId || c.id) || '')).filter(Boolean));
+  const consentIds = new Set(consents.map(c => String(c && (c.participantId || c.patientId) || '')).filter(Boolean));
   const missingProtocol = participants.filter(p => !p || !p.protocolId || !protocolIds.has(String(p.protocolId))).length;
   const missingConsent = participants.filter(p => {
     const id = String(p && (p.id || p.participantId || p.patientId) || '');
