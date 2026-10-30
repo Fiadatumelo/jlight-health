@@ -6017,13 +6017,14 @@ async function loadDomainDataFromBackend() {
       if (stateKey) STATE[stateKey] = records
     }
     if (STATE.role === 'Trial') {
-      const [studies,participants,referrals] = await Promise.all([
+      const [studies,participants,referrals,events] = await Promise.all([
         sb.from('jl_trial_studies').select('id,organisation_id,study_code,title,status,site_codes,recruitment_enabled,recruitment_criteria_version,created_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(250),
         sb.from('jl_trial_participants').select('id,organisation_id,study_id,participant_code,status,site_code,screening_number,consent_status,consent_version,consent_record_reference,consented_at,withdrawn_at,completed_at,created_at,updated_at').eq('organisation_id',STATE.orgId).order('created_at',{ascending:false}).limit(1000),
-        sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500)
+        sb.from('jl_trial_recruitment_referrals').select('id,org_id,study_id,referral_code,candidate_summary,criteria_version,status,referred_at,received_at,updated_at').eq('org_id',STATE.orgId).order('referred_at',{ascending:false}).limit(500),
+        sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,metadata').eq('organisation_id',STATE.orgId).order('occurred_at',{ascending:false}).limit(5000)
       ]);
-      if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;
-      STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];
+      if(studies.error)throw studies.error;if(participants.error)throw participants.error;if(referrals.error)throw referrals.error;if(events.error)throw events.error;
+      STATE.trialStudies=studies.data||[];STATE.trialParticipants=participants.data||[];STATE.trialReferrals=referrals.data||[];STATE.trialTimelineEvents=events.data||[];
     } else if (STATE.role === 'Hospital') {
       const [studies,referrals] = await Promise.all([
         sb.rpc('jl_list_recruitable_trial_studies',{p_org_id:STATE.orgId}),
