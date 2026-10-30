@@ -3885,6 +3885,28 @@ async function decideWorkspaceRequest(requestId, decision) {
   await renderPlatformAdminCenter();
 }
 
+async function requestAdditionalWorkspace() {
+  if (!requirePermission('admin', 'Request an additional workspace')) return;
+  const workspace = document.getElementById('admin-additional-workspace')?.value || '';
+  const evidence = (document.getElementById('admin-additional-evidence')?.value || '').trim();
+  if (!workspace || !evidence) {
+    toast('Evidence required', 'Provide a secure evidence reference. Do not enter patient or participant information.', 'warn');
+    return;
+  }
+  const sb = getSupabase();
+  if (!sb) return;
+  const { error } = await sb.rpc('jl_request_additional_workspace', {
+    p_org_id: MODE.organisationId,
+    p_workspace: workspace,
+    p_evidence_reference: evidence,
+    p_criteria_version: '2026-10-v1'
+  });
+  if (error) { toast('Request not submitted', error.message, 'crit'); return; }
+  await audit('Additional workspace requested', workspace + ' submitted for JLIGHT Platform Administration review.');
+  toast('Request submitted', 'The pathway remains locked until Platform Administration approves it.', 'good');
+  await renderAdminCenter();
+}
+
 async function renderAdminCenter() {
   const page = $('page-admin')
   if (!page) return
@@ -3935,10 +3957,30 @@ async function renderAdminCenter() {
   const memberTableHead = isTrialPath
     ? '<tr><th>Member</th><th>Role</th><th>Membership status</th></tr>'
     : '<tr><th>Member</th><th>Read</th><th>Write</th><th>Reports</th><th></th></tr>'
+  const sb = getSupabase()
+  const { data: ownWorkspaceRows } = sb
+    ? await sb.rpc('jl_list_my_workspaces', { p_org_id: MODE.organisationId })
+    : { data: [] }
+  const ownOrg = Array.isArray(ownWorkspaceRows)
+    ? ownWorkspaceRows.find(item => String(item.organisation_id) === String(MODE.organisationId))
+    : null
+  const activeWorkspaceKeys = (ownOrg?.workspaces || []).map(item => item.key)
+  const allWorkspaceOptions = [
+    ['hospital','Hospital'],['laboratory','Laboratory'],
+    ['bioinformatics','Bioinformatics'],['clinical_trials','Clinical Trials']
+  ]
+  const additionalOptions = allWorkspaceOptions.filter(item => !activeWorkspaceKeys.includes(item[0]))
+  const activeWorkspaceLabel = activeWorkspaceKeys.map(key =>
+    (allWorkspaceOptions.find(item => item[0] === key) || [key,key])[1]
+  ).join(' · ')
+  const additionalRequestCard = additionalOptions.length
+    ? '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Request an additional JLIGHT pathway</div><p class="form-help">Your organisation administrator can submit an eligibility request. Access remains disabled until JLIGHT Platform Administration approves it.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="form-input" id="admin-additional-workspace">' + additionalOptions.map(item => '<option value="' + item[0] + '">' + item[1] + '</option>').join('') + '</select><input class="form-input" id="admin-additional-evidence" placeholder="Secure evidence reference" style="min-width:220px;flex:1"><button class="btn btn-primary" onclick="requestAdditionalWorkspace()">Submit request</button></div></div>'
+    : '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation pathways</div><p class="form-help">All four JLIGHT pathways are already enabled for this organisation.</p></div>'
   page.innerHTML =
     '<div class="page-head"><div><div class="page-title">Admin Center</div><div class="page-sub">Organisation controls · storage · archives · member access</div></div><span class="permission-badge admin">Administrator</span></div>' +
     '<div class="kpis">' + counts.map(item => '<div class="kpi"><div class="kpi-label">' + esc(item[0]) + '</div><div class="kpi-value">' + item[1] + '</div></div>').join('') + '</div>' +
-    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation path</div><div class="detail-row"><span class="detail-row-label">Organisation</span><span class="detail-row-value">' + esc(MODE.organisationName || '') + '</span></div><div class="detail-row"><span class="detail-row-label">System-assigned path</span><span class="detail-row-value">' + esc(domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Organisation code</span><span class="detail-row-value">' + esc(MODE.organisationCode || '—') + '</span></div><p class="form-help">This path is assigned during organisation provisioning. Members cannot enable another workspace from their profile.</p></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation workspaces</div><div class="detail-row"><span class="detail-row-label">Organisation</span><span class="detail-row-value">' + esc(MODE.organisationName || '') + '</span></div><div class="detail-row"><span class="detail-row-label">Current workspace</span><span class="detail-row-value">' + esc(domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Approved pathways</span><span class="detail-row-value">' + esc(activeWorkspaceLabel || domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Organisation code</span><span class="detail-row-value">' + esc(MODE.organisationCode || '—') + '</span></div><p class="form-help">Initial pathways are selected at registration. Any additional pathway requires eligibility review and explicit JLIGHT Platform Administration approval.</p></div>' +
+    additionalRequestCard +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Invite a member</div><p class="form-help">Only an administrator can approve membership. The person must already have a verified JLIGHT email-code account; an organisation code alone does not grant access.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="form-input" id="admin-invite-email" type="email" placeholder="colleague@organisation.org" style="min-width:240px;flex:1"><select class="form-input" id="admin-invite-role"><option value="' + esc(inviteRole) + '">Standard ' + esc(domain) + ' member</option><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="org_admin">Organisation administrator</option></select><button class="btn btn-primary" onclick="inviteAdminMember()">Create invitation</button></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Member access · ' + esc(domain) + '</div><p class="form-help">Grant only the access each active member needs. Write and report permissions require read access.</p>' +
     (access.error ? '<div class="auth-status error">' + esc(access.error) + '</div>' : '') +
