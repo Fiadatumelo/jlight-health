@@ -47,6 +47,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.b = str(uuid.uuid4())
         cls.platform_admin = str(uuid.uuid4())
         cls.hospital_only = str(uuid.uuid4())
+        cls.org_code_only = str(uuid.uuid4())
+        cls.new_registrant = str(uuid.uuid4())
         cls.org_a = str(uuid.uuid4())
         cls.org_b = str(uuid.uuid4())
         cls.trial_org = str(uuid.uuid4())
@@ -72,7 +74,9 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         # Database URL is pinned to the verified staging project before connecting.
         for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example"),
                           (cls.platform_admin, "rls-platform-admin@invalid.example"),
-                          (cls.hospital_only, "rls-hospital-only@invalid.example")):
+                          (cls.hospital_only, "rls-hospital-only@invalid.example"),
+                          (cls.org_code_only, "rls-org-code-only@invalid.example"),
+                          (cls.new_registrant, "rls-new-registrant@invalid.example")):
             c.execute(
                 """INSERT INTO auth.users
                    (id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -98,6 +102,8 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                    VALUES (%s, %s, %s, %s, %s, %s)""",
                 (org_id, name, role, email, uid, workspace_type),
             )
+        c.execute("SELECT org_code FROM public.jl_organisations WHERE id=%s", (cls.org_a,))
+        cls.org_a_code = c.fetchone()[0]
         # Seed active organisation-level entitlements before member permissions.
         for org_id, domains in (
             (cls.org_a, ("hospital", "laboratory", "bioinformatics")),
@@ -281,6 +287,62 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (self.org_b,),
         )
         self.assertFalse(c.fetchone()[0])
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_initial_registration_creates_one_org_with_only_selected_workspaces(self):
+        c = self._as_user(self.new_registrant)
+        c.execute(
+            "SELECT public.jl_register_organisation_multi(%s, %s)",
+            ("RLS Multi-Path Registration", ["hospital", "laboratory"]),
+        )
+        registration = c.fetchone()[0]
+        self.assertTrue(registration["id"])
+        self.assertTrue(registration["org_code"])
+        self.assertEqual(set(registration["workspace_keys"]), {"hospital", "laboratory"})
+
+        c.execute(
+            "SELECT workspace_key FROM public.jl_organisation_workspaces WHERE org_id=%s",
+            (registration["id"],),
+        )
+        self.assertEqual({row[0] for row in c.fetchall()}, {"hospital", "laboratory"})
+
+        c.execute("SELECT public.jl_list_my_workspaces(%s)", (registration["id"],))
+        visible = c.fetchone()[0]
+        self.assertEqual(
+            {item["key"] for item in visible[0]["workspaces"]},
+            {"hospital", "laboratory"},
+        )
+
+        c.execute("SAVEPOINT duplicate_registration")
+        with self.assertRaises(psycopg2.errors.UniqueViolation):
+            c.execute(
+                "SELECT public.jl_register_organisation_multi(%s, %s)",
+                ("Second Organisation Attempt", ["bioinformatics"]),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT duplicate_registration")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_organisation_code_alone_does_not_grant_membership(self):
+        c = self._as_user(self.org_code_only)
+        c.execute("SAVEPOINT code_only_link")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                "SELECT public.jl_link_user_to_organisation(%s, %s, %s, %s)",
+                (self.org_a, self.org_a_code, "Uninvited user", "operator"),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT code_only_link")
+
+        c.execute("SAVEPOINT code_only_invitation")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                "SELECT public.jl_accept_organisation_invitation(%s, %s)",
+                (self.org_a, self.org_a_code),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT code_only_invitation")
+        c.execute("SELECT id FROM public.jlight_organization_memberships WHERE auth_subject=%s", (self.org_code_only,))
+        self.assertEqual(c.fetchall(), [])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
