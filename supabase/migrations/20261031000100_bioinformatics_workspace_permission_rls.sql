@@ -1,5 +1,3 @@
-begin;
-
 -- The previous policies on these tables only required organisation membership.
 -- Replace them with workspace-scoped permissions so Hospital/Laboratory/Trial
 -- members cannot read or mutate Bioinformatics records by virtue of org membership.
@@ -156,5 +154,3 @@ using (
   org_id = (select private.jl_current_org_id())
   and (select public.jlight_has_domain_permission((select private.jl_current_org_id()), 'bioinformatics', 'write'))
 );
-
-commit;
