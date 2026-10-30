@@ -121,7 +121,7 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
         warnings.append("Median coverage was not present in the imported QC fields.")
         quality_status = "qc_not_reported"
     else:
-        quality_status = "qc_reported_review_required"
+        quality_status = "qc_reported"
 
     pipeline_version = (
         first_value(pipeline, ("version", "pipeline_version"))
