@@ -202,7 +202,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                 c.execute(
                     """INSERT INTO public.jl_entries
                        (id, jl_id, user_id, organisation, role, ts, payload, created_at, org_id, domain)
-                       VALUES (%s, %s, %s, 'RLS Org A', 'Bioinformatics', %s, %s::jsonb, %s, %s, 'bioinformatics')""",
+                       VALUES (%s, %s, %s, 'RLS Org A', 'Bioinformatics', %s, %s::jsonb, %s, %s, 'bioRuns')""",
                     (
                         str(uuid.uuid4()),
                         "TBP-" + row["sourceRecordId"],
