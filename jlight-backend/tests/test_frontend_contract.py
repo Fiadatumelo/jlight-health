@@ -233,7 +233,7 @@ require("const otherVariants = Array.isArray(summary.otherVariants)" in html and
         "TB variant compartment must preserve and display non-resistance-associated variants separately")
 require("summary.otherVariantCount" in html and "summary.sourceUrl" in html,
         "TB import must preserve other-variant counts and source provenance")
-require(r'tbdr\\.lshtm\\.ac\\.uk\\/results' in html and
+require(r'tbdr\.lshtm\.ac\.uk\/results' in html and
         'rel="noopener noreferrer"' in html,
         "TB QC provenance links must be restricted to the official TBProfiler result host and opened safely")
 
