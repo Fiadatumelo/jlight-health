@@ -444,13 +444,17 @@ def health_check():
 # ─── CSV Analysis ─────────────────────────────────────────────────────────────
 
 @app.route("/api/analyse-csv", methods=["POST"])
-@require_auth
+@require_domain_auth({"hospital", "laboratory", "bioinformatics"}, access="write")
 def api_analyse_csv():
     """
     Analyse a CSV/XLSX file for QC anomalies.
     Accepts multipart/form-data (file upload) or JSON with base64 content.
     """
-    role = request.headers.get("X-Role", "Laboratory & Research")
+    role = {
+        "hospital": "Hospital",
+        "laboratory": "Laboratory",
+        "bioinformatics": "Bioinformatics",
+    }[g.jlight_scope["organisation_type"]]
 
     try:
         # Handle file upload
@@ -464,7 +468,6 @@ def api_analyse_csv():
             data = request.get_json()
             csv_text = data.get("csvText", "")
             filename = data.get("fileName", "upload.csv")
-            role = data.get("role", role)
             if not csv_text:
                 return error("No CSV data provided")
             content = csv_text.encode("utf-8")
@@ -481,30 +484,15 @@ def api_analyse_csv():
             "risk_score": result.get("riskScore", 0),
         })
 
-        # Save to DB if available
-        db = get_db()
-        if db and result.get("success"):
-            try:
-                with db.cursor() as cur:
-                    cur.execute(
-                        """INSERT INTO csv_uploads
-                           (file_name, file_size_kb, row_count, column_count,
-                            detected_columns, analysis_result, severity, risk_score)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (
-                            filename,
-                            round(len(content) / 1024),
-                            result.get("rowCount", 0),
-                            result.get("columnCount", 0),
-                            json.dumps(result.get("detectedColumns", {})),
-                            json.dumps({"severity": result.get("severity"), "riskScore": result.get("riskScore")}),
-                            result.get("severity", "stable"),
-                            result.get("riskScore", 0),
-                        )
-                    )
-                db.commit()
-            except Exception:
-                pass
+        # Keep uploaded CSV content out of the legacy global table. Analysis is
+        # performed in-memory and only non-identifying metrics are logged.
+        log_audit("csv_upload", role, {
+            "organisation_id": g.jlight_scope["organisation_id"],
+            "user_id": g.jlight_scope["user_id"],
+            "row_count": result.get("rowCount", 0),
+            "severity": result.get("severity", "unknown"),
+            "risk_score": result.get("riskScore", 0),
+        })
 
         return success(result)
 
@@ -518,7 +506,7 @@ def api_analyse_csv():
 # ─── Bioinformatics Endpoints ─────────────────────────────────────────────────
 
 @app.route("/api/bio/tb", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_tb_resistance():
     """Screen a DNA sequence for TB drug resistance mutations."""
     try:
@@ -530,7 +518,7 @@ def api_tb_resistance():
 
         report = screen_tb_resistance(sequence)
 
-        log_audit("bio_tb_resistance", data.get("role", ""), {
+        log_audit("bio_tb_resistance", g.jlight_scope["organisation_type"], {
             "seq_length": report.sequence_length,
             "who_category": report.who_category,
             "resistant_count": len(report.resistant_mutations),
@@ -546,7 +534,7 @@ def api_tb_resistance():
 
 
 @app.route("/api/bio/variant", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_variant():
     """Detect variants between reference and sample sequences."""
     try:
@@ -574,7 +562,7 @@ def api_variant():
 
 
 @app.route("/api/bio/ngs", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_ngs():
     """Compute NGS QC metrics from sequences or file."""
     try:
@@ -605,7 +593,7 @@ def api_ngs():
 
 
 @app.route("/api/bio/wgs", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_wgs():
     """Calculate WGS assembly metrics (N50, L50, etc.)."""
     try:
@@ -635,7 +623,7 @@ def api_wgs():
 
 
 @app.route("/api/bio/sequence", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_sequence():
     """Full sequence analysis: GC%, ORFs, Tm, MW, reverse complement."""
     try:
@@ -652,7 +640,7 @@ def api_sequence():
 
 
 @app.route("/api/bio/fasta", methods=["POST"])
-@require_auth
+@require_domain_auth({"bioinformatics"}, access="write")
 def api_fasta():
     """Parse a FASTA/FASTQ file and return records."""
     try:
@@ -674,7 +662,10 @@ def api_fasta():
 @app.route("/api/cards", methods=["GET"])
 @require_auth
 def api_cards():
-    """Return decision cards from DB or static data."""
+    """Fail closed until decision cards have tenant-scoped read permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
+
+    # Legacy implementation intentionally disabled below.
     role = request.args.get("role", "")
     db = get_db()
 
@@ -705,7 +696,10 @@ def api_cards():
 @app.route("/api/cards/acknowledge", methods=["POST"])
 @require_auth
 def api_acknowledge():
-    """Acknowledge a decision card."""
+    """Fail closed until decision-card writes have tenant-scoped permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
+
+    # Legacy implementation intentionally disabled below.
     try:
         data = request.get_json()
         card_number = get_json_field(data, "card_number")
@@ -736,7 +730,10 @@ def api_acknowledge():
 @app.route("/api/audit", methods=["GET"])
 @require_auth
 def api_audit():
-    """Return recent audit log entries."""
+    """Fail closed until audit-log reads have tenant-scoped permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
+
+    # Legacy implementation intentionally disabled below.
     db = get_db()
     if not db:
         return success({"entries": [], "note": "Database unavailable"})
