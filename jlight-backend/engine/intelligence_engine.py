@@ -170,7 +170,7 @@ def build_intelligence_summary(
 # Clinical Trials has a deliberately separate allow-list and summary builder.
 ALLOWED_CLINICAL_TRIAL_CHECKS = {
     "overdue_visit", "protocol_deviation", "incomplete_trial_record",
-    "consent_record_incomplete", "adverse_event_followup", "retention_risk",
+    "consent_record_incomplete", "adverse_event_followup", "participant_withdrawal",
 }
 
 
