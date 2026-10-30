@@ -7934,30 +7934,6 @@ function saveProtocol(existingId) {
 // ═══════════════════════════════════════════════════════════════════
 // JLIGHT v10.0 — ENHANCED DASHBOARD
 // Patient-centric · cross-domain visibility · auto-engine status
-// ═══════════════════════════════════════════════════════════════════
-
-function renderDashboard_v10_extras() {
-  const container = document.getElementById('dashboard-v10-extras');
-  if (!container) return;
-  const patients = (STATE.patients || []).length;
-  const admissions = (STATE.admissions || []).filter(a => a.status === 'active').length;
-  const openOrders = (STATE.labOrders || []).filter(o => o.status !== 'resulted' && o.status !== 'cancelled').length;
-  const participants = (STATE.participants || []).filter(p => p.status === 'active').length;
-  container.innerHTML = '<div style="font-family:Syne,sans-serif;font-size:16px;font-weight:700;margin:24px 0 14px">System Overview</div>' +
-    '<div class="kpis"><div class="kpi"><div class="kpi-label">Patients</div><div class="kpi-value">' + patients + '</div><div class="kpi-trend">Registry records</div></div>' +
-    '<div class="kpi"><div class="kpi-label">Active Admissions</div><div class="kpi-value">' + admissions + '</div><div class="kpi-trend">Hospital workflow</div></div>' +
-    '<div class="kpi"><div class="kpi-label">Open Orders</div><div class="kpi-value">' + openOrders + '</div><div class="kpi-trend">Source-system status</div></div>' +
-    '<div class="kpi"><div class="kpi-label">Trial Participants</div><div class="kpi-value">' + participants + '</div><div class="kpi-trend">Active enrolments</div></div></div>' +
-    '<p style="font-size:12px;color:var(--text-3);line-height:1.6">Intelligence depends on authorised source data and validated integrations. No analyser, instrument-control, or sample-processing functions are provided.</p>';
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
-// JLIGHT v10.0 — CLAUDE AI INTEGRATION
-// Large language model enriches Decision Cards with clinical context,
-// natural language explanations, and evidence-based recommendations.
-// ═══════════════════════════════════════════════════════════════════
-
 function renderEmpty(title, desc, page, btnLabel) {
   return `<div class="empty"><div class="empty-icon">◌</div><div class="empty-title">${esc(title)}</div>${desc ? `<div class="empty-desc">${esc(desc)}</div>` : ''}${page && btnLabel ? `<button class="btn btn-primary" onclick="goPage('${page}')">${esc(btnLabel)}</button>` : ''}</div>`
 }
