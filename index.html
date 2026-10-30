@@ -1606,7 +1606,14 @@ async function verifyLoginCode() {
     setTimeout(() => enterApp(), pending.signup && pending.joinType === "new" ? 4500 : 350);
   } catch (e) {
     console.error("[JLIGHT] login code verification failed:", e);
-    showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+    if (String(e.message || "").includes("Choose one of your approved workspaces")) {
+      MODE.hasRestoredSession = true;
+      const continueButton = document.getElementById("si-continue");
+      if (continueButton) continueButton.style.display = "flex";
+      showStatus("Email verified. Select one of your approved workspaces, then continue.", "success");
+    } else {
+      showStatus(e.message || "The code could not be verified. Request a new code and try again.");
+    }
   } finally {
     if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
   }
@@ -3981,7 +3988,7 @@ async function renderAdminCenter() {
     '<div class="kpis">' + counts.map(item => '<div class="kpi"><div class="kpi-label">' + esc(item[0]) + '</div><div class="kpi-value">' + item[1] + '</div></div>').join('') + '</div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Organisation workspaces</div><div class="detail-row"><span class="detail-row-label">Organisation</span><span class="detail-row-value">' + esc(MODE.organisationName || '') + '</span></div><div class="detail-row"><span class="detail-row-label">Current workspace</span><span class="detail-row-value">' + esc(domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Approved pathways</span><span class="detail-row-value">' + esc(activeWorkspaceLabel || domain) + '</span></div><div class="detail-row"><span class="detail-row-label">Organisation code</span><span class="detail-row-value">' + esc(MODE.organisationCode || '—') + '</span></div><p class="form-help">Initial pathways are selected at registration. Any additional pathway requires eligibility review and explicit JLIGHT Platform Administration approval.</p></div>' +
     additionalRequestCard +
-    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Invite a member</div><p class="form-help">Only an administrator can approve membership. The person must already have a verified JLIGHT email-code account; an organisation code alone does not grant access.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="form-input" id="admin-invite-email" type="email" placeholder="colleague@organisation.org" style="min-width:240px;flex:1"><select class="form-input" id="admin-invite-role"><option value="' + esc(inviteRole) + '">Standard ' + esc(domain) + ' member</option><option value="read_only">Read only</option><option value="reviewer">Reviewer</option><option value="org_admin">Organisation administrator</option></select><button class="btn btn-primary" onclick="inviteAdminMember()">Create invitation</button></div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Invite a member</div><p class="form-help">Invite a verified JLIGHT email-code account to this approved workspace, or grant organisation-administrator access across currently enabled pathways. Organisation codes alone never grant access.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input class="form-input" id="admin-invite-email" type="email" placeholder="colleague@organisation.org" style="min-width:240px;flex:1"><select class="form-input" id="admin-invite-role"><option value="' + esc(inviteRole) + '">Standard ' + esc(domain) + ' member</option><option value="org_admin">Organisation administrator</option></select><button class="btn btn-primary" onclick="inviteAdminMember()">Create invitation</button></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Member access · ' + esc(domain) + '</div><p class="form-help">Grant only the access each active member needs. Write and report permissions require read access.</p>' +
     (access.error ? '<div class="auth-status error">' + esc(access.error) + '</div>' : '') +
     '<div style="overflow:auto"><table class="data-table"><thead>' + memberTableHead + '</thead><tbody>' + memberRows + '</tbody></table></div></div>' +
