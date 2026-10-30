@@ -1,8 +1,8 @@
 # JLIGHT Patient Journey and Intelligence-Layer Architecture
 
-**Status:** Staging architecture specification  
+**Status:** Staging implementation specification aligned to the enterprise platform architecture  
 **Applies to:** Hospital, Laboratory, and Bioinformatics workspaces  
-**Separate boundary:** Clinical Trials  
+**Connected boundary:** Clinical Trials has an independently permissioned participant domain and a governed recruitment link to Hospital  
 **Production:** No production code, schema, data, configuration, or deployment changes are authorised by this document.
 
 ## 1. Product definition
@@ -87,24 +87,23 @@ Where no integration exists, the platform may use supported structured imports o
 
 JLIGHT must not send commands to instruments or laboratory equipment. Any future outbound integration must be separately specified, reviewed, and authorised; it must not imply instrument control or specimen processing.
 
-## 7. Clinical Trials: independent participant timeline
+## 7. Clinical Trials: participant timeline and hospital recruitment link
 
-Clinical Trials is not a filtered view of the routine Patient Journey. It must have a separate **Clinical Trial Participant Timeline** inside the Clinical Trials workspace, backed only by trial-domain records and permissions.
+Clinical Trials has its own **Clinical Trial Participant Timeline**. It is not a filtered view of the routine Patient Journey. The timeline is built from trial-domain events associated with the internal trial participant record and study: referral hand-off where authorised, screening milestones, enrolment/status, protocol and consent milestones, scheduled/completed/missed visits, deviations, AE/SAE follow-up, retention signals and study close-out.
 
-The participant timeline may organise authorised study events such as:
-- enrolment and participant status;
-- protocol and consent milestones;
-- scheduled, completed, missed, or overdue study visits;
-- protocol deviations;
-- AE/SAE records and follow-up milestones;
-- retention and study close-out events.
+The Hospital-to-Clinical-Trial connection is intentional:
+1. An authorised hospital/research user may identify a patient as a potential candidate under an approved recruitment process.
+2. JLIGHT may compare permitted minimum-necessary attributes with protocol-approved recruitment criteria and prioritise candidates for human review. AI must not make final eligibility decisions, enrol people or contact them autonomously.
+3. An authorised user creates a referral to a named study and authorised trial site. Referral provenance, purpose, source, actor, timestamp, status and disclosure scope are recorded.
+4. The trial team receives only the minimum information permitted by the study's ethics approval, lawful basis, site governance and consent requirements.
+5. Authorised research personnel perform screening. Informed consent is obtained and recorded according to the approved study process before enrolment and applicable study procedures.
+6. If enrolled, the person receives a study-specific participant identifier. Trial events are associated with the internal participant record and study, not by searching or joining the routine patient registry.
 
-The participant timeline uses a study-specific participant identifier. It must not derive a participant identity from a hospital patient record, query the routine patient registry to resolve a participant, or use a shared patient identifier as an implicit bridge. Trial event records must be associated with the participant through explicit trial-domain identifiers and validated study membership.
+The hospital patient identity and trial participant identity remain distinct. A secure, restricted relationship may connect them for the approved recruitment purpose, but there is no automatic identity merge, broad patient-record copy or unrestricted trial-team access to hospital records. A person may participate in multiple studies, each with its own participant identity.
 
-The routine Patient Journey and Clinical Trial Participant Timeline must have separate navigation destinations, data loaders, APIs/RPC scopes, report-generation paths, and access checks. A Clinical Trials user must not receive routine Hospital, Laboratory, or Bioinformatics records through the participant timeline. A routine-care user must not receive participant, consent, protocol, visit, or AE/SAE records through the Patient Journey.
+The routine Patient Journey and Clinical Trial Participant Timeline require separate navigation, data loaders, APIs/RPC scopes, report generation, exports, search and access checks. The recruitment link is the only approved bridge for this purpose; it does not create pathway entitlement or member permission.
 
-No patient-to-participant identity mapping or cross-domain data sharing is permitted by default. Any future study-specific linkage would require a separately approved protocol, lawful basis, consent and ethics controls, explicit data-governance design, and technical security review. It is not part of the current architecture.
-
+The current database has both a direct patient reference on the legacy trial participant model and a separate trial-participant model. Their constraints, RLS, payloads and usage must be reconciled before selecting one canonical linkage design. Do not silently rely on the direct foreign key or create a competing participant registry.
 ## 8. Organisation entitlements and user permissions
 
 Organisation registration and pathway entitlement determine which operational workspaces the organisation may use. Member-level permissions determine which users may access which workspace operations and records. Patient Journey linkage is a data relationship and must never create an entitlement or grant access.
@@ -116,7 +115,7 @@ All API and database access must enforce:
 - tenant, workspace, and record-level scope;
 - separate Clinical Trials controls.
 
-A user who can view a journey shell but lacks permission for a linked source record must not receive that record's protected contents through the journey API, report, export, search, notification, or Decision Card.
+A user who can view a journey shell but lacks permission for a linked source record must not receive that record's protected contents through the journey API, report, export, search, notification, or Decision Card. Hospital-to-trial recruitment linkage is a separate purpose-specific permission and must disclose only approved minimum-necessary fields; it never grants full Hospital record access.
 
 ## 9. Required staging implementation and acceptance checks
 
@@ -129,8 +128,8 @@ A user who can view a journey shell but lacks permission for a linked source rec
 7. Test partial deployments: Laboratory-only, Hospital-only, and combinations of approved workspaces.
 8. Test that a user cannot access a linked source record without source-workspace permission.
 9. Test that specimen lifecycle events are represented as supplied records only; no code path may claim JLIGHT physically processes or analyses a specimen.
-10. Test that Clinical Trials participants and records remain isolated from routine patient journeys, including in multi-path organisations.
-11. Use synthetic staging data for initial tests. Real patient data requires the applicable ethics, legal, site, privacy, and data-governance approvals.
+10. Test that Clinical Trial Participant Timeline remains independent from routine Patient Journey, while the separately authorised hospital-to-trial recruitment referral and linkage flow works with minimum-necessary disclosure.
+11. Test referral states, protocol-specific participant IDs, consent milestones, multiple studies per patient, link correction/revocation, ambiguous identity matching and audit history using synthetic staging data. Real patient data requires the applicable ethics, legal, site, privacy, and data-governance approvals.
 12. Record actual integration availability and processing cadence accurately; do not claim live HL7/FHIR or instrument connectivity unless implemented and verified.
 
 ## 10. Explicit non-goals
@@ -140,11 +139,11 @@ A user who can view a journey shell but lacks permission for a linked source rec
 - No replacement of LIS, HIS, LIMS, CTMS, or specialist bioinformatics pipelines.
 - No autonomous diagnosis or autonomous clinical action.
 - No unrestricted sharing of patient data between workspaces.
-- No automatic Clinical Trials linkage to routine patient journeys.
+- No automatic patient/participant identity merge or unrestricted Clinical Trials access to routine patient journeys. A governed, purpose-limited recruitment link is permitted.
 - No production database migration, production data mutation, merge to `main`, or production deployment as part of this specification.
 
 ## 11. Relationship to the Executive Proposal
 
-This specification preserves the proposal's positioning of JLIGHT as a Health Intelligence Platform. The architecture on page 2 shows existing systems and data feeds supplying the JLIGHT Intelligence Layer, which in turn supports the four operational domains and Decision Cards. The engine descriptions on page 3 describe analysis of QC records, patient results, operational events, visit/SAE records, and NGS quality metrics. They do not require JLIGHT to be a physical laboratory instrument.
+This specification preserves the proposal's positioning of JLIGHT as an AI-enabled Health Intelligence Platform. Existing systems and data feeds supply the JLIGHT Intelligence Layer, which evaluates operational and scientific records across four workspaces and produces traceable Decision Cards. The Patient Journey and Clinical Trials recruitment connection are distinct but governed pathways. See docs/architecture/jlight-enterprise-platform-architecture.md for the authoritative organisation/workspace, recruitment, AI, scale and governance architecture. The engines analyse supplied records and metrics; they do not require JLIGHT to be a physical laboratory instrument.
 
 The implementation must make this distinction explicit in product copy, diagrams, APIs, data contracts, demonstrations, validation protocols, and funding materials.
