@@ -162,7 +162,11 @@ def require_auth(view):
 
 
 def resolve_verified_workspace_scope(allowed_domains, access="read"):
-    """Resolve organisation path and permissions from trusted database records."""
+    """Resolve one requested workspace from active DB entitlements and member grants.
+
+    X-JLIGHT-Workspace is an untrusted selector, never an authorization claim.
+    Every selected value is re-checked against the database for this user.
+    """
     claims = getattr(g, "auth_claims", None)
     user_id = claims.get("sub") if isinstance(claims, dict) else None
     if not user_id:
@@ -170,12 +174,15 @@ def resolve_verified_workspace_scope(allowed_domains, access="read"):
     db = get_db()
     if db is None:
         return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+    allowed = set(allowed_domains)
+    requested = request.headers.get("X-JLIGHT-Workspace", "").strip().lower() or None
+    if requested and requested not in allowed:
+        return None, (jsonify({"success": False, "error": "Requested workspace is not supported by this endpoint"}), 403)
     try:
         with db.cursor() as cur:
             cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
             cur.execute(
-                """SELECT p.org_id::text AS organisation_id,
-                          lower(coalesce(nullif(o.type, 'multi'), o.role)) AS organisation_type
+                """SELECT p.org_id::text AS organisation_id
                    FROM public.jl_user_profiles p
                    JOIN public.jl_organisations o ON o.id = p.org_id
                    WHERE p.user_id = %s
@@ -189,20 +196,35 @@ def resolve_verified_workspace_scope(allowed_domains, access="read"):
                 db.rollback()
                 return None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
             org_id = row["organisation_id"]
-            org_type = row["organisation_type"]
-            if org_type not in set(allowed_domains):
+
+            # A selector cannot create access: build the candidate list only
+            # from active entitlements and the database permission helper.
+            permitted = []
+            for domain in sorted(allowed):
+                cur.execute(
+                    "SELECT public.jlight_has_domain_permission(%s::uuid, %s, %s) AS allowed",
+                    (org_id, domain, access),
+                )
+                permission_row = cur.fetchone()
+                if permission_row and permission_row["allowed"] is True:
+                    permitted.append(domain)
+
+            if requested:
+                if requested not in permitted:
+                    db.rollback()
+                    return None, (jsonify({"success": False, "error": "Workspace permission denied"}), 403)
+                selected = requested
+            elif len(permitted) == 1:
+                selected = permitted[0]
+            elif len(permitted) > 1:
                 db.rollback()
-                return None, (jsonify({"success": False, "error": "This organisation is not authorised for the requested workspace"}), 403)
-            cur.execute(
-                "SELECT public.jlight_has_domain_permission(%s::uuid, %s, %s) AS allowed",
-                (org_id, org_type, access),
-            )
-            permission_row = cur.fetchone()
-            allowed = bool(permission_row and permission_row["allowed"])
+                return None, (jsonify({"success": False, "error": "Select an authorised workspace using X-JLIGHT-Workspace"}), 400)
+            else:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "No active workspace entitlement and member permission found"}), 403)
         db.rollback()
-        if not allowed:
-            return None, (jsonify({"success": False, "error": "Workspace permission denied"}), 403)
-        return {"organisation_id": org_id, "organisation_type": org_type, "user_id": user_id}, None
+        return {"organisation_id": org_id, "organisation_type": selected,
+                "workspace": selected, "user_id": user_id}, None
     except Exception:
         try:
             db.rollback()
@@ -270,19 +292,9 @@ def api_intelligence_summary():
     org_id = scope["organisation_id"]
     role = scope["organisation_type"]
     trial_scope = False
-    app_metadata = claims.get("app_metadata")
-    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-    permissions = claims.get("permissions")
-    if permissions is None:
-        permissions = app_metadata.get("permissions")
-    if permissions is None:
-        # The database scope check above is authoritative; absent custom JWT
-        # permission claims inherit only the read capability just verified.
-        permissions = ["intelligence:read"]
-    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
-        return jsonify({"success": False, "error": "Verified permissions required"}), 403
-    if "intelligence:read" not in permissions:
-        return jsonify({"success": False, "error": "Permission denied"}), 403
+    # The database authorisation check above grants only this read operation.
+    # Do not derive application permissions from user-editable metadata or headers.
+    permissions = ["intelligence:read"]
 
     try:
         payload = request.get_json(silent=True)
@@ -341,15 +353,8 @@ def api_clinical_trials_intelligence_summary():
         return scope_error
     org_id = scope["organisation_id"]
     role = "clinical_trials"
-    app_metadata = claims.get("app_metadata")
-    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-    permissions = claims.get("permissions")
-    if permissions is None:
-        permissions = app_metadata.get("permissions", [])
-    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
-        return jsonify({"success": False, "error": "Verified permissions required"}), 403
-    if "intelligence:read" not in permissions:
-        return jsonify({"success": False, "error": "Permission denied"}), 403
+    # Trial read scope has already been independently verified in the database.
+    permissions = ["intelligence:read"]
 
     try:
         payload = request.get_json(silent=True)
