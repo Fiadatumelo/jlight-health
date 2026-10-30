@@ -50,9 +50,9 @@ def test_protected_route_returns_503_when_verifier_unavailable():
     client = app.test_client()
     with patch("api.app.verify_access_token", side_effect=Exception("bad token")):
         response = client.post(
-            "/api/bio/sequence",
+            "/api/analyse-csv",
             headers={"Authorization": "Bearer invalid"},
-            json={"sequence": "ATCGATCGATCG"},
+            json={"csvText": "sample,result\\nS1,positive"},
         )
     assert response.status_code == 503
 
