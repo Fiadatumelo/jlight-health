@@ -87,9 +87,21 @@ Where no integration exists, the platform may use supported structured imports o
 
 JLIGHT must not send commands to instruments or laboratory equipment. Any future outbound integration must be separately specified, reviewed, and authorised; it must not imply instrument control or specimen processing.
 
-## 7. Clinical Trials separation
+## 7. Clinical Trials: independent participant timeline
 
-Clinical Trials remains outside the routine Patient Journey bridge. Participant identifiers, consent, protocol records, visits, AE/SAE timelines, and study-specific information remain in the Clinical Trials security and permission domain.
+Clinical Trials is not a filtered view of the routine Patient Journey. It must have a separate **Clinical Trial Participant Timeline** inside the Clinical Trials workspace, backed only by trial-domain records and permissions.
+
+The participant timeline may organise authorised study events such as:
+- enrolment and participant status;
+- protocol and consent milestones;
+- scheduled, completed, missed, or overdue study visits;
+- protocol deviations;
+- AE/SAE records and follow-up milestones;
+- retention and study close-out events.
+
+The participant timeline uses a study-specific participant identifier. It must not derive a participant identity from a hospital patient record, query the routine patient registry to resolve a participant, or use a shared patient identifier as an implicit bridge. Trial event records must be associated with the participant through explicit trial-domain identifiers and validated study membership.
+
+The routine Patient Journey and Clinical Trial Participant Timeline must have separate navigation destinations, data loaders, APIs/RPC scopes, report-generation paths, and access checks. A Clinical Trials user must not receive routine Hospital, Laboratory, or Bioinformatics records through the participant timeline. A routine-care user must not receive participant, consent, protocol, visit, or AE/SAE records through the Patient Journey.
 
 No patient-to-participant identity mapping or cross-domain data sharing is permitted by default. Any future study-specific linkage would require a separately approved protocol, lawful basis, consent and ethics controls, explicit data-governance design, and technical security review. It is not part of the current architecture.
 
