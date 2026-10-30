@@ -14,7 +14,7 @@ The three anonymous-execution findings were remediated on staging and verified b
 | jl_list_trial_members(uuid) | false | true | true |
 
 Migration: `20261030165517_harden_sensitive_rpc_execution`  
-Git migration: `supabase/migrations/20261030190000_harden_sensitive_rpc_execution.sql`
+Git migration: `supabase/migrations/20261030165517_harden_sensitive_rpc_execution.sql`
 
 ## SECURITY DEFINER review
 
@@ -79,8 +79,8 @@ Supabase advisor reports RLS-enabled/no-policy INFO notices for these two tables
 
 ### Entitlement-aware permission function
 
-Migration: `20261030172000_entitlement_aware_domain_authorization`  
-Git source: `supabase/migrations/20261030192000_entitlement_aware_domain_authorization.sql`  
+Migration: `20261030170208_entitlement_aware_domain_authorization`  
+Git source: `supabase/migrations/20261030170208_entitlement_aware_domain_authorization.sql`  
 Git commit: `02e872179a0e93b8603417accba632ea499bc8b8`
 
 The helper now fails closed unless the organisation is active, the requested workspace has an active row in `jl_organisation_workspaces`, and the caller has an active membership plus the required member permission. Clinical Trials remains checked through its separate membership roles. The former platform-admin patient-data bypass was removed.
