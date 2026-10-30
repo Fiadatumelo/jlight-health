@@ -169,6 +169,7 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
         "resistanceVariantCount": len(dr_variants),
         "resistanceVariants": [compact_variant(item) for item in dr_variants],
         "otherVariantCount": len(other_variants),
+        "otherVariants": [compact_variant(item) for item in other_variants],
         "qcWarnings": warnings,
         "sourceResultFile": path.name,
         "sourceUrl": f"https://tbdr.lshtm.ac.uk/results/{run_id}",
