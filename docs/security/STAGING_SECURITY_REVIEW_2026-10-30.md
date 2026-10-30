@@ -86,7 +86,7 @@ These are targeted database tests. They do not establish that every RLS policy, 
 - Organisation Admin Center requests an additional pathway and manages member permissions against the currently selected entitled workspace.
 - Generic unscoped `reviewer` and `read_only` invitations have been removed from the UI and are rejected by the invitation RPC until a per-workspace invitation scope exists.
 - Frontend inline JavaScript syntax check: passed.
-- GitHub `regression` workflow: passed on commit `0e6fc6012660b5351fab5d4a00e18ee2e0beea32`; inline JavaScript, frontend contract, patient-journey privacy, CSV parser, interoperability, API/JC security, and analytical engine regression steps all passed.
+- GitHub `regression` workflow: passed on commit `3326efc45385acf701cb43652290923444eb2b3c`; inline JavaScript, frontend contract, patient-journey privacy, CSV parser, interoperability, API/JC security, and analytical engine regression steps all passed.
 - GitHub `authenticated-rls` workflow: passed on the same commit; authenticated tenant, patient-match, report-permission, and Clinical Trials isolation tests passed.
 - Netlify: the latest PR commit's redirect/header/page checks completed as neutral (no redirect/header rules configured; one asset changed). The deploy preview is still processing at https://app.netlify.com/projects/jlight-health/deploys/6ae4d937b05a356e46da97ec.
 - Supabase automatic preview: skipped because the Git branch is not associated with a Supabase Branch; migrations were applied directly to the verified staging project.
