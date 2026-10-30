@@ -1496,7 +1496,7 @@ async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   MODE.organisationId = data.id;
   MODE.organisationName = data.name;
   MODE.organisationCode = data.org_code || MODE.organisationCode || "";
-  MODE.organisationType = type;
+  MODE.organisationType = permissionDomain;
   STATE.orgId = data.id;
   STATE.orgName = data.name;
   STATE.role = verifiedPath;
@@ -3737,6 +3737,21 @@ async function inviteAdminMember() {
   renderAdminCenter()
 }
 
+function renderAdminArchivedPatientsHtml() {
+  const archived = (STATE.patients || []).filter(patient =>
+    patient.archivedAt &&
+    (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(patient.orgId || '') === String(STATE.orgId))
+  )
+  if (!archived.length) return '<div class="form-help">No archived patient records in this organisation.</div>'
+  return '<div style="display:grid;gap:8px">' + archived.map(patient =>
+    '<div style="border:1px solid var(--border);border-radius:9px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">' +
+    '<div><div style="font-size:12.5px;font-weight:700">' + esc(patient.fullName || patient.name || 'Archived patient') + '</div>' +
+    '<div style="font-size:11px;color:var(--text-3)">' + esc(patient.archivedAt || '') + '</div></div>' +
+    '<button class="btn btn-sm" style="color:var(--red)" onclick="deleteArchivedPatient(\'' + esc(patient.id) + '\')">Permanently delete</button>' +
+    '</div>'
+  ).join('') + '</div>'
+}
+
 async function renderAdminCenter() {
   const page = $('page-admin')
   if (!page) return
@@ -3797,6 +3812,7 @@ async function renderAdminCenter() {
     '<div style="overflow:auto"><table class="data-table"><thead>' + memberTableHead + '</thead><tbody>' + memberRows + '</tbody></table></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Storage & data management</div><p class="form-help">JLIGHT stores structured records in the organisation-scoped database and keeps a local browser cache. There is no separate object-storage bucket configured in this workspace.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="exportWorkspace()">Export workspace data</button><button class="btn btn-primary" onclick="generateComplianceReport()">Generate compliance report</button><button class="btn" onclick="clearLocalWorkspaceCache()">Clear local cache</button></div></div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Report archive</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button class="btn" onclick="renderAdminCenter()">Refresh archive</button></div><div id="admin-report-archive">' + renderReportArchiveHtml() + '</div></div>' +
+    '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Archived patient records</div><p class="form-help">Permanent deletion is restricted to administrators and blocked while linked records remain.</p>' + renderAdminArchivedPatientsHtml() + '</div>' +
     '<div class="form-card"><div style="font-weight:700;margin-bottom:8px">Security & audit</div><p class="form-help">Access changes and report deletions are recorded in the workspace audit trail. Patient-level access remains restricted by organisation and domain policies in the database.</p><button class="btn" onclick="goPage(\'audit\')">Open audit trail</button></div>'
 }
 
