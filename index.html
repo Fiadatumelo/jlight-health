@@ -4526,15 +4526,9 @@ function updateRequestBadge() {
 // Each entry: hash = SHA256(prevHash || ts || action || detail || user)
 // Stored as hex string. prevHash of first entry is "0" * 64.
 // Tamper detection: any modification breaks the chain.
-async function sha256hex(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
-}
 
-async function computeAuditHash(prevHash, entry) {
-  const payload = (prevHash || '0'.repeat(64)) + (entry.ts || 0) + (entry.action || '') + (entry.detail || '') + (entry.user || '')
-  return await sha256hex(payload)
-}
+
+
 
 
 
@@ -4684,15 +4678,7 @@ function updateSidebarUser() {
 // ── CONSENT REFERENCE VALIDATION ──
 // Per ICH E6(R3) / GCP: consent must reference document version and date.
 // Format validated: must contain version indicator AND date string.
-function validateConsentRef(value) {
-  if (!value || value.trim().length < 5)
-    return { valid: false, error: 'Too short. Include version and date (e.g. ICF v4.0 · 2026-04-15).' }
-  const hasVersion = /v\s*\d|version\s*\d|icf|icd|consent|protocol\s*\d/i.test(value)
-  const hasDate    = /\d{4}|\d{2}[\/\-\.]\d{2}/.test(value)
-  if (!hasVersion) return { valid: false, error: 'Include the document version (e.g. ICF v4.0).' }
-  if (!hasDate)    return { valid: false, error: 'Include a date (e.g. 2026-04-15).' }
-  return { valid: true, error: null }
-}
+
 
 // ── PREDICTIVE ENGINE ONBOARDING ──
 // Shows progress toward first prediction.
@@ -4954,10 +4940,7 @@ function resetThresholds() {
 
 
 // ── BIOINFORMATICS REGISTER FORM ──
-const NGS_REF_RANGES = {
-  minCoverage: 30, minMappingRate: 85, minQScore: 30, maxDupRate: 20,
-  minGC: 30, maxGC: 70, maxContamination: 5
-}
+
 
 
 
@@ -4973,16 +4956,7 @@ const NGS_REF_RANGES = {
 
 
 // Helper: merge two arrays by ID, keeping newer timestamp
-function mergeByTimestamp(arr1, arr2) {
-  const merged = {}
-  for (const item of [...arr1, ...arr2]) {
-    if (!item || !item.id) continue
-    if (!merged[item.id] || (item.ts || 0) > (merged[item.id].ts || 0)) {
-      merged[item.id] = item
-    }
-  }
-  return Object.values(merged)
-}
+
 
 // Manual migration trigger from Settings
 
@@ -5023,20 +4997,7 @@ function mergeByTimestamp(arr1, arr2) {
 //      into the current online account before it would be overwritten.
 // ═══════════════════════════════════════════════════════════════════
 
-function detectOfflineData() {
-  // Check all four roles for offline data
-  const results = []
-  for (const role of ['Laboratory', 'Trial', 'Hospital', 'Bioinformatics']) {
-    const key = r => 'jl_' + r + '_'
-    const samples  = JSON.parse(localStorage.getItem(key(role) + 'samples')  || '[]')
-    const entries  = JSON.parse(localStorage.getItem(key(role) + 'entries')  || '[]')
-    const cards    = JSON.parse(localStorage.getItem(key(role) + 'cards')    || '[]')
-    const audit    = JSON.parse(localStorage.getItem(key(role) + 'audit')    || '[]')
-    const total = samples.length + entries.length + cards.length + audit.length
-    if (total > 0) results.push({ role, samples: samples.length, entries: entries.length, cards: cards.length, audit: audit.length, total })
-  }
-  return results
-}
+
 
 
 
@@ -6684,24 +6645,7 @@ function submitHL7() {
 // ── PERIODIC ENGINE RUNNER ──
 // Runs intelligence checks every 5 minutes automatically
 let _engineInterval = null
-function startAutoEngines() {
-  if (_engineInterval) clearInterval(_engineInterval)
-  _engineInterval = setInterval(() => {
-    try {
-      runCompletenessCheck()
-      runHAISurveillance()
-      runJourneyGapEngine()
-      runSAEClockCheck()
-      // TAT check on all open orders
-      STATE.labOrders.filter(o => o.status !== 'resulted').forEach(o => runTATEngine(o))
-      // LTFU + visit window check
-      STATE.participants.filter(p => p.status === 'active').forEach(p => runTrialIntelligence(p))
-      // Update request badge
-      updateRequestBadge && updateRequestBadge()
-    } catch (e) { console.warn('[JLIGHT] auto-engine error:', e.message) }
-  }, 5 * 60 * 1000)
-  console.log('[JLIGHT] Auto-engines started — running every 5 minutes')
-}
+
 
 
 // v10.0 nav hook — called from enterApp after all domains loaded
