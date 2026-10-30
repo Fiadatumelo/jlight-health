@@ -513,6 +513,37 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c.execute("ROLLBACK TO SAVEPOINT independent_recruitment_approval_positive_test")
         c.execute("RELEASE SAVEPOINT independent_recruitment_approval_positive_test")
 
+    def test_platform_admin_cannot_authorise_recruitment_for_non_active_study(self):
+        c = self.conn.cursor()
+        c.execute("SAVEPOINT inactive_study_recruitment_approval_test")
+        c.execute(
+            """INSERT INTO public.jl_organisation_workspaces
+               (org_id, workspace_key, status, provisioning_source, approved_at)
+               VALUES (%s, 'clinical_trials', 'active', 'synthetic_test', now())
+               ON CONFLICT (org_id, workspace_key) DO UPDATE SET status='active'""",
+            (self.org_b,),
+        )
+        study_id = str(uuid.uuid4())
+        c.execute(
+            """INSERT INTO public.jl_trial_studies
+               (id, organisation_id, study_code, title, status, created_by)
+               VALUES (%s, %s, %s, 'Inactive synthetic study', 'planning', %s)""",
+            (study_id, self.org_b, "RLS-PLANNING-STUDY-" + study_id[:8], self.b),
+        )
+        c.execute("SET LOCAL ROLE authenticated")
+        c.execute(
+            "SELECT set_config('request.jwt.claim.sub', %s, true)",
+            (self.platform_admin,),
+        )
+        with self.assertRaises(Exception):
+            c.execute(
+                """SELECT public.jl_authorise_trial_recruitment(
+                     %s, 'SYNTH-ETHICS-APPROVAL', current_date, 'ct-criteria-test-v1')""",
+                (study_id,),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT inactive_study_recruitment_approval_test")
+        c.execute("RELEASE SAVEPOINT inactive_study_recruitment_approval_test")
+
     def test_clinical_trials_records_are_not_visible_from_hospital_membership(self):
         c = self._as_user(self.b)
         c.execute("SELECT id FROM public.jl_trial_studies")
