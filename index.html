@@ -58,16 +58,6 @@ a { color: var(--teal); text-decoration: none; }
 .role-desc { font-size: 12px; color: var(--text-2); line-height: 1.45; }
 .role-arrow { color: var(--text-3); font-size: 18px; }
 
-.pin-display { display: flex; gap: 14px; justify-content: center; margin: 28px 0 24px; }
-.pin-dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--border-2); transition: all 0.15s; }
-.pin-dot.filled { background: var(--teal); border-color: var(--teal); box-shadow: 0 0 12px rgba(0,201,167,0.4); }
-.pin-dot.error { background: var(--red); border-color: var(--red); animation: shake 0.4s; }
-@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
-.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 280px; margin: 0 auto; }
-.pin-key { height: 56px; border-radius: 10px; background: var(--surface-3); border: 1px solid var(--border); font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 600; font-size: 20px; color: var(--text); transition: all 0.1s; }
-.pin-key:hover { background: var(--surface-4); border-color: var(--border-2); }
-.pin-key:active { transform: scale(0.95); background: var(--teal-bg); border-color: var(--teal); color: var(--teal); }
-.pin-key.empty { visibility: hidden; }
 .auth-status { text-align: center; font-size: 12.5px; margin-top: 16px; min-height: 20px; color: var(--text-2); }
 .auth-status.error { color: var(--red); }
 .auth-status.success { color: var(--green); }
