@@ -3597,7 +3597,7 @@ async function renderPlatformAdminCenter() {
         '<article style="border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px">' +
         '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' + esc(s.study_code) + ' · ' + esc(s.title) + '</strong><span class="permission-badge">' + esc(s.organisation_name) + '</span></div>' +
         '<div class="form-help">Status: ' + esc(s.status) + ' · Created: ' + esc(s.created_at || '') + '</div>' +
-        '<button class="btn btn-primary" style="margin-top:10px" onclick="approveTrialRecruitment(\\'' + esc(s.study_id) + '\\')">Approve ethics and recruitment</button></article>'
+        `<button class="btn btn-primary" style="margin-top:10px" onclick="approveTrialRecruitment('${esc(s.study_id)}')">Approve ethics and recruitment</button></article>`
       ).join('') : '<div class="empty">No active studies are awaiting recruitment approval.</div>')) +
     '</div>';
 }
