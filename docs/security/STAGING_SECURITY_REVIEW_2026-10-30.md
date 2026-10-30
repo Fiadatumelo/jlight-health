@@ -43,6 +43,7 @@ The staging implementation now supports initial multi-path organisation registra
 | `20261030174807` | Require an explicit workspace domain for legacy member-access listings on multi-path organisations |
 | `20261030194237` | Require active Laboratory entitlement and caller Laboratory read permission when resolving an organisation by code |
 | `20261031000200` | Prevent a Platform Administrator from authorising Clinical Trials recruitment for a study they created or an organisation where they hold active membership |
+| `20261031000300` | Require an active Clinical Trials entitlement and active study status for recruitment authorisation and Hospital-to-Trial referral creation |
 
 All listed migrations are applied to staging. Repository filenames are aligned to the applied versions.
 
@@ -108,8 +109,15 @@ These are targeted database tests. They do not establish that every RLS policy, 
 
 - The Bioinformatics workspace now has five dedicated TB compartments: overview, drug resistance, lineage, variant evidence, and QC/provenance.
 - The supported inputs are completed TBProfiler `.results.json` files and the JLIGHT-normalized `bioRuns` CSV. The importer previews and validates data, requires server-derived Bioinformatics write permission online, stores in the organisation-scoped `bioRuns` domain, and does not link sample accessions to patients.
-- The isolated TBProfiler 6.7.0 environment now installs with Python 3.10. The public-data workflow records the pipeline/database versions and is attempting two public paired-end runs from `PRJEB57919` (`ERR10610053`, `ERR10610083`). The workflow has not yet completed the raw-read download, TBProfiler execution, normalization, or artifact publication; do not report those steps as passed.
+- The isolated TBProfiler 6.7.0 environment now installs with Python 3.10. The public-data workflow records the pipeline/database versions and is attempting two public paired-end runs from `PRJEB57919` (`ERR10610053`, `ERR10610083`). The independent published-reference fixture job passed, checking the two source summaries, variant evidence, provenance and low-coverage safeguard. The separate raw-read job has not yet completed the downloads, TBProfiler execution, normalization, or artifact publication; do not report those steps as passed.
 - Public TBProfiler pages for the two run accessions were independently inspected. `ERR10610053` reports median coverage 48x, lineage 2.2.2, and Pre-XDR-TB. `ERR10610083` reports median coverage 12x, lineage 4.7, and a sensitive genotype call, with an explicit warning that coverage is below 30x and some mutations may be missed. These are source-reported public outputs, not phenotypic DST or clinical truth labels.
+
+## Clinical Trials recruitment approval hardening
+
+- Recruitment approval is restricted to an independent JLIGHT Platform Administrator who did not create the study and is not an active member of the study organisation.
+- The study must already be active, and the organisation must have an active Clinical Trials entitlement before recruitment can be authorised.
+- Hospital-to-Trial referral creation now also requires an active study in addition to the existing Hospital write permission, active Clinical Trials entitlement, ethics approval, criteria-version match, minimum-necessary candidate summary and restricted identity-link creation.
+- These are staging-only additive migrations. They do not change production. Authenticated regression tests cover own-organisation denial, independent approval success and non-active-study denial.
 
 ## Explicitly not done
 
