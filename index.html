@@ -3883,6 +3883,7 @@ async function renderPlatformAdminCenter() {
 
 async function decideWorkspaceRequest(requestId, decision) {
   if (!MODE.isPlatformAdmin) { toast("Not authorised", "Platform Administrator access is required.", "crit"); return; }
+  if (!window.confirm("Confirm " + decision + " for this additional workspace request? This decision will be recorded in the audit history.")) return;
   const reason = window.prompt("Enter the eligibility decision rationale (required):");
   if (!reason || !reason.trim()) return;
   const sb = getSupabase();
