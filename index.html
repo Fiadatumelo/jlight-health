@@ -971,6 +971,7 @@ const ROLES = {
       { key: 'cards',      label: 'Decision Cards',    icon: '◈' },
       // Trial participants use a restricted journey view; other patient records remain hidden.
       { key: 'journey',    label: 'Patient Journey',  icon: '↗' },
+      { key: 'jc',         label: 'JC Agent',          icon: '✦' },
       { key: 'protocols',  label: 'Protocols',          icon: '≡' },
       { key: 'register',   label: 'Log Visit',         icon: '+' },
       { key: 'requests',   label: 'Lab Requests',      icon: '⇄' },
@@ -1906,7 +1907,7 @@ function renderJourney() {
   link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-async function requestJlightIntelligenceSummary(patient, events) {
+async async function requestJlightIntelligenceSummary(patient, events) {
   if (String(STATE.role || '').toLowerCase() === 'trial') {
     return { success: false, skipped: true, message: 'Intelligence summary is not available in the isolated Clinical Trials workspace.' };
   }
@@ -1941,11 +1942,131 @@ async function requestJlightIntelligenceSummary(patient, events) {
   }
 }
 
+
+function buildClinicalTrialsJCChecks() {
+  const participants = Array.isArray(STATE.participants) ? STATE.participants : [];
+  const visits = Array.isArray(STATE.visits) ? STATE.visits : [];
+  const deviations = Array.isArray(STATE.deviations) ? STATE.deviations : [];
+  const adverseEvents = Array.isArray(STATE.adverseEvents) ? STATE.adverseEvents : [];
+  const consents = Array.isArray(STATE.consents) ? STATE.consents : [];
+  const protocols = Array.isArray(STATE.protocols) ? STATE.protocols : [];
+  const protocolIds = new Set(protocols.map(p => String(p && p.id || '')).filter(Boolean));
+  const consentIds = new Set(consents.map(c => String(c && (c.participantId || c.patientId || c.id) || '')).filter(Boolean));
+  const missingProtocol = participants.filter(p => !p || !p.protocolId || !protocolIds.has(String(p.protocolId))).length;
+  const missingConsent = participants.filter(p => {
+    const id = String(p && (p.id || p.participantId || p.patientId) || '');
+    return id && !consentIds.has(id);
+  }).length;
+  const missedVisits = visits.filter(v => {
+    const status = String(v && (v.status || v.attended || '') || '').toLowerCase();
+    return /missed|no.show|overdue|not attended/.test(status);
+  }).length;
+  const openSafetyFollowups = adverseEvents.filter(e => {
+    const status = String(e && (e.followUpStatus || e.resolutionStatus || e.status || '') || '').toLowerCase();
+    return /open|pending|unresolved|follow.?up required/.test(status);
+  }).length;
+  const retentionSignals = participants.filter(p => {
+    const status = String(p && (p.status || p.retentionStatus || '') || '').toLowerCase();
+    return /withdrawn|lost to follow.?up|at risk/.test(status);
+  }).length;
+  const checks = [
+    ['overdue_visit', missedVisits],
+    ['protocol_deviation', deviations.length],
+    ['incomplete_trial_record', missingProtocol],
+    ['consent_record_incomplete', missingConsent],
+    ['adverse_event_followup', openSafetyFollowups],
+    ['retention_risk', retentionSignals],
+  ];
+  return checks.map(([check_id, count]) => ({
+    check_id,
+    status: count > 0 ? 'review' : 'pass',
+    severity: count > 0 ? (check_id === 'adverse_event_followup' || check_id === 'consent_record_incomplete' ? 'high' : 'medium') : 'info',
+    evidence_count: Math.min(1000000, count),
+  }));
+}
+
+async function requestJlightClinicalTrialsSummary(checks) {
+  const sb = getSupabase();
+  if (!sb) return { success: false, message: 'Secure session is unavailable. Sign in again.' };
+  const sessionResult = await sb.auth.getSession();
+  const session = sessionResult && sessionResult.data && sessionResult.data.session;
+  if (!session || !session.access_token) return { success: false, message: 'A verified Clinical Trials session is required.' };
+  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\\/+$/, '');
+  try {
+    const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ clinical_trials_checks: checks })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Clinical Trials JC returned HTTP ' + response.status) };
+    return { success: true, summary: body.result };
+  } catch (_) {
+    return { success: false, message: 'Clinical Trials JC could not reach the intelligence service.' };
+  }
+}
+
+function renderClinicalTrialsJCAgent(page) {
+  const execution = STATE.jcLastRun && STATE.jcRunPatientId === 'clinical-trials-workspace' ? STATE.jcLastRun : null;
+  const summary = execution && execution.result ? execution.result : null;
+  const findings = summary && Array.isArray(summary.findings) ? summary.findings : [];
+  const counts = summary && summary.status_counts ? summary.status_counts : {};
+  const findingMarkup = findings.map(item =>
+    '<article class="form-card" style="margin:0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>' +
+    esc(String(item.rule_id || item.finding_id || 'Trial intelligence finding').replace(/_/g, ' ')) +
+    '</strong><span class="journey-status ' + (item.status === 'pass' ? '' : 'status-open') + '">' +
+    esc(item.status || 'unknown') + ' · ' + esc(item.severity || 'unclassified') +
+    '</span></div><p style="margin:8px 0 0;color:var(--text-2);font-size:13px">' +
+    esc(item.recommended_next_step || 'Review the authorised trial source records.') +
+    '</p></article>'
+  ).join('');
+  page.innerHTML =
+    '<div class="page-head"><div><div class="page-title">JC Agent · Clinical Trials</div><div class="page-sub">Trial-specific oversight using de-identified, aggregated study signals.</div></div></div>' +
+    '<section class="form-card" style="max-width:none"><div class="section-title">Clinical Trials intelligence</div>' +
+    '<p style="margin:8px 0;color:var(--text-2);line-height:1.65">JC reviews explicit trial workflow signals for missed visits, protocol deviations, incomplete records, consent-record gaps, safety follow-up and retention signals. It does not assess treatment safety, determine eligibility or make clinical decisions.</p>' +
+    '<div class="journey-footnote">Workspace: ' + esc(STATE.orgName || 'Current organisation') + ' · Scope: Clinical Trials only · Identifiers and source narratives are not sent to JC.</div>' +
+    '<button class="btn btn-primary" id="jc-run-button" onclick="runJCAgent()">Run trial intelligence checks</button>' +
+    '<div id="jc-agent-status" class="journey-footnote" role="status" aria-live="polite" style="margin-top:14px">Ready. JC will evaluate aggregate counts from the active Clinical Trials workspace.</div></section>' +
+    (summary ? '<section class="section"><div class="section-head"><div><div class="section-title">Latest JC result</div><div class="section-sub">' +
+      esc(summary.engine || 'JLIGHT Clinical Trials Intelligence') + ' · version ' + esc(summary.engine_version || '—') +
+      ' · ' + esc(summary.overall_status || 'status unavailable') + '</div></div></div>' +
+      '<div class="kpis"><div class="kpi"><div class="kpi-label">Findings</div><div class="kpi-value">' + esc(summary.finding_count || 0) + '</div></div>' +
+      '<div class="kpi"><div class="kpi-label">Passed</div><div class="kpi-value">' + esc(counts.pass || 0) + '</div></div>' +
+      '<div class="kpi ' + ((counts.review || counts.fail || counts.unknown) ? 'warn' : 'good') + '"><div class="kpi-label">Review / fail / unknown</div><div class="kpi-value">' + esc((counts.review || 0) + (counts.fail || 0) + (counts.unknown || 0)) + '</div></div></div>' +
+      '<div class="dc-list" style="margin-top:14px">' + (findingMarkup || '<div class="form-card">No flags were generated from the supplied trial checks. This does not establish that the study records are complete.</div>') + '</div>' +
+      '<p class="journey-footnote" style="margin-top:12px">Human review required: ' + (summary.human_review_required ? 'Yes' : 'No') + '. Missing inputs remain unknown; JC does not replace investigator, sponsor or ethics oversight.</p></section>' : '') +
+    '<section class="form-card" style="max-width:none"><div class="section-title">Trial data boundaries</div><ul class="journey-notes">' +
+    '<li>Uses a dedicated Clinical Trials endpoint and trial-only JC tool.</li><li>Only allow-listed check names, statuses, severity and bounded counts are sent.</li>' +
+    '<li>Participant identifiers, consent text, adverse-event narratives and medical details are not sent to JC.</li>' +
+    '<li>Clinical Trials data is not made available to Laboratory, Hospital or Bioinformatics JC.</li></ul></section>';
+}
+
+async function runClinicalTrialsJCAgent() {
+  const status = $('jc-agent-status');
+  const button = $('jc-run-button');
+  if (button) { button.disabled = true; button.textContent = 'Running trial checks…'; }
+  if (status) status.textContent = 'JC is evaluating aggregate trial workflow signals. No trial records are being changed.';
+  try {
+    const response = await requestJlightClinicalTrialsSummary(buildClinicalTrialsJCChecks());
+    if (!response || !response.success) throw new Error(response && response.message || 'JC could not complete the Clinical Trials checks.');
+    const execution = response.summary || {};
+    if (execution.status !== 'succeeded' || !execution.result) throw new Error('JC did not return a completed trial intelligence result.');
+    STATE.jcLastRun = execution;
+    STATE.jcRunPatientId = 'clinical-trials-workspace';
+    renderClinicalTrialsJCAgent($('page-jc'));
+    const nextStatus = $('jc-agent-status');
+    if (nextStatus) nextStatus.textContent = 'Clinical Trials JC completed. Review the aggregate findings with the authorised study team.';
+  } catch (error) {
+    if (status) status.textContent = error && error.message || 'Clinical Trials JC could not complete the request.';
+    if (button) { button.disabled = false; button.textContent = 'Retry trial intelligence checks'; }
+  }
+}
+
 function renderJCAgent() {
   const page = $('page-jc');
   if (!page) return;
   if (STATE.role === 'Trial') {
-    page.innerHTML = '<div class="page-head"><div><div class="page-title">JC Agent</div><div class="page-sub">JC is not enabled in the isolated Clinical Trials workspace.</div></div></div>';
+    renderClinicalTrialsJCAgent(page);
     return;
   }
   const patient = (STATE.patients || []).find(p =>
@@ -1993,11 +2114,12 @@ function renderJCAgent() {
     '<ul class="journey-notes"><li>Uses the existing authenticated JC endpoint and organisation permissions.</li>' +
     '<li>Audit events are written by the existing backend JC audit sink.</li>' +
     '<li>Only bounded structured check counts are sent; patient names, MRNs and raw clinical text are not sent to JC.</li>' +
-    '<li>Clinical Trials remains isolated and cannot access this JC workspace.</li>' +
+    '<li>Clinical Trials has a separate JC endpoint and cannot access this general workspace intelligence.</li>' +
     '<li>This is the existing deterministic intelligence agent, not a connected generative chat model.</li></ul></section>';
 }
 
 async function runJCAgent() {
+  if (STATE.role === 'Trial') return runClinicalTrialsJCAgent();
   const patient = (STATE.patients || []).find(p =>
     String(p.id) === String(STATE.currentPatientId) && !p.archivedAt &&
     (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default' || String(p.orgId || '') === String(STATE.orgId))
