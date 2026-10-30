@@ -87,8 +87,8 @@ def test_protected_route_fails_closed_without_database_path_authorization(monkey
 
 def test_clinical_trials_intelligence_rejects_client_supplied_evidence():
     claims = {"sub": "00000000-0000-4000-8000-000000000001", "aud": "authenticated"}
-    with patch("api.app.verify_access_token", return_value=claims), \\
-         patch("api.app.resolve_verified_workspace_scope", return_value=({"organisation_id": "00000000-0000-4000-8000-000000000099"}, None)), \\
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=({"organisation_id": "00000000-0000-4000-8000-000000000099"}, None)), \
          patch("api.app.get_db") as get_db:
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
@@ -130,9 +130,9 @@ def test_clinical_trials_intelligence_uses_server_derived_database_checks():
             self.rollbacks += 1
 
     fake_db = FakeDB()
-    with patch("api.app.verify_access_token", return_value=claims), \\
-         patch("api.app.resolve_verified_workspace_scope", return_value=({"organisation_id": "00000000-0000-4000-8000-000000000099"}, None)), \\
-         patch("api.app.get_db", return_value=fake_db), \\
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=({"organisation_id": "00000000-0000-4000-8000-000000000099"}, None)), \
+         patch("api.app.get_db", return_value=fake_db), \
          patch("api.app._write_jc_audit"):
         response = app.test_client().post(
             "/api/intelligence/clinical-trials-summary",
