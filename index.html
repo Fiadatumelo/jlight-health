@@ -2009,12 +2009,21 @@ async function selectTrialParticipant(id) {
 async function renderTrialTimeline() {
   const page=$('page-trial-timeline');if(!page)return;
   const selectedStudy=selected?studies.find(s=>s.id===selected.study_id):null;
-  const legacyLinkMarkup=selected?(selectedStudy&&selectedStudy.legacy_protocol_id
-    ? '<div class="form-card" style="max-width:none;margin-top:12px"><div class="section-title">Historical participant record</div><p class="journey-footnote">Link a historical participant only after checking source records. The legacy patient identifier remains private.</p>'+
-      ((STATE.legacyTrialParticipants||[]).length
-        ? '<select class="form-input" id="legacy-participant-'+esc(selected.id)+'"><option value="">Select verified historical participant code</option>'+(STATE.legacyTrialParticipants||[]).map(p=>'<option value="'+esc(p.legacy_participant_id)+'">'+esc(p.participant_code)+' · '+esc(p.site_code||'Site not recorded')+' · '+esc(p.status)+'</option>').join('')+'</select><button class="btn btn-sm" style="margin-top:8px" onclick="linkLegacyTrialParticipantHistory(\\''+esc(selected.id)+'\\')">Link reviewed history</button>'
-        : '<div class="journey-empty">No unlinked historical participant records are available for this study.</div>')+'</div>'
-    : '<div class="form-card" style="max-width:none;margin-top:12px"><div class="section-title">Historical records not yet mapped</div><p class="journey-footnote">Link this study to its verified legacy protocol before historical participant records can be reviewed.</p></div>'):'';
+  const legacyLinkMarkup=selected ? (
+    selectedStudy && selectedStudy.legacy_protocol_id
+      ? `<div class="form-card" style="max-width:none;margin-top:12px">
+          <div class="section-title">Historical participant record</div>
+          <p class="journey-footnote">Link a historical participant only after checking source records. The legacy patient identifier remains private.</p>
+          ${(STATE.legacyTrialParticipants||[]).length
+            ? `<select class="form-input" id="legacy-participant-${esc(selected.id)}">
+                <option value="">Select verified historical participant code</option>
+                ${(STATE.legacyTrialParticipants||[]).map(p=>`<option value="${esc(p.legacy_participant_id)}">${esc(p.participant_code)} · ${esc(p.site_code||'Site not recorded')} · ${esc(p.status)}</option>`).join('')}
+              </select>
+              <button class="btn btn-sm" style="margin-top:8px" onclick="linkLegacyTrialParticipantHistory('${esc(selected.id)}')">Link reviewed history</button>`
+            : '<div class="journey-empty">No unlinked historical participant records are available for this study.</div>'}
+        </div>`
+      : '<div class="form-card" style="max-width:none;margin-top:12px"><div class="section-title">Historical records not yet mapped</div><p class="journey-footnote">Link this study to its verified legacy protocol before historical participant records can be reviewed.</p></div>'
+  ) : '';
 
   page.innerHTML='<div class="journey-empty">Loading Clinical Trials records…</div>';
   try{await refreshClinicalTrialData();}catch(e){page.innerHTML='<div class="journey-empty">Clinical Trials data unavailable: '+esc(e.message)+'</div>';return;}
