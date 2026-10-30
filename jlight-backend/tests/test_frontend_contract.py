@@ -5,6 +5,16 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 
+api_source = (ROOT / "jlight-backend/api/app.py").read_text(encoding="utf-8")
+require("from engine.bio_engine import" not in api_source,
+        "The legacy raw-sequence analyser must not be loaded by the JLIGHT API")
+for legacy_route in ("/api/bio/tb", "/api/bio/variant", "/api/bio/ngs",
+                     "/api/bio/wgs", "/api/bio/sequence", "/api/bio/fasta"):
+    require(legacy_route not in api_source,
+            f"Legacy raw-sequence analyser route returned: {legacy_route}")
+require(not (ROOT / "jlight-backend/engine/bio_engine.py").exists(),
+        "The obsolete in-product raw-sequence analyser engine must remain deleted")
+
 def require(condition, message):
     if not condition:
         raise AssertionError(message)
