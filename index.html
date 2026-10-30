@@ -1974,10 +1974,9 @@ async function createTrialStudy() {
 async function selectTrialParticipant(id) {
   STATE.currentTrialParticipantId=String(id);
   const sb=getSupabase();
-  const {data,error}=await sb.from('jl_trial_participant_events')
-    .select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,source_table,source_record_id,metadata')
-    .eq('organisation_id',STATE.orgId).eq('participant_id',id)
-    .order('occurred_at',{ascending:false}).limit(250);
+  const {data,error}=await sb.rpc('jl_list_trial_participant_timeline',{
+    p_org_id:STATE.orgId,p_participant_id:id,p_limit:250
+  });
   if(error){toast('Timeline unavailable',error.message,'crit');return;}
   STATE.trialTimelineEvents=data||[];
   renderTrialTimeline();
@@ -1992,7 +1991,7 @@ async function renderTrialTimeline() {
   const participantList=participants.map(p=>{const s=studies.find(x=>x.id===p.study_id);return '<button type="button" class="journey-patient-choice" style="width:100%;text-align:left" aria-pressed="'+(String(p.id)===String(STATE.currentTrialParticipantId))+'" onclick="selectTrialParticipant(\''+esc(p.id)+'\')"><span><strong>'+esc(p.participant_code)+'</strong><small>'+esc(s?s.study_code:'Study')+' · '+esc(p.status)+' · consent '+esc(p.consent_status)+'</small></span><span class="journey-choice-arrow">View timeline</span></button>';}).join('');
   const selected=participants.find(p=>String(p.id)===String(STATE.currentTrialParticipantId));
   if(selected&&!STATE.trialTimelineEvents.length) {
-    const sb=getSupabase();const {data,error}=await sb.from('jl_trial_participant_events').select('id,study_id,participant_id,event_type,occurred_at,recorded_at,status,summary,source_table,source_record_id,metadata').eq('organisation_id',STATE.orgId).eq('participant_id',selected.id).order('occurred_at',{ascending:false}).limit(250);
+    const sb=getSupabase();const {data,error}=await sb.rpc('jl_list_trial_participant_timeline',{p_org_id:STATE.orgId,p_participant_id:selected.id,p_limit:250});
     if(!error)STATE.trialTimelineEvents=data||[];
   }
   const timeline=(STATE.trialTimelineEvents||[]).map(e=>'<article class="journey-event"><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-clinical-trials">'+esc(String(e.event_type||'event').replace(/_/g,' '))+'</span><time>'+esc(new Date(e.occurred_at).toLocaleString())+'</time></div><h4>'+esc(e.summary)+'</h4><div class="journey-event-foot"><span class="journey-status">'+esc(e.status)+'</span><span>Recorded '+esc(new Date(e.recorded_at).toLocaleString())+'</span></div></div></article>').join('');
