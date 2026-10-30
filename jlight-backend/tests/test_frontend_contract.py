@@ -79,4 +79,30 @@ require("if (!MODE.isOnline && parsed.headers.some(h => sensitive.includes(h)))"
 require("Offline imports must be de-identified" in html,
         "Offline source imports must reject identifiable data")
 
+
+# Dead, unreferenced handlers from superseded workflows must not return.
+removed_legacy_handlers = (
+    "auditHash", "chooseRole", "submitProfile", "filterJlightQuickLinks",
+    "submitResult", "analyseLabSample", "generateRegistrationErrorCard",
+    "getPredictiveProgress", "renderPredictiveOnboarding", "handleCSVFile",
+    "parseCSV", "importCSV", "checkAuditIntegrity", "markAsFalsePositive",
+    "renderRegisterBio", "generateBioReport", "runOfflineMigration", "openBioRun",
+    "exportWorkspaceReport", "renderMigrationWizard", "generateOrgCode",
+    "createOrganisation", "joinOrganisation", "getOrgMembers", "saveAllDomainData",
+    "enrolParticipant", "submitNewRequest", "acceptLabRequest", "rejectLabRequest",
+    "releaseResult", "generateResultReceivedCard", "computeAuditHash", "sha256hex",
+    "validateConsentRef", "mergeByTimestamp", "detectOfflineData", "startAutoEngines",
+    "updateRequestBadge",
+)
+for name in removed_legacy_handlers:
+    require(not re.search(r"(?:async\s+)?function\s+" + re.escape(name) + r"\s*\(", html),
+            f"Unreferenced legacy handler returned: {name}")
+
+declarations = re.findall(r"(?:async\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(", html)
+duplicates = sorted({name for name in declarations if declarations.count(name) > 1})
+require(not duplicates, "Duplicate frontend function declarations: " + ", ".join(duplicates))
+require("NGS_REF_RANGES" not in html, "Obsolete NGS analyser form thresholds returned")
+require("JLIGHT_AI" not in html and "api.anthropic.com" not in html,
+        "Direct-browser legacy AI client must remain removed")
+
 print("JLIGHT frontend contract checks passed.")
