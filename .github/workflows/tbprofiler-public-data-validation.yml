@@ -27,7 +27,11 @@ jobs:
         with:
           python-version: "3.12"
       - name: Validate published TBProfiler reference fixture and QC safeguards
-        run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results -v
+        run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results validation.tbprofiler.test_tbprofiler_67_schema -v
+      - name: Verify application maps the actual TBProfiler 6.7 QC schema
+        run: python jlight-backend/tests/test_frontend_contract.py
+      - name: Verify TBProfiler import field mapping is present in application source
+        run: grep -q 'qc.target_median_depth' index.html && grep -q 'qc.genome_median_depth' index.html && grep -q 'pipeline.software_version' index.html
 
   public-south-african-tb:
     name: Run pinned TBProfiler on public ENA WGS data
@@ -50,7 +54,11 @@ jobs:
       - name: Record pipeline and database versions
         run: |
           mkdir -p work
-          TBPROFILER_VERSION="$(python -c "import importlib.metadata; print(importlib.metadata.version('tb-profiler'))")"
+          # Bioconda installs TBProfiler as a conda package; Python distribution
+          # metadata is not guaranteed to be exposed under the same name.
+          TBPROFILER_VERSION="$(conda list --json | python -c 'import json,sys; packages=json.load(sys.stdin); matches=[p["version"] for p in packages if p["name"].lower().replace("_","-") == "tb-profiler"]; print(matches[0] if len(matches)==1 else "")')"
+          test -n "$TBPROFILER_VERSION"
+          tb-profiler --help >/dev/null
           TBPROFILER_DB_COMMIT="fbd11a9065212bb576b729b80fd7a3feccaad8ff"
           echo "TBPROFILER_VERSION=$TBPROFILER_VERSION" >> "$GITHUB_ENV"
           echo "TBPROFILER_DB_COMMIT=$TBPROFILER_DB_COMMIT" >> "$GITHUB_ENV"
