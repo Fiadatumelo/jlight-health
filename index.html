@@ -2761,7 +2761,7 @@ function hydrateTBProfilerRecord(record) {
     pipelineVersion:String(summary.pipelineVersion||record.pipelineVersion||'Not supplied'),
     databaseVersion:String(summary.databaseVersion||'Not supplied'),
     tbProfiler:{
-      qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,pctReadsMapped:summary.mappingRatePercent??summary.percentReadsMapped??null,numReads:summary.readCount??summary.numberOfReads??null,notes:qcNotes},
+      qc:{status:String(record.qualityStatus||'QC not reported'),medianDepth:summary.medianCoverage??null,genomeMedianDepth:summary.genomeMedianCoverage??null,targetMedianDepth:summary.targetMedianCoverage??summary.medianCoverage??null,targetQc:Array.isArray(summary.targetQc)?summary.targetQc:[],pctReadsMapped:summary.mappingRatePercent??summary.percentReadsMapped??null,numReads:summary.readCount??summary.numberOfReads??null,mappedReads:summary.mappedReadCount??null,notes:qcNotes},
       drVariants:variants,
       otherVariants,
       otherVariantCount:Number(summary.otherVariantCount??otherVariants.length),
