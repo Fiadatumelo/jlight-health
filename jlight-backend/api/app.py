@@ -3,12 +3,6 @@ JLIGHT v4 — Flask REST API
 =============================
 Endpoints:
   POST /api/analyse-csv       — CSV/XLSX QC analysis
-  POST /api/bio/tb            — TB drug resistance screening
-  POST /api/bio/variant       — Variant analysis
-  POST /api/bio/ngs           — NGS QC metrics
-  POST /api/bio/wgs           — WGS assembly metrics
-  POST /api/bio/sequence      — Sequence analysis
-  POST /api/bio/fasta         — Parse FASTA/FASTQ file
   GET  /api/health            — System health check
   GET  /api/cards             — Decision cards (from DB or static)
   POST /api/cards/acknowledge — Acknowledge a card
@@ -33,20 +27,12 @@ from flask_cors import CORS
 from engine.csv_engine import analyse_csv
 from api.security import verify_access_token
 
-from engine.intelligence_engine import build_intelligence_summary
+from engine.intelligence_engine import build_intelligence_summary, build_clinical_trials_intelligence_summary
 from agent.jc_agent import (
     JCContext, JCAgent, JCTool, JCError, JCApprovalRequired,
     JCForbidden, JCInvalidRequest,
 )
 
-from engine.bio_engine import (
-    screen_tb_resistance,
-    detect_variants,
-    analyse_ngs_quality,
-    calculate_wgs_metrics,
-    analyse_sequence,
-    parse_fasta,
-)
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
 
@@ -161,6 +147,127 @@ def require_auth(view):
     return wrapped
 
 
+def resolve_verified_workspace_scope(allowed_domains, access="read"):
+    """Resolve a selected organisation and workspace from verified memberships.
+
+    X-JLIGHT-Organisation and X-JLIGHT-Workspace are untrusted context selectors,
+    never authorization claims. Both are re-checked against current database
+    membership, active pathway entitlement and member-level permission.
+    """
+    claims = getattr(g, "auth_claims", None)
+    user_id = claims.get("sub") if isinstance(claims, dict) else None
+    if not user_id:
+        return None, (jsonify({"success": False, "error": "Verified authentication required"}), 401)
+    db = get_db()
+    if db is None:
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+    allowed = set(allowed_domains)
+    requested = request.headers.get("X-JLIGHT-Workspace", "").strip().lower() or None
+    requested_org = request.headers.get("X-JLIGHT-Organisation", "").strip() or None
+    if requested and requested not in allowed:
+        return None, (jsonify({"success": False, "error": "Requested workspace is not supported by this endpoint"}), 403)
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
+            if requested_org:
+                cur.execute(
+                    """SELECT o.id::text AS organisation_id
+                       FROM public.jl_organisations o
+                       WHERE o.id::text = %s
+                         AND coalesce(o.active, true) = true
+                         AND (
+                           EXISTS (
+                             SELECT 1 FROM public.jlight_organization_memberships m
+                             WHERE m.organization_id=o.id AND m.auth_subject=%s AND m.active=true
+                           )
+                           OR EXISTS (
+                             SELECT 1 FROM public.jl_org_memberships m
+                             WHERE m.organisation_id=o.id AND m.user_id=%s AND m.status='active'
+                           )
+                         )
+                       LIMIT 1""",
+                    (requested_org, user_id, user_id),
+                )
+            else:
+                cur.execute(
+                    """SELECT p.org_id::text AS organisation_id
+                       FROM public.jl_user_profiles p
+                       JOIN public.jl_organisations o ON o.id = p.org_id
+                       WHERE p.user_id = %s
+                         AND coalesce(p.active, true) = true
+                         AND coalesce(o.active, true) = true
+                       LIMIT 1""",
+                    (user_id,),
+                )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
+            org_id = row["organisation_id"]
+
+            permitted = []
+            for domain in sorted(allowed):
+                cur.execute(
+                    "SELECT public.jlight_has_domain_permission(%s::uuid, %s, %s) AS allowed",
+                    (org_id, domain, access),
+                )
+                permission_row = cur.fetchone()
+                if permission_row and permission_row["allowed"] is True:
+                    permitted.append(domain)
+
+            if requested:
+                if requested not in permitted:
+                    db.rollback()
+                    return None, (jsonify({"success": False, "error": "Workspace permission denied"}), 403)
+                selected = requested
+            elif len(permitted) == 1:
+                selected = permitted[0]
+            elif len(permitted) > 1:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "Select an authorised workspace using X-JLIGHT-Workspace"}), 400)
+            else:
+                db.rollback()
+                return None, (jsonify({"success": False, "error": "No active workspace entitlement and member permission found"}), 403)
+        db.rollback()
+        return {"organisation_id": org_id, "organisation_type": selected,
+                "workspace": selected, "user_id": user_id}, None
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        app.logger.exception("Organisation path authorization failed")
+        return None, (jsonify({"success": False, "error": "Organisation authorization service unavailable"}), 503)
+
+
+def require_domain_auth(allowed_domains, access="read"):
+    """Authenticate a request and resolve its current organisation/path permission.
+
+    The selected workspace header is only a context selector. The resolver
+    re-checks active organisation membership, pathway entitlement and the
+    requested read/write/report permission against PostgreSQL on every call.
+    """
+    allowed = frozenset(str(domain).strip().lower() for domain in allowed_domains)
+
+    def decorate(view):
+        @wraps(view)
+        def scoped_view(*args, **kwargs):
+            scope, scope_error = resolve_verified_workspace_scope(allowed, access=access)
+            if scope_error:
+                return scope_error
+            g.jlight_scope = scope
+            return view(*args, **kwargs)
+
+        # Authentication must run before workspace resolution. Never rely on
+        # client-supplied identity, role headers, or stale JWT workspace claims.
+        authenticated_view = require_auth(scoped_view)
+
+        @wraps(view)
+        def wrapped(*args, **kwargs):
+            return authenticated_view(*args, **kwargs)
+        return wrapped
+    return decorate
+
 
 # ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
 
@@ -194,35 +301,19 @@ def _write_jc_audit(event):
 def api_intelligence_summary():
     """Run deterministic intelligence aggregation under verified tenant scope."""
     claims = getattr(g, "auth_claims", None)
-    app_metadata = claims.get("app_metadata") if isinstance(claims, dict) else {}
-    app_metadata = app_metadata if isinstance(app_metadata, dict) else {}
-
-    org_id = (
-        claims.get("organisation_id") or claims.get("org_id")
-        or app_metadata.get("organisation_id") or app_metadata.get("org_id")
+    if not isinstance(claims, dict):
+        return jsonify({"success": False, "error": "Authentication required"}), 401
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"hospital", "laboratory", "bioinformatics"}, access="read"
     )
-    permissions = claims.get("permissions")
-    if permissions is None:
-        permissions = app_metadata.get("permissions", [])
-    token_role = str(claims.get("role", "")).strip().lower()
-    custom_role = token_role if token_role not in {"authenticated", "anon", "service_role"} else ""
-    role = str(
-        claims.get("jlight_role") or claims.get("workspace_role")
-        or app_metadata.get("jlight_role") or app_metadata.get("workspace_role")
-        or app_metadata.get("role") or custom_role or ""
-    ).strip().lower()
-    trial_scope = (
-        role in {"trial", "clinical_trials"}
-        or claims.get("clinical_trials_scope") is True
-        or app_metadata.get("clinical_trials_scope") is True
-    )
-
-    if not isinstance(org_id, str) or not org_id.strip():
-        return jsonify({"success": False, "error": "Verified organisation scope required"}), 403
-    if not isinstance(permissions, list) or not all(isinstance(item, str) for item in permissions):
-        return jsonify({"success": False, "error": "Verified permissions required"}), 403
-    if trial_scope:
-        return jsonify({"success": False, "error": "JC intelligence is not enabled for Clinical Trials scope"}), 403
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+    role = scope["organisation_type"]
+    trial_scope = False
+    # The database authorisation check above grants only this read operation.
+    # Do not derive application permissions from user-editable metadata or headers.
+    permissions = ["intelligence:read"]
 
     try:
         payload = request.get_json(silent=True)
@@ -266,6 +357,90 @@ def api_intelligence_summary():
         return jsonify({"success": False, "error": "Intelligence summary unavailable"}), 503
 
 
+
+@app.route("/api/intelligence/clinical-trials-summary", methods=["POST"])
+@require_auth
+def api_clinical_trials_intelligence_summary():
+    """Run Clinical Trials JC against server-derived, verified database evidence."""
+    claims = getattr(g, "auth_claims", None)
+    if not isinstance(claims, dict):
+        return jsonify({"success": False, "error": "Verified authentication required"}), 403
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"clinical_trials"}, access="read"
+    )
+    if scope_error:
+        return scope_error
+    org_id = scope["organisation_id"]
+
+    try:
+        payload = request.get_json(silent=True)
+        if payload is None:
+            payload = {}
+        if not isinstance(payload, dict) or payload:
+            return jsonify({
+                "success": False,
+                "error": "Client-supplied trial checks are not accepted; evidence is derived from the authorised database workspace",
+            }), 400
+
+        db = get_db()
+        if db is None:
+            return jsonify({"success": False, "error": "Clinical Trials evidence store unavailable"}), 503
+        try:
+            with db.cursor() as cur:
+                cur.execute(
+                    "SELECT set_config('request.jwt.claim.sub', %s, true)",
+                    (claims["sub"],),
+                )
+                cur.execute(
+                    "SELECT public.jl_build_trial_intelligence_checks(%s::uuid) AS checks",
+                    (org_id,),
+                )
+                row = cur.fetchone()
+                checks = row["checks"] if row else None
+            db.rollback()
+        except Exception:
+            db.rollback()
+            raise
+
+        if not isinstance(checks, list) or len(checks) > 20:
+            return jsonify({"success": False, "error": "Server-derived Clinical Trials evidence is invalid"}), 503
+
+        context = JCContext(
+            user_id=claims["sub"],
+            organisation_id=org_id,
+            permissions=frozenset({"intelligence:read"}),
+            role="clinical_trials",
+            clinical_trials_scope=True,
+        )
+        agent = JCAgent(context=context, audit=_write_jc_audit)
+        agent.register(JCTool(
+            name="clinical_trials_summary",
+            description="Aggregate de-identified Clinical Trials checks derived from authorised canonical database records.",
+            handler=lambda _ctx, args: build_clinical_trials_intelligence_summary(
+                clinical_trials_checks=args.get("clinical_trials_checks"),
+            ),
+            required_permissions=frozenset({"intelligence:read"}),
+            allowed_arguments=frozenset({"clinical_trials_checks"}),
+            allowed_scopes=frozenset({"clinical_trials"}),
+        ))
+        result = agent.execute(
+            "clinical_trials_summary",
+            {"clinical_trials_checks": checks},
+        )
+        return jsonify({"success": True, "organisation_id": org_id, **result}), 200
+    except JCApprovalRequired:
+        return jsonify({"success": False, "error": "Explicit approval required"}), 409
+    except JCForbidden:
+        return jsonify({"success": False, "error": "Permission denied"}), 403
+    except JCInvalidRequest:
+        return jsonify({"success": False, "error": "Invalid intelligence request"}), 400
+    except JCError:
+        return jsonify({"success": False, "error": "JC execution unavailable; check audit service"}), 503
+    except Exception:
+        app.logger.exception("Clinical Trials intelligence failed")
+        return jsonify({"success": False, "error": "Clinical Trials intelligence unavailable"}), 503
+
+
 # ─── Health Check ─────────────────────────────────────────────────────────────
 
 @app.route("/api/health", methods=["GET"])
@@ -296,13 +471,17 @@ def health_check():
 # ─── CSV Analysis ─────────────────────────────────────────────────────────────
 
 @app.route("/api/analyse-csv", methods=["POST"])
-@require_auth
+@require_domain_auth({"hospital", "laboratory", "bioinformatics"}, access="write")
 def api_analyse_csv():
     """
     Analyse a CSV/XLSX file for QC anomalies.
     Accepts multipart/form-data (file upload) or JSON with base64 content.
     """
-    role = request.headers.get("X-Role", "Laboratory & Research")
+    role = {
+        "hospital": "Hospital",
+        "laboratory": "Laboratory",
+        "bioinformatics": "Bioinformatics",
+    }[g.jlight_scope["organisation_type"]]
 
     try:
         # Handle file upload
@@ -316,7 +495,6 @@ def api_analyse_csv():
             data = request.get_json()
             csv_text = data.get("csvText", "")
             filename = data.get("fileName", "upload.csv")
-            role = data.get("role", role)
             if not csv_text:
                 return error("No CSV data provided")
             content = csv_text.encode("utf-8")
@@ -325,38 +503,15 @@ def api_analyse_csv():
 
         result = analyse_csv(content, filename, role=role)
 
-        # Log to audit trail
+        # Keep uploaded CSV content out of the legacy global table. Analysis is
+        # performed in-memory and only non-identifying metrics are logged.
         log_audit("csv_upload", role, {
-            "filename": filename,
+            "organisation_id": g.jlight_scope["organisation_id"],
+            "user_id": g.jlight_scope["user_id"],
             "row_count": result.get("rowCount", 0),
             "severity": result.get("severity", "unknown"),
             "risk_score": result.get("riskScore", 0),
         })
-
-        # Save to DB if available
-        db = get_db()
-        if db and result.get("success"):
-            try:
-                with db.cursor() as cur:
-                    cur.execute(
-                        """INSERT INTO csv_uploads
-                           (file_name, file_size_kb, row_count, column_count,
-                            detected_columns, analysis_result, severity, risk_score)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
-                        (
-                            filename,
-                            round(len(content) / 1024),
-                            result.get("rowCount", 0),
-                            result.get("columnCount", 0),
-                            json.dumps(result.get("detectedColumns", {})),
-                            json.dumps({"severity": result.get("severity"), "riskScore": result.get("riskScore")}),
-                            result.get("severity", "stable"),
-                            result.get("riskScore", 0),
-                        )
-                    )
-                db.commit()
-            except Exception:
-                pass
 
         return success(result)
 
@@ -369,218 +524,25 @@ def api_analyse_csv():
 
 # ─── Bioinformatics Endpoints ─────────────────────────────────────────────────
 
-@app.route("/api/bio/tb", methods=["POST"])
-@require_auth
-def api_tb_resistance():
-    """Screen a DNA sequence for TB drug resistance mutations."""
-    try:
-        data = request.get_json()
-        sequence = get_json_field(data, "sequence")
-
-        if len(sequence.replace("\n", "").replace(">", "")) < 50:
-            return error("Sequence too short — minimum 50 nucleotides required")
-
-        report = screen_tb_resistance(sequence)
-
-        log_audit("bio_tb_resistance", data.get("role", ""), {
-            "seq_length": report.sequence_length,
-            "who_category": report.who_category,
-            "resistant_count": len(report.resistant_mutations),
-        })
-
-        return success({"report": report.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        app.logger.error(f"TB resistance error: {traceback.format_exc()}")
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/variant", methods=["POST"])
-@require_auth
-def api_variant():
-    """Detect variants between reference and sample sequences."""
-    try:
-        data = request.get_json()
-        ref = get_json_field(data, "reference")
-        sample = get_json_field(data, "sample")
-
-        if len(ref.replace("\n", "")) < 10 or len(sample.replace("\n", "")) < 10:
-            return error("Sequences too short — minimum 10 nucleotides each")
-
-        report = detect_variants(ref, sample)
-
-        log_audit("bio_variant", data.get("role", ""), {
-            "total_variants": report.total_variants,
-            "snvs": report.snvs,
-            "indels": report.indels,
-        })
-
-        return success({"report": report.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/ngs", methods=["POST"])
-@require_auth
-def api_ngs():
-    """Compute NGS QC metrics from sequences or file."""
-    try:
-        sequences = []
-        quality_scores = []
-        filename = "upload"
-
-        if request.files.get("file"):
-            f = request.files["file"]
-            filename = f.filename or "reads.fastq"
-            records = parse_fasta(f.read())
-            sequences = [r["sequence"] for r in records]
-            quality_scores = [r["quality"] for r in records if r.get("quality")]
-
-        elif request.is_json:
-            data = request.get_json()
-            sequences = data.get("sequences", [])
-            quality_scores = data.get("quality_scores", [])
-
-        if not sequences:
-            sequences = ["ATCGATCGATCG" * 10]  # Demo
-
-        result = analyse_ngs_quality(sequences, quality_scores or None)
-        return success({"result": result.to_dict(), "filename": filename})
-
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/wgs", methods=["POST"])
-@require_auth
-def api_wgs():
-    """Calculate WGS assembly metrics (N50, L50, etc.)."""
-    try:
-        sequences_or_lengths = []
-        filename = "assembly"
-
-        if request.files.get("file"):
-            f = request.files["file"]
-            filename = f.filename or "assembly.fasta"
-            records = parse_fasta(f.read())
-            sequences_or_lengths = [r["sequence"] for r in records if r["sequence"]]
-
-        elif request.is_json:
-            data = request.get_json()
-            sequences_or_lengths = data.get("lengths") or data.get("sequences") or []
-
-        if not sequences_or_lengths:
-            return error("No contig sequences or lengths provided")
-
-        result = calculate_wgs_metrics(sequences_or_lengths)
-        return success({"result": result.to_dict(), "filename": filename})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/sequence", methods=["POST"])
-@require_auth
-def api_sequence():
-    """Full sequence analysis: GC%, ORFs, Tm, MW, reverse complement."""
-    try:
-        data = request.get_json()
-        sequence = get_json_field(data, "sequence")
-
-        result = analyse_sequence(sequence)
-        return success({"result": result.to_dict()})
-
-    except ValueError as e:
-        return error(str(e))
-    except Exception as e:
-        return error(str(e), 500)
-
-
-@app.route("/api/bio/fasta", methods=["POST"])
-@require_auth
-def api_fasta():
-    """Parse a FASTA/FASTQ file and return records."""
-    try:
-        if not request.files.get("file"):
-            return error("No file provided")
-        f = request.files["file"]
-        records = parse_fasta(f.read())
-        return success({
-            "record_count": len(records),
-            "records": records[:100],  # Cap at 100 records in response
-            "filename": f.filename,
-        })
-    except Exception as e:
-        return error(str(e), 500)
-
+# Raw sequence analysis endpoints are intentionally not exposed by JLIGHT.
+# JLIGHT ingests authorised, externally generated bioinformatics outputs and
+# provides provenance, QC review and cross-domain intelligence; it is not a
+# specimen analyser or a substitute for TBProfiler/BWA/GATK pipelines.
 
 # ─── Decision Cards ───────────────────────────────────────────────────────────
 
 @app.route("/api/cards", methods=["GET"])
 @require_auth
 def api_cards():
-    """Return decision cards from DB or static data."""
-    role = request.args.get("role", "")
-    db = get_db()
-
-    if db:
-        try:
-            with db.cursor() as cur:
-                if role:
-                    category = "lab" if "lab" in role.lower() or "laboratory" in role.lower() else \
-                               "trial" if "trial" in role.lower() else \
-                               "hosp" if "hosp" in role.lower() else ""
-                    if category:
-                        cur.execute(
-                            "SELECT * FROM decision_cards WHERE (category=%s OR category='all') AND status!='archived' ORDER BY created_at DESC",
-                            (category,)
-                        )
-                    else:
-                        cur.execute("SELECT * FROM decision_cards WHERE status!='archived' ORDER BY created_at DESC")
-                else:
-                    cur.execute("SELECT * FROM decision_cards WHERE status!='archived' ORDER BY created_at DESC")
-                cards = cur.fetchall()
-                return success({"cards": [dict(c) for c in cards], "source": "database"})
-        except Exception:
-            pass
-
-    return success({"cards": [], "source": "static", "note": "Database unavailable"})
+    """Fail closed until decision cards have tenant-scoped read permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
 
 
 @app.route("/api/cards/acknowledge", methods=["POST"])
 @require_auth
 def api_acknowledge():
-    """Acknowledge a decision card."""
-    try:
-        data = request.get_json()
-        card_number = get_json_field(data, "card_number")
-        role = data.get("role", "")
-
-        db = get_db()
-        if db:
-            with db.cursor() as cur:
-                cur.execute(
-                    "UPDATE decision_cards SET status='resolved', updated_at=%s WHERE card_number=%s",
-                    (datetime.now(timezone.utc), card_number)
-                )
-            db.commit()
-
-        log_audit("card_acknowledged", role, {
-            "card_number": card_number,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-
-        return success({"card_number": card_number, "status": "resolved"})
-
-    except Exception as e:
-        return error(str(e), 500)
+    """Fail closed until decision-card writes have tenant-scoped permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
 
 
 # ─── Audit Log ────────────────────────────────────────────────────────────────
@@ -588,19 +550,8 @@ def api_acknowledge():
 @app.route("/api/audit", methods=["GET"])
 @require_auth
 def api_audit():
-    """Return recent audit log entries."""
-    db = get_db()
-    if not db:
-        return success({"entries": [], "note": "Database unavailable"})
-    try:
-        with db.cursor() as cur:
-            cur.execute(
-                "SELECT * FROM audit_log ORDER BY timestamp DESC LIMIT 100"
-            )
-            entries = cur.fetchall()
-        return success({"entries": [dict(e) for e in entries]})
-    except Exception as e:
-        return error(str(e), 500)
+    """Fail closed until audit-log reads have tenant-scoped permissions."""
+    return error("This endpoint is unavailable until organisation-scoped permissions are configured.", 503)
 
 
 # ─── Main ─────────────────────────────────────────────────────────────────────

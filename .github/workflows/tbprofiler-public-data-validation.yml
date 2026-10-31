@@ -1,0 +1,144 @@
+name: JLIGHT public TBProfiler data validation
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "validation/tbprofiler/**"
+      - ".github/workflows/tbprofiler-public-data-validation.yml"
+  pull_request:
+    paths:
+      - "validation/tbprofiler/**"
+      - ".github/workflows/tbprofiler-public-data-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  published-reference-contract:
+    name: Validate published South African TBProfiler reference outputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out JLIGHT
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate published TBProfiler reference fixture and QC safeguards
+        run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results validation.tbprofiler.test_tbprofiler_67_schema -v
+      - name: Verify application maps the actual TBProfiler 6.7 QC schema
+        run: python jlight-backend/tests/test_frontend_contract.py
+      - name: Verify TBProfiler import field mapping is present in application source
+        run: grep -q 'qc.target_median_depth' index.html && grep -q 'qc.genome_median_depth' index.html && grep -q 'pipeline.software_version' index.html
+
+  public-south-african-tb:
+    name: Run pinned TBProfiler on public ENA WGS data
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash -l {0}
+    steps:
+      - name: Check out JLIGHT
+        uses: actions/checkout@v4
+
+      - name: Create isolated TBProfiler environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: validation/tbprofiler/environment.yml
+          cache-environment: true
+          init-shell: bash
+
+      - name: Record pipeline and database versions
+        run: |
+          mkdir -p work
+          # Bioconda installs TBProfiler as a conda package; Python distribution
+          # metadata is not guaranteed to be exposed under the same name.
+          TBPROFILER_VERSION="$(conda list --json | python -c 'import json,sys; packages=json.load(sys.stdin); matches=[p["version"] for p in packages if p["name"].lower().replace("_","-") == "tb-profiler"]; print(matches[0] if len(matches)==1 else "")')"
+          test -n "$TBPROFILER_VERSION"
+          tb-profiler --help >/dev/null
+          TBPROFILER_DB_COMMIT="fbd11a9065212bb576b729b80fd7a3feccaad8ff"
+          echo "TBPROFILER_VERSION=$TBPROFILER_VERSION" >> "$GITHUB_ENV"
+          echo "TBPROFILER_DB_COMMIT=$TBPROFILER_DB_COMMIT" >> "$GITHUB_ENV"
+          test "$TBPROFILER_VERSION" = "6.7.0"
+          tb-profiler update_tbdb --branch who_v2+ --commit "$TBPROFILER_DB_COMMIT" 2>&1 | tee work/tbdb-update.log
+          DB_DIR="$GITHUB_WORKSPACE/tbdb"
+          test -d "$DB_DIR"
+          DB_REV="$(git -C "$DB_DIR" rev-parse HEAD)"
+          test "$DB_REV" = "$TBPROFILER_DB_COMMIT"
+          echo "TBPROFILER_DB_VERSION=$DB_REV" >> "$GITHUB_ENV"
+          printf "TBProfiler version: %s\nTB database branch: who_v2+\nTB database revision: %s\n" "$TBPROFILER_VERSION" "$DB_REV"
+
+      - name: Download two public paired-end ENA runs
+        run: |
+          mkdir -p work/reads work/results
+          curl --parallel --parallel-immediate --parallel-max 4 \
+            --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610053_1.fastq.gz \
+            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/053/ERR10610053/ERR10610053_1.fastq.gz" \
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610053_2.fastq.gz \
+            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/053/ERR10610053/ERR10610053_2.fastq.gz" \
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610083_1.fastq.gz \
+            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_1.fastq.gz" \
+            --next --fail --location --retry 3 --retry-all-errors --retry-delay 5 \
+            --connect-timeout 20 --max-time 900 \
+            --output work/reads/ERR10610083_2.fastq.gz \
+            "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_2.fastq.gz"
+          sha256sum work/reads/* > work/fastq_sha256.txt
+
+      - name: Run TBProfiler on both samples
+        run: |
+          cd work
+          tb-profiler profile -1 reads/ERR10610053_1.fastq.gz -2 reads/ERR10610053_2.fastq.gz -t 2 -p ERR10610053 --txt --csv
+          tb-profiler profile -1 reads/ERR10610083_1.fastq.gz -2 reads/ERR10610083_2.fastq.gz -t 2 -p ERR10610083 --txt --csv
+          test -s results/ERR10610053.results.json
+          test -s results/ERR10610083.results.json
+
+      - name: Test TBProfiler result normalization
+        run: python -m unittest validation.tbprofiler.test_normalize_results -v
+
+      - name: Normalize external results to JLIGHT bioRuns import schema
+        run: |
+          python validation/tbprofiler/normalize_results.py \
+            --results-dir work/results \
+            --dataset-accession PRJEB57919 \
+            --tool-version "$TBPROFILER_VERSION" \
+            --db-version "$TBPROFILER_DB_VERSION" \
+            --output work/jlight_bioruns_import.csv
+          python - <<'PY'
+          import csv, json
+          from pathlib import Path
+          p = Path("work/jlight_bioruns_import.csv")
+          with p.open(newline="", encoding="utf-8") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 2, f"Expected 2 public runs, found {len(rows)}"
+          assert {r["sourceRecordId"] for r in rows} == {"ERR10610053", "ERR10610083"}
+          for row in rows:
+              summary = json.loads(row["summary"])
+              assert summary["datasetAccession"] == "PRJEB57919"
+              assert summary["pipeline"] == "TBProfiler"
+              assert summary["pipelineVersion"]
+              assert "patientId" not in summary and "patient_id" not in summary
+          print("JLIGHT bioRuns import contract validated for 2 public TBProfiler outputs.")
+          PY
+
+      - name: Upload versioned validation outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: jlight-public-tbprofiler-validation
+          path: |
+            work/results/*.results.json
+            work/results/*.results.csv
+            work/jlight_bioruns_import.csv
+            work/tbprofiler_validation_report.json
+            work/tbdb-update.log
+            work/fastq_sha256.txt
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,7 @@
+name: tbprofiler-validation
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.10
+  - tb-profiler=6.7.0

@@ -58,7 +58,7 @@ jobs:
         run: python -m unittest tests.test_interoperability
       - name: Test backend API authentication and JC intelligence regressions
         working-directory: jlight-backend
-        run: python -m pytest tests/test_api_security.py tests/test_intelligence_api.py tests/test_jc_agent.py tests/test_intelligence_engine.py -q
+        run: python -m pytest tests/test_api_security.py tests/test_workspace_scope_api.py tests/test_intelligence_api.py tests/test_jc_agent.py tests/test_intelligence_engine.py tests/test_clinical_trials_jc.py -q
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
