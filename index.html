@@ -907,6 +907,7 @@ const STATE = {
   userProfile: null,
   notifications: [],
   syncConflicts: [],
+  localRecovery: [],
   pendingRequestCount: 0,
   jcLastRun: null,
   jcRunPatientId: null,
@@ -3485,6 +3486,27 @@ function exportAuditCSV() {
   toast('Exported', 'Audit log downloaded as CSV', 'good')
 }
 
+function exportLocalRecovery() {
+  if (!MODE.isOnline || !STATE.orgId || STATE.orgId === 'default') {
+    toast('Recovery export unavailable', 'Sign in to the organisation workspace first.', 'crit'); return
+  }
+  const key = 'jl_local_recovery_v1::org::' + String(STATE.orgId)
+  let saved = []
+  try { saved = JSON.parse(localStorage.getItem(key) || '[]') } catch {}
+  const groups = Array.isArray(saved) ? saved.filter(x => x &&
+    String(x.orgId || '') === String(STATE.orgId) &&
+    x.path === MODE.organisationType && Array.isArray(x.records)) : []
+  if (!groups.length) { toast('No recovery records', 'No quarantined records are available for this workspace.', 'good'); return }
+  const payload = {format:'jlight-local-recovery-v1', organisationId:String(STATE.orgId),
+    workspace:MODE.organisationType, exportedAt:new Date().toISOString(), groups}
+  const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'})
+  const url = URL.createObjectURL(blob), link = document.createElement('a')
+  link.href = url
+  link.download = 'jlight-local-recovery-' + String(STATE.orgId).replace(/[^a-zA-Z0-9_-]/g,'_') + '.json'
+  document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url)
+  toast('Recovery export prepared', 'Keep this file securely. Export does not import or authorise these records.', 'good')
+}
+
 function renderSettings() {
   const cfg = ROLES[STATE.role]
   const wsRole = STATE.userProfile && STATE.userProfile.workspace_role || 'operator'
@@ -3496,6 +3518,7 @@ function renderSettings() {
       </div>
     </div>
     ${renderOrgInfo()}
+    ${MODE.isOnline && STATE.localRecovery && STATE.localRecovery.length ? '<div class="form-card" style="border:1px solid var(--amber);max-width:760px"><div style="font-family:Syne,sans-serif;font-size:14px;font-weight:700;margin-bottom:8px">Local records need review</div><div class="page-sub" style="margin-bottom:12px">These device records were not confirmed by the JLIGHT cloud for this organisation and workspace. They are excluded from operational records and have not been deleted. Review and export them before manual reconciliation.</div>' + STATE.localRecovery.map(x => '<div class="detail-row"><span class="detail-row-label">'+esc(x.domain)+'</span><span class="detail-row-value">'+x.records.length+' unconfirmed record(s)</span></div>').join('') + '<button class="btn btn-primary" style="margin-top:12px" onclick="exportLocalRecovery()">Export recovery records</button></div>' : ''}
     <div style="display:grid;gap:16px;max-width:760px">
       <div class="form-card">
         <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:700;margin-bottom:12px">Workspace Info</div>
@@ -5747,21 +5770,36 @@ async function loadDomainDataFromBackend() {
       consents: 'jl_v10_consents', deviations: 'jl_v10_deviations',
       samples: 'jl_v10_samples', reports: REPORT_KEY
     }
-    const merged = {}
-    for (const [domain, key] of Object.entries(keys)) {
-      const local = lsGet(key)
-      const byId = new Map(local.filter(x => x && x.id != null && String(x.orgId || '') === String(STATE.orgId)).map(x => [String(x.id), x]))
-      merged[domain] = byId
+    const cloudByDomain = {}
+    const cloudIdsByDomain = {}
+    for (const domain of Object.keys(keys)) {
+      cloudByDomain[domain] = new Map()
+      cloudIdsByDomain[domain] = new Set()
     }
     for (const row of (data || [])) {
-      const domain = row.domain
-      const key = keys[domain]
-      const payload = row.payload
-      if (!key || !payload || payload.id == null) continue
-      merged[domain].set(String(payload.id), payload)
+      const domain = row.domain, payload = row.payload
+      if (!keys[domain] || !payload || payload.id == null) continue
+      cloudByDomain[domain].set(String(payload.id), payload)
+      cloudIdsByDomain[domain].add(String(payload.id))
+    }
+    // Keep unconfirmed device records recoverable, but never treat them as cloud data.
+    const recovery = []
+    for (const [domain, key] of Object.entries(keys)) {
+      const local = lsGet(key)
+      const localOnly = local.filter(x => x && x.id != null &&
+        String(x.orgId || '') === String(STATE.orgId) &&
+        !cloudIdsByDomain[domain].has(String(x.id)))
+      if (localOnly.length) recovery.push({domain, orgId:String(STATE.orgId),
+        path:MODE.organisationType, capturedAt:new Date().toISOString(), records:localOnly})
+    }
+    STATE.localRecovery = recovery
+    try {
+      localStorage.setItem('jl_local_recovery_v1::org::' + String(STATE.orgId), JSON.stringify(recovery))
+    } catch (storageError) {
+      console.warn('[JLIGHT] Could not persist local recovery quarantine:', storageError)
     }
     for (const [domain, key] of Object.entries(keys)) {
-      const records = Array.from(merged[domain].values()).slice(-2000)
+      const records = Array.from(cloudByDomain[domain].values()).slice(-2000)
       try { localStorage.setItem(jlightStorageKey(key), JSON.stringify(records)) } catch {}
       const stateKey = ({
         patients:'patients', labOrders:'labOrders', results:'results', qcRuns:'qcRuns',
