@@ -36,5 +36,34 @@ class TBProfiler67SchemaTests(unittest.TestCase):
         self.assertEqual(summary["targetQc"][0]["target"], "rpoB")
         self.assertEqual(summary["resistanceVariantCount"], 1)
 
+
+    def test_pinned_full_database_commit_overrides_abbreviated_metadata(self):
+        sample = {
+            "id": "ERR_DB_PIN_001",
+            "pipeline": {"software_version": "6.7.0", "db_version": {"name": "who_v2+", "commit": "fbd11a90"}},
+            "qc": {"target_median_depth": 64.0, "genome_median_depth": 64.0},
+            "dr_variants": [], "other_variants": []
+        }
+        full_commit = "fbd11a9065212bb576b729b80fd7a3feccaad8ff"
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "ERR_DB_PIN_001.results.json"
+            path.write_text(json.dumps(sample), encoding="utf-8")
+            row = normalize_one(path, "PRJEB57919", "6.7.0", full_commit)
+        summary = json.loads(row["summary"])
+        self.assertEqual(summary["databaseVersion"], full_commit)
+        self.assertEqual(summary["medianCoverage"], 64.0)
+
+    def test_rejects_database_metadata_that_conflicts_with_pinned_commit(self):
+        sample = {
+            "id": "ERR_DB_MISMATCH_001",
+            "pipeline": {"software_version": "6.7.0", "db_version": {"commit": "deadbeef"}},
+            "qc": {"target_median_depth": 64.0}, "dr_variants": [], "other_variants": []
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "ERR_DB_MISMATCH_001.results.json"
+            path.write_text(json.dumps(sample), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "does not match"):
+                normalize_one(path, "PRJEB57919", "6.7.0", "fbd11a9065212bb576b729b80fd7a3feccaad8ff")
+
 if __name__ == "__main__":
     unittest.main()
