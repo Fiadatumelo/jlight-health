@@ -29,7 +29,7 @@ jobs:
       - name: Validate published TBProfiler reference fixture and QC safeguards
         run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results validation.tbprofiler.test_tbprofiler_67_schema -v
       - name: Verify application maps the actual TBProfiler 6.7 QC schema
-        run: python -m unittest discover -s jlight-backend/tests -p test_frontend_contract.py -v
+        run: python jlight-backend/tests/test_frontend_contract.py
       - name: Verify TBProfiler import field mapping is present in application source
         run: grep -q 'qc.target_median_depth' index.html && grep -q 'qc.genome_median_depth' index.html && grep -q 'pipeline.software_version' index.html
 
