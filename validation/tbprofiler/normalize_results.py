@@ -142,14 +142,32 @@ def normalize_one(path: Path, dataset_accession: str, tool_version: str, db_vers
 
     pipeline_version = (
         first_value(pipeline, ("version", "pipeline_version"))
-        or first_value(result, ("pipeline_version", "version"))
+        or first_value(result, ("pipeline_version", "tb_profiler_version", "tb-profiler-version", "version"))
         or tool_version
+        or os.environ.get("TBPROFILER_VERSION")
     )
-    database_version = (
+    if isinstance(database_version := (
         first_value(pipeline, ("db_version", "database_version", "tbdb_version"))
-        or first_value(result, ("db_version", "database_version"))
+        or first_value(result, ("db_version", "database_version", "tbdb"))
         or db_version
-    )
+    ), dict):
+        # TBProfiler can embed the full tbdb metadata object rather than a
+        # scalar revision. Persist the immutable commit, not a JSON dump.
+        database_version = first_value(database_version, ("commit", "revision", "sha", "version"))
+    if isinstance(pipeline_version, dict):
+        pipeline_version = first_value(pipeline_version, ("version", "release", "tag"))
+    if isinstance(pipeline_version, str):
+        pipeline_version = pipeline_version.strip()
+    if isinstance(database_version, str):
+        database_version = database_version.strip()
+    if not pipeline_version:
+        raise ValueError(
+            f"{path.name}: TBProfiler version missing; pass the verified installed version"
+        )
+    if not database_version:
+        raise ValueError(
+            f"{path.name}: TB database revision missing; pass the verified database commit"
+        )
     source_date = first_value(result, ("date", "created_at", "timestamp"))
 
     summary = {
