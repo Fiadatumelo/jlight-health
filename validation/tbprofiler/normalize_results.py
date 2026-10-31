@@ -59,13 +59,19 @@ def normalize_one(path: Path,dataset_accession: str,tool_version: str,db_version
         quality="qc_not_reported"
     else: quality="qc_reported"
     pv=first_value(pipeline,("software_version","version","pipeline_version")) or first_value(result,("pipeline_version","tb_profiler_version","tb-profiler-version","version")) or tool_version or os.environ.get("TBPROFILER_VERSION")
-    db=first_value(pipeline,("db_version","database_version","tbdb_version")) or first_value(result,("db_version","database_version","tbdb")) or db_version
-    if isinstance(db,dict): db=first_value(db,("commit","revision","sha","version"))
+    embedded_db=first_value(pipeline,("db_version","database_version","tbdb_version")) or first_value(result,("db_version","database_version","tbdb"))
+    if isinstance(embedded_db,dict): embedded_db=first_value(embedded_db,("commit","revision","sha","version"))
+    # The pinned workflow argument is the authoritative full immutable commit.
+    # TBProfiler metadata may contain only an abbreviated Git SHA.
+    verified_db=db_version if db_version and db_version!="not_reported" else embedded_db
     if isinstance(pv,dict): pv=first_value(pv,("version","release","tag"))
     if isinstance(pv,str): pv=pv.strip()
-    if isinstance(db,str): db=db.strip()
+    if isinstance(verified_db,str): verified_db=verified_db.strip()
     if not pv: raise ValueError(f"{path.name}: TBProfiler version missing; pass the verified installed version")
-    if not db: raise ValueError(f"{path.name}: TB database revision missing; pass the verified database commit")
+    if not verified_db: raise ValueError(f"{path.name}: TB database revision missing; pass the verified database commit")
+    if embedded_db and verified_db and not str(verified_db).startswith(str(embedded_db)):
+        raise ValueError(f"{path.name}: embedded TB database revision does not match the pinned database commit")
+    db=verified_db
     date=first_value(result,("date","created_at","timestamp"))
     summary={"datasetAccession":dataset_accession,"runAccession":str(run_id),"pipeline":"TBProfiler","pipelineVersion":jsonable_text(pv),"databaseVersion":jsonable_text(db),"lineage":jsonable_text(result.get("lineage")),"mainLineage":jsonable_text(first_value(result,("main_lineage","mainLineage"))),"subLineage":jsonable_text(first_value(result,("sub_lineage","subLineage"))),"spoligotype":jsonable_text(result.get("spoligotype")),"drugResistanceType":jsonable_text(first_value(result,("drtype","drug_resistance","drug-resistance"))),"medianCoverage":median_coverage,"genomeMedianCoverage":genome_coverage,"targetMedianCoverage":target_coverage,"mappingRatePercent":mapping_rate,"readCount":read_count,"mappedReadCount":mapped_reads,"targetQc":target_qc_summary,"resistanceVariantCount":len(dr),"resistanceVariants":[compact_variant(x) for x in dr],"otherVariantCount":len(other),"otherVariants":[compact_variant(x) for x in other],"qcWarnings":warnings,"sourceResultFile":path.name,"sourceUrl":f"https://tbdr.lshtm.ac.uk/results/{run_id}","sourceDate":jsonable_text(date),"interpretationLimit":"External genotypic prediction only; not phenotypic DST or a clinical diagnosis."}
     return {"analysisType":"Mycobacterium tuberculosis WGS","outputType":"TBProfiler JSON summary","status":"completed","qualityStatus":quality,"summary":json.dumps(summary,ensure_ascii=False,sort_keys=True),"createdAt":jsonable_text(date) or datetime.now(timezone.utc).isoformat(),"sourceSystem":"TBProfiler","sourceRecordId":str(run_id)}
