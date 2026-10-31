@@ -244,4 +244,24 @@ for field in ("pipeline.software_version", "qc.genome_median_depth", "qc.target_
               "qc.target_qc", "qc.num_reads_mapped"):
     require(field in html, f"TBProfiler 6.7 JSON import is missing {field}")
 
+# Cloud restore must separate device-only records from operational workspace state.
+restore_start = html.index("async function loadDomainDataFromBackend()")
+restore_end = html.index("// ═", restore_start)
+restore_source = html[restore_start:restore_end]
+require("cloudByDomain" in restore_source and "cloudIdsByDomain" in restore_source,
+        "Restore must build operational state from server-confirmed records")
+require("STATE.localRecovery = recovery" in restore_source and
+        "jl_local_recovery_v1::org::" in restore_source,
+        "Unconfirmed local records must be retained in an organisation-scoped recovery quarantine")
+require("!cloudIdsByDomain[domain].has(String(x.id))" in restore_source,
+        "Quarantine must include only records absent from the cloud result")
+require("const records = Array.from(cloudByDomain[domain].values())" in restore_source,
+        "Operational state must contain cloud-confirmed records only")
+require("function exportLocalRecovery()" in html and
+        "x.path === MODE.organisationType" in html and
+        "String(x.orgId || '') === String(STATE.orgId)" in html,
+        "Recovery export must be scoped to the active organisation and workspace")
+require("Local records need review" in html and "Export recovery records" in html,
+        "Settings must expose quarantined records for review and export")
+
 print("JLIGHT frontend contract checks passed.")
