@@ -2626,14 +2626,18 @@ function normaliseTBProfilerResult(source) {
     const list = Array.isArray(v.annotation) ? v.annotation : (v.annotation ? [v.annotation] : [])
     return list.map(a => ({gene:String(v.gene_name||v.gene_id||v.locus_tag||''),mutation:String(v.protein_change||v.nucleotide_change||v.type||''),drug:String(a.drug||''),confidence:String(a.confidence||''),source:String(a.source||''),comment:String(a.comment||''),depth:v.depth??null,frequency:v.freq??null}))
   })
-  const version = String(pipeline.version || pipeline.tbprofiler_version || source.tbprofiler_version || '')
-  const databaseVersion = String(pipeline.db_version || pipeline.database_version || source.db_version || '')
-  const medianDepth = qc.median_depth ?? qc.median_coverage ?? qc.median_depth_of_coverage ?? null
+  const version = String(pipeline.software_version || pipeline.version || pipeline.tbprofiler_version || source.tbprofiler_version || '')
+  const dbMeta = pipeline.db_version || pipeline.database_version || source.db_version || ''
+  const databaseVersion = String(dbMeta && typeof dbMeta === 'object' ? (dbMeta.commit || dbMeta.revision || dbMeta.sha || dbMeta.version || '') : dbMeta)
+  const genomeMedianDepth = qc.genome_median_depth ?? qc.median_depth ?? qc.median_coverage ?? qc.median_depth_of_coverage ?? null
+  const targetMedianDepth = qc.target_median_depth ?? qc.median_target_depth ?? null
+  const medianDepth = targetMedianDepth ?? genomeMedianDepth
+  const targetQc = Array.isArray(qc.target_qc) ? qc.target_qc.slice(0,500).map(x=>({target:String(x.target||''),medianDepth:x.median_depth??null,percentDepthPass:x.percent_depth_pass??null})) : []
   const qcNotes = Array.isArray(qc.notes) ? qc.notes.slice(0,20).map(String) : []
   if (medianDepth != null && Number(medianDepth) < 30 && !qcNotes.some(note => /below.*30x|30x.*below/i.test(note))) {
-    qcNotes.push('Median coverage is below the 30x review threshold; some mutations may not be detected.')
+    qcNotes.push('Median target coverage is below the 30x review threshold; some mutations may not be detected.')
   }
-  const qcStatus = medianDepth != null && Number(medianDepth) < 30 ? 'review_required_low_coverage' : String(qc.status || qc.qc_status || '')
+  const qcStatus = medianDepth != null && Number(medianDepth) < 30 ? 'review_required_low_coverage' : String(qc.status || qc.qc_status || 'qc_reported')
   const timestamp = String(source.timestamp || source.created_at || new Date().toISOString())
   return {
     id:'tbprofiler:'+sampleId, sourceRecordId:sampleId, sampleId,
@@ -2648,7 +2652,7 @@ function normaliseTBProfilerResult(source) {
     tbProfiler:{
       schemaVersion:String(source.schema_version||''),
       pipeline:{name:String(pipeline.name||pipeline.software||'TBProfiler'),version,databaseVersion},
-      qc:{status:qcStatus,medianDepth,pctReadsMapped:qc.pct_reads_mapped??qc.percent_reads_mapped??qc.percentage_reads_mapped??null,numReads:qc.num_reads??qc.number_of_reads??null,meanDepth:qc.mean_depth??qc.mean_coverage??null,notes:qcNotes},
+      qc:{status:qcStatus,medianDepth,genomeMedianDepth,targetMedianDepth,targetQc,pctReadsMapped:qc.pct_reads_mapped??qc.percent_reads_mapped??qc.percentage_reads_mapped??null,numReads:qc.num_reads??qc.number_of_reads??null,mappedReads:qc.num_reads_mapped??qc.reads_mapped??null,meanDepth:qc.mean_depth??qc.mean_coverage??null,notes:qcNotes},
       resistanceEvidence:annotations, drVariants:drVariants.slice(0,2000),
       otherVariants:otherVariants.slice(0,2000),
       qcFailVariants:Array.isArray(source.qc_fail_variants)?source.qc_fail_variants.slice(0,500):[],
