@@ -51,6 +51,24 @@ class TBProfilerNormalizerTests(unittest.TestCase):
         self.assertEqual(summary["medianCoverage"], 12)
         self.assertEqual(summary["mappingRatePercent"], 99.3)
 
+    def test_uses_verified_tool_version_and_extracts_database_commit(self):
+        sample = {
+            "id": "ERR_PROVENANCE_001",
+            "pipeline": {"version": "", "db_version": {
+                "name": "who_v2+", "commit": "fbd11a9065212bb576b729b80fd7a3feccaad8ff"
+            }},
+            "qc": {"pct_reads_mapped": 98.1},
+            "dr_variants": [],
+            "other_variants": [],
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "ERR_PROVENANCE_001.results.json"
+            path.write_text(json.dumps(sample), encoding="utf-8")
+            row = normalize_one(path, "PRJEB_TEST", "6.7.0", "not_reported")
+        summary = json.loads(row["summary"])
+        self.assertEqual(summary["pipelineVersion"], "6.7.0")
+        self.assertEqual(summary["databaseVersion"], "fbd11a9065212bb576b729b80fd7a3feccaad8ff")
+
     def test_normalized_summary_keeps_lineage_and_version_provenance(self):
         sample = {
             "id": "ERR_TEST_001",
