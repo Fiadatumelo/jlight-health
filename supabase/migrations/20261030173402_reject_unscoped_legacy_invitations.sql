@@ -40,12 +40,9 @@ BEGIN
   INSERT INTO public.jlight_membership_domain_permissions(organization_id,auth_subject,domain,can_read,can_write,can_report,granted_by)
   VALUES(p_org_id,v_uid,v_role,true,true,true,v_uid)
   ON CONFLICT(organization_id,auth_subject,domain) DO UPDATE SET can_read=true,can_write=true,can_report=true,granted_by=v_uid,created_at=now();
- ELSIF v_role='org_admin' THEN
-  INSERT INTO public.jlight_membership_domain_permissions(organization_id,auth_subject,domain,can_read,can_write,can_report,granted_by)
-  SELECT p_org_id,v_uid,w.workspace_key,true,true,true,v_uid FROM public.jl_organisation_workspaces w
-  WHERE w.org_id=p_org_id AND w.status='active' AND w.workspace_key<>'clinical_trials'
-  ON CONFLICT(organization_id,auth_subject,domain) DO UPDATE SET can_read=true,can_write=true,can_report=true,granted_by=v_uid,created_at=now();
- END IF;
+ -- org_admin is synchronised to the organisation-admin role by the membership
+ -- trigger. It may administer explicit grants but receives no implicit data grants.
+ -- Clinical Trials remains separately provisioned and permissioned.
  RETURN true;
 END;
 $function$;
