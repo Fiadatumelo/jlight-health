@@ -28,6 +28,8 @@ jobs:
           python-version: "3.12"
       - name: Validate published TBProfiler reference fixture and QC safeguards
         run: python -m unittest validation.tbprofiler.test_public_reference_fixture validation.tbprofiler.test_normalize_results validation.tbprofiler.test_tbprofiler_67_schema -v
+      - name: Verify application maps the actual TBProfiler 6.7 QC schema
+        run: python -m unittest jlight-backend.tests.test_frontend_contract -v
 
   public-south-african-tb:
     name: Run pinned TBProfiler on public ENA WGS data
