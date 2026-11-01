@@ -104,9 +104,13 @@ require("trialPatientIds" not in journey_reports and "STATE.role === 'Trial'" no
 journey_start = html.index("function buildPatientJourneyEvents(patient)")
 journey_end = html.index("\nfunction selectJourneyPatient", journey_start)
 journey = html[journey_start:journey_end]
-for field in ("STATE.admissions", "STATE.clinicalOrders", "STATE.labOrders",
-              "STATE.results", "STATE.bioRuns"):
-    require(field in journey, f"Patient journey does not read {field}")
+require("STATE.authoritativeJourneyEvents" in journey and "source_record_id" in journey,
+        "Patient Journey must render server-authoritative source events with provenance")
+require("async function loadAuthoritativePatientJourney(patient)" in html and
+        "/api/patient-journey/" in html,
+        "Patient Journey must load from the authenticated source API, not browser cache arrays")
+require("STATE.patientJourneyApiStatus !== 'loaded'" in html,
+        "Patient Journey reports must fail closed until authorised source events load")
 require("function buildJourneyReport()" not in html and
         "async function generateJourneyReport()" not in html,
         "Obsolete aggregate traceability export must be removed")

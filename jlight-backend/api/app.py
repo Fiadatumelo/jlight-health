@@ -272,6 +272,259 @@ def require_domain_auth(allowed_domains, access="read"):
     return decorate
 
 
+
+# ─── Authoritative Patient Journey ────────────────────────────────────────────
+
+def _patient_journey_authorisation(user_id):
+    """Resolve the active organisation and every independently permitted care domain."""
+    db = get_db()
+    if db is None:
+        return None, None, (jsonify({"success": False, "error": "Patient Journey data service unavailable"}), 503)
+    requested_org = request.headers.get("X-JLIGHT-Organisation", "").strip() or None
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (user_id,))
+            if requested_org:
+                cur.execute(
+                    """SELECT o.id::text AS organisation_id
+                       FROM public.jl_organisations o
+                       WHERE o.id::text=%s AND coalesce(o.active,true)=true
+                         AND (EXISTS (SELECT 1 FROM public.jlight_organization_memberships m
+                                      WHERE m.organization_id=o.id AND m.auth_subject=%s AND m.active=true)
+                           OR EXISTS (SELECT 1 FROM public.jl_org_memberships m
+                                      WHERE m.organisation_id=o.id AND m.user_id=%s AND m.status='active'))
+                       LIMIT 1""",
+                    (requested_org, user_id, user_id),
+                )
+            else:
+                cur.execute(
+                    """SELECT p.org_id::text AS organisation_id
+                       FROM public.jl_user_profiles p
+                       JOIN public.jl_organisations o ON o.id=p.org_id
+                       WHERE p.user_id=%s AND coalesce(p.active,true)=true
+                         AND coalesce(o.active,true)=true LIMIT 1""",
+                    (user_id,),
+                )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return None, None, (jsonify({"success": False, "error": "Active organisation membership required"}), 403)
+            org_id = row["organisation_id"]
+            permitted = []
+            for domain in ("hospital", "laboratory", "bioinformatics"):
+                cur.execute(
+                    "SELECT public.jlight_has_domain_permission(%s::uuid,%s,'read') AS allowed",
+                    (org_id, domain),
+                )
+                permission = cur.fetchone()
+                if permission and permission["allowed"] is True:
+                    permitted.append(domain)
+        db.rollback()
+        if not permitted:
+            return None, None, (jsonify({"success": False, "error": "Patient Journey requires at least one authorised care workspace"}), 403)
+        return org_id, set(permitted), None
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        app.logger.exception("Patient Journey authorisation failed")
+        return None, None, (jsonify({"success": False, "error": "Patient Journey authorisation unavailable"}), 503)
+
+
+def _journey_event(source, event_type, occurred_at, status, record_id, summary):
+    return {
+        "source": source,
+        "event_type": event_type,
+        "occurred_at": occurred_at.isoformat() if hasattr(occurred_at, "isoformat") else (str(occurred_at) if occurred_at else None),
+        "status": str(status or "recorded"),
+        "source_record_id": str(record_id) if record_id is not None else None,
+        "summary": str(summary or ""),
+    }
+
+
+@app.route("/api/patient-journey/<uuid:patient_id>", methods=["GET"])
+@require_auth
+def api_patient_journey(patient_id):
+    """Return a patient timeline from source tables the verified member may read.
+
+    The patient UUID is an exact source-record key, not a demographic match.
+    Clinical Trials is deliberately excluded; its participant timeline is separate.
+    """
+    claims = getattr(g, "auth_claims", None)
+    if not isinstance(claims, dict) or not claims.get("sub"):
+        return error("Verified authentication required", 401)
+    org_id, domains, auth_error = _patient_journey_authorisation(claims["sub"])
+    if auth_error:
+        return auth_error
+    db = get_db()
+    if db is None:
+        return error("Patient Journey data service unavailable", 503)
+    events = []
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (claims["sub"],))
+            cur.execute("SELECT set_config('jlight.organization_id', %s, true)", (org_id,))
+            cur.execute("SELECT set_config('jlight.auth_subject', %s, true)", (claims["sub"],))
+            cur.execute(
+                """SELECT id FROM public.jl_patients
+                   WHERE id=%s::uuid AND org_id=%s::uuid AND coalesce(active,true)=true LIMIT 1""",
+                (str(patient_id), org_id),
+            )
+            if not cur.fetchone():
+                db.rollback()
+                return error("Patient record not found in this organisation", 404)
+
+            if "hospital" in domains:
+                cur.execute(
+                    """SELECT id, admitted_at, status, admission_no, source
+                       FROM public.jl_admissions
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY admitted_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    events.append(_journey_event("Hospital", "admission", row["admitted_at"], row["status"],
+                        row["id"], "Admission record" + ((" · " + row["admission_no"]) if row.get("admission_no") else "") +
+                        ((" · source: " + row["source"]) if row.get("source") else "")))
+
+            if "laboratory" in domains:
+                cur.execute(
+                    """SELECT id, order_number, priority, status, ordered_at, received_at, resulted_at
+                       FROM public.jl_lab_orders
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY ordered_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    events.append(_journey_event("Laboratory", "laboratory_order", row["ordered_at"] or row["received_at"],
+                        row["status"], row["id"], "Order" + ((" " + row["order_number"]) if row.get("order_number") else "") +
+                        ((" · priority: " + row["priority"]) if row.get("priority") else "")))
+                cur.execute(
+                    """SELECT id, accession_no, sample_type, collected_at, received_at, stage
+                       FROM public.jl_lab_samples
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY collected_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    events.append(_journey_event("Laboratory", "specimen_status", row["collected_at"] or row["received_at"],
+                        row["stage"], row["id"], "Specimen status" +
+                        ((" · accession: " + row["accession_no"]) if row.get("accession_no") else "") +
+                        ((" · type: " + row["sample_type"]) if row.get("sample_type") else "")))
+                cur.execute(
+                    """SELECT id, test_name, result_value, result_text, result_unit, interpretation,
+                              is_critical, critical_notified_at, status, resulted_at, verified_at
+                       FROM public.jl_lab_results
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY resulted_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    result_value = row.get("result_value")
+                    value = str(result_value) if result_value is not None else (row.get("result_text") or "value not supplied")
+                    summary = (row.get("test_name") or "Laboratory result") + ": " + value
+                    if row.get("result_unit"):
+                        summary += " " + row["result_unit"]
+                    if row.get("interpretation"):
+                        summary += " · interpretation: " + row["interpretation"]
+                    if row.get("is_critical"):
+                        summary += " · critical result"
+                    if row.get("critical_notified_at"):
+                        summary += " · notification recorded"
+                    events.append(_journey_event("Laboratory", "laboratory_result", row["resulted_at"] or row["verified_at"],
+                        row["status"], row["id"], summary))
+
+            if "bioinformatics" in domains:
+                cur.execute(
+                    """SELECT id, run_id, analysis_type, pipeline, pipeline_version, stage,
+                              submitted_at, completed_at
+                       FROM public.jl_bio_runs
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY submitted_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                runs = cur.fetchall()
+                run_ids = [str(row["id"]) for row in runs]
+                for row in runs:
+                    events.append(_journey_event("Bioinformatics", "analysis_run", row["completed_at"] or row["submitted_at"],
+                        row["stage"], row["id"], (row.get("analysis_type") or "Analysis") +
+                        ((" · pipeline: " + row["pipeline"]) if row.get("pipeline") else "") +
+                        ((" · version: " + row["pipeline_version"]) if row.get("pipeline_version") else "")))
+                if run_ids:
+                    cur.execute(
+                        """SELECT q.id,q.run_id,q.coverage_mean,q.mapping_rate,q.q_score,q.dup_rate,
+                                  q.gc_content,q.contamination,q.qc_status
+                           FROM public.jl_bio_qc q
+                           JOIN public.jl_bio_runs r ON r.id=q.run_id AND r.org_id=q.org_id
+                           WHERE q.org_id=%s::uuid AND r.patient_id=%s::uuid
+                           ORDER BY q.created_at DESC LIMIT 500""",
+                        (org_id, str(patient_id)),
+                    )
+                    for row in cur.fetchall():
+                        metrics = [("coverage", row.get("coverage_mean")), ("mapping", row.get("mapping_rate")),
+                                   ("Q-score", row.get("q_score")), ("duplication", row.get("dup_rate")),
+                                   ("GC", row.get("gc_content")), ("contamination", row.get("contamination"))]
+                        summary = "Bioinformatics QC" + "".join(" · %s: %s" % (k, v) for k,v in metrics if v is not None)
+                        events.append(_journey_event("Bioinformatics", "quality_control", None, row["qc_status"], row["id"], summary))
+                    cur.execute(
+                        """SELECT a.id,a.run_id,a.gene,a.antibiotic_class,a.resistance_level,a.confidence,a.database_version
+                           FROM public.jl_bio_amr a
+                           JOIN public.jl_bio_runs r ON r.id=a.run_id AND r.org_id=a.org_id
+                           WHERE a.org_id=%s::uuid AND r.patient_id=%s::uuid
+                           ORDER BY a.created_at DESC LIMIT 1000""",
+                        (org_id, str(patient_id)),
+                    )
+                    for row in cur.fetchall():
+                        summary = (row.get("gene") or "Resistance finding") + " · " + (row.get("antibiotic_class") or "drug class") + \
+                            " · " + (row.get("resistance_level") or "source call")
+                        if row.get("confidence") is not None:
+                            summary += " · confidence: " + str(row["confidence"])
+                        if row.get("database_version"):
+                            summary += " · database: " + row["database_version"]
+                        events.append(_journey_event("Bioinformatics", "resistance_finding", None, row["resistance_level"],
+                            row["id"], summary))
+
+            # Cross-domain event stream is included only for verified patient links
+            # and only when the member has permission for the event's own domain.
+            cur.execute(
+                """SELECT event_id,domain,event_type,observed_at,source_status,source_record_id
+                   FROM public.jlight_workflow_events
+                   WHERE organization_id=%s::uuid AND jlight_patient_id=%s AND patient_link_verified=true
+                     AND domain = ANY(%s)
+                   ORDER BY observed_at DESC NULLS LAST LIMIT 1000""",
+                (org_id, str(patient_id), sorted(domains)),
+            )
+            for row in cur.fetchall():
+                events.append(_journey_event(row["domain"].title(), row["event_type"], row["observed_at"],
+                    row["source_status"], row["source_record_id"] or row["event_id"], "Verified linked workflow event"))
+        db.rollback()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        app.logger.exception("Patient Journey source retrieval failed")
+        return error("Patient Journey could not retrieve authorised source events", 503)
+
+    events.sort(key=lambda item: item["occurred_at"] or "", reverse=True)
+    return jsonify({
+        "success": True,
+        "patient_id": str(patient_id),
+        "organisation_id": org_id,
+        "available_domains": sorted(domains),
+        "clinical_trials_included": False,
+        "event_count": len(events),
+        "events": events[:3000],
+        "limitations": [
+            "Only exact patient UUID links in this organisation are included.",
+            "Only source domains for which this member has active read permission are included.",
+            "Clinical Trials is isolated and must be viewed in its separate participant timeline.",
+            "Source systems remain authoritative; missing events are unknown, not proof that an event did not occur."
+        ]
+    }), 200
+
+
 # ─── JLIGHT Intelligence / JC ─────────────────────────────────────────────────
 
 def _write_jc_audit(event):

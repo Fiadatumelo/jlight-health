@@ -34,19 +34,19 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn("key: 'trial-timeline'", HTML)
         self.assertIn('id="page-trial-timeline"', HTML)
 
-    def test_patient_events_require_exact_patient_id(self):
-        start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\nfunction selectJourneyPatient", start)
-        function = HTML[start:end]
-        self.assertGreaterEqual(function.count("String(row.patientId)!==pid"), 1)
-        self.assertIn("row.patientId==null||String(row.patientId)!==pid", function)
+    def test_patient_events_require_exact_patient_id_and_tenant(self):
+        api = Path("jlight-backend/api/app.py").read_text(encoding="utf-8")
+        self.assertIn("@app.route(\"/api/patient-journey/<uuid:patient_id>\"", api)
+        self.assertIn("WHERE id=%s::uuid AND org_id=%s::uuid", api)
+        self.assertIn("patient_id=%s::uuid", api)
+        self.assertIn("patient_link_verified=true", api)
+        self.assertIn("source_record_id", api)
 
-    def test_issue_resolution_is_not_inferred_from_recommendation(self):
-        start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\nfunction selectJourneyPatient", start)
-        function = HTML[start:end]
-        self.assertIn("r.resolution?' · recorded resolution: '+r.resolution", function)
-        self.assertIn("r.recommendation?' · recommended action: '+r.recommendation", function)
+    def test_issue_resolution_is_source_recorded_and_not_inferred(self):
+        self.assertIn("status: String(row.status || 'Recorded')", HTML)
+        self.assertIn("Source systems remain authoritative", HTML)
+        self.assertIn("A recommendation is not proof that a correction occurred.", HTML)
+        self.assertIn("Clinical Trials is excluded from this routine Patient Journey", HTML)
 
 
     def test_patient_journey_ui_exposes_two_report_action_and_status(self):

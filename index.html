@@ -1969,26 +1969,57 @@ async function createHospitalTrialReferral() {
 }
 
 function buildPatientJourneyEvents(patient) {
-  const pid=String(patient.id), events=[];
-  const add=(source,label,rows,summaryFn)=>{
-    (rows||[]).forEach(row=>{
-      if(!row||row.patientId==null||String(row.patientId)!==pid)return;
-      const dateValue=row.eventAt||row.createdAt||row.updatedAt||row.timestamp||row.resultedAt||row.collectedAt||row.orderedAt||row.requestedAt||row.admissionDate||row.startedAt||row.completedAt||row.date||row.visitDate||row.ts;
-      const parsed=dateValue!=null?new Date(dateValue):null;
-      events.push({source,label,when:parsed&&!Number.isNaN(parsed.getTime())?parsed:null,rawWhen:dateValue,summary:summaryFn(row),status:String(row.status||row.state||row.resolutionStatus||'Recorded')});
+  if (!patient || String(STATE.authoritativeJourneyPatientId || '') !== String(patient.id)) return [];
+  return (STATE.authoritativeJourneyEvents || []).map(row => {
+    const parsed = row.occurred_at ? new Date(row.occurred_at) : null;
+    return {
+      source: String(row.source || 'Unknown'),
+      label: String(row.event_type || 'Recorded event').replace(/_/g, ' '),
+      when: parsed && !Number.isNaN(parsed.getTime()) ? parsed : null,
+      rawWhen: row.occurred_at || null,
+      summary: String(row.summary || 'Source record available; summary fields were not supplied.'),
+      status: String(row.status || 'Recorded'),
+      sourceRecordId: row.source_record_id || null
+    };
+  });
+}
+async function loadAuthoritativePatientJourney(patient) {
+  const patientId = String(patient.id);
+  if (STATE.journeyLoadingPatientId === patientId ||
+      (STATE.authoritativeJourneyPatientId === patientId && STATE.patientJourneyApiStatus === 'loaded')) return;
+  STATE.journeyLoadingPatientId = patientId;
+  STATE.patientJourneyApiStatus = 'loading';
+  STATE.authoritativeJourneyPatientId = patientId;
+  STATE.authoritativeJourneyEvents = [];
+  renderJourney();
+  try {
+    const sb = getSupabase();
+    const sessionResult = sb ? await sb.auth.getSession() : null;
+    const session = sessionResult && sessionResult.data && sessionResult.data.session;
+    if (!session || !session.access_token) throw new Error('A verified session is required.');
+    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const response = await fetch(baseUrl + '/api/patient-journey/' + encodeURIComponent(patientId), {
+      method: 'GET',
+      headers: {
+        'Authorization': 'Bearer ' + session.access_token,
+        'X-JLIGHT-Organisation': String(STATE.orgId || '')
+      }
     });
-  };
-  add('Hospital','Hospital event',STATE.admissions||[],r=>'Admission / encounter'+(r.ward?' · '+r.ward:'')+(r.reason?' · '+r.reason:''));
-  add('Hospital','Hospital order',STATE.clinicalOrders||[],r=>'Order'+(r.orderType?' · '+r.orderType:'')+(r.description?' · '+r.description:'')+(r.status?' · status: '+r.status:''));
-  add('Laboratory','Laboratory order',STATE.labOrders||[],r=>'Laboratory request'+(r.testName?' · '+r.testName:'')+(r.status?' · status: '+r.status:''));
-  add('Laboratory','Laboratory result',STATE.results||[],r=>'Source result'+(r.testName?' · '+r.testName:'')+(r.resultValue!=null?' · '+r.resultValue:'')+(r.resultText?' · '+r.resultText:'')+(r.resultUnit?' '+r.resultUnit:'')+(r.interpretation?' · interpretation: '+r.interpretation:''));
-  add('Laboratory','Sample / accession event',STATE.samples||[],r=>'Accession / sample record'+(r.accessionNumber?' · '+r.accessionNumber:'')+(r.status?' · status: '+r.status:''));
-  add('Bioinformatics','Bioinformatics output',STATE.bioRuns||[],r=>'Imported analysis output'+(r.analysisType?' · '+r.analysisType:'')+(r.pipeline?' · '+r.pipeline:'')+(r.status||r.qcStatus?' · source status: '+(r.status||r.qcStatus):''));
-  add('Bioinformatics','Quality-control event',STATE.bioQc||[],r=>'Quality metric / flag'+(r.metric?' · '+r.metric:'')+(r.status?' · status: '+r.status:'')+(r.notes?' · '+r.notes:''));
-  add('Bioinformatics','Resistance finding',STATE.bioAmr||[],r=>'Source-reported resistance finding'+(r.organism?' · '+r.organism:'')+(r.drug?' · '+r.drug:'')+(r.resistancePattern?' · '+r.resistancePattern:'')+(r.status?' · status: '+r.status:''));
-  add('JLIGHT Intelligence','Decision / issue',STATE.cards||[],r=>(r.title||r.headline||r.type||'Detected issue')+(r.severity?' · severity: '+r.severity:'')+(r.acknowledged?' · acknowledged':' · open')+(r.recommendation?' · recommended action: '+r.recommendation:'')+(r.resolution?' · recorded resolution: '+r.resolution:''));
-  events.sort((a,b)=>(b.when?b.when.getTime():0)-(a.when?a.when.getTime():0));
-  return events;
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body.success !== true) throw new Error(body.error || ('Patient Journey returned HTTP ' + response.status));
+    STATE.authoritativeJourneyEvents = Array.isArray(body.events) ? body.events : [];
+    STATE.patientJourneyAvailableDomains = Array.isArray(body.available_domains) ? body.available_domains : [];
+    STATE.patientJourneyApiStatus = 'loaded';
+    STATE.patientJourneyApiError = '';
+    STATE.patientJourneyLimitations = Array.isArray(body.limitations) ? body.limitations : [];
+  } catch (error) {
+    STATE.patientJourneyApiStatus = 'error';
+    STATE.patientJourneyApiError = String(error && error.message || 'Patient Journey data unavailable');
+    STATE.authoritativeJourneyEvents = [];
+  } finally {
+    STATE.journeyLoadingPatientId = null;
+    renderJourney();
+  }
 }
 function selectJourneyPatient(id) {
   STATE.currentPatientId=String(id);
@@ -2025,8 +2056,8 @@ function renderJourney() {
     const date=e.when?e.when.toLocaleString():(e.rawWhen?'Date recorded: '+String(e.rawWhen):'Date not supplied');
     const status=String(e.status||'Recorded');
     const open=/open|pending|fail|error|flag|unresolved|review/i.test(status);
-    return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+'</span></div></div></article>';
-  }).join('')+'</div>':'<div class="journey-empty"><strong>No linked events found yet</strong><p>JLIGHT will show events when authorised source records are available and linked to this patient’s verified identifier. No events have been invented or inferred.</p></div>';
+    return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+(e.sourceRecordId?' · Record ref: '+esc(e.sourceRecordId):' · Source reference unavailable')+'</span></div></div></article>';
+  }).join('')+'</div>':(STATE.patientJourneyApiStatus==='loading'?'<div class="journey-empty"><strong>Loading authorised source events</strong><p>Retrieving source records under your current workspace permissions.</p></div>':STATE.patientJourneyApiStatus==='error'?'<div class="journey-empty"><strong>Patient Journey could not load</strong><p>'+esc(STATE.patientJourneyApiError||'Authorised source records are unavailable.')+'</p></div>':'<div class="journey-empty"><strong>No linked events found</strong><p>Authorised source systems returned no exact patient-ID-linked events for the workspaces you can access. Missing events are unknown, not proof that care or testing did not occur.</p></div>');
   page.innerHTML=
     '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
@@ -2034,7 +2065,11 @@ function renderJourney() {
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
     '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
-    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are linked only by the existing patient ID.</li><li>Clinical-trial details are included only inside the Clinical Trials workspace and only from trial records linked to that patient ID.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate two separate reports for the selected patient: a chronological journey summary and a data-quality / traceability review. Both share a correlation ID and exclude direct identifiers.</p><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
+    '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are retrieved from source tables only when verified organisation membership and workspace read permission allow it. Links use the exact patient UUID; no demographic similarity matching is performed.</li><li>Clinical Trials is excluded from this routine Patient Journey and remains in its separately permissioned participant timeline.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate two separate reports for the selected patient: a chronological journey summary and a data-quality / traceability review. Both share a correlation ID and exclude direct identifiers.</p><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
+  if (selected && MODE.isOnline && !['loaded','loading','error'].includes(STATE.patientJourneyApiStatus) ||
+      (selected && MODE.isOnline && String(STATE.authoritativeJourneyPatientId || '') !== String(selected.id))) {
+    loadAuthoritativePatientJourney(selected);
+  }
 }function downloadJourneyJson(report, filename) {
   const blob = new Blob([JSON.stringify(report, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob), link = document.createElement('a');
@@ -2276,6 +2311,11 @@ async function generatePatientJourneyReports() {
     toast('No patient selected', 'Select an active patient first.', 'crit');
     return;
   }
+  if (STATE.patientJourneyApiStatus !== 'loaded' || String(STATE.authoritativeJourneyPatientId) !== String(patient.id)) {
+    if (status) status.textContent = 'Reports are unavailable until authorised source records have loaded successfully.';
+    toast('Patient Journey not ready', 'Load the authorised source timeline before generating reports.', 'warn');
+    return;
+  }
   const events = buildPatientJourneyEvents(patient);
   const participantLabel = 'Participant ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
   const generatedAt = new Date().toISOString();
@@ -2288,7 +2328,7 @@ async function generatePatientJourneyReports() {
     events: events.map(e => ({
       source: String(e.source || 'Unknown'), eventType: String(e.label || 'Recorded event'),
       occurredAt: e.when && !Number.isNaN(e.when.getTime()) ? e.when.toISOString() : null,
-      status: 'Source status must be verified in the originating system.', summary: 'Source record available; free-text details omitted from this export to reduce identifier leakage and avoid reproducing unverified clinical statements.'
+      status: String(e.status || 'Recorded; verify in source system'), sourceRecordId: e.sourceRecordId || null, summary: 'Source record available; free-text details omitted from this export to reduce identifier leakage and avoid reproducing unverified clinical statements.'
     })),
     limitations: ['Source systems remain authoritative.', 'Missing records or dates are unknown, not proof that an event did not occur.', 'Participant label is a report-local alias and is not a patient identifier.']
   };
