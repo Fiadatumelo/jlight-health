@@ -1969,7 +1969,8 @@ async function createHospitalTrialReferral() {
 }
 
 function buildPatientJourneyEvents(patient) {
-  if (!patient || String(STATE.authoritativeJourneyPatientId || '') !== String(patient.id)) return [];
+  if (!patient || String(STATE.authoritativeJourneyPatientId || '') !== String(patient.id) ||
+      String(STATE.authoritativeJourneyOrgId || '') !== String(STATE.orgId || '')) return [];
   return (STATE.authoritativeJourneyEvents || []).map(row => {
     const parsed = row.occurred_at ? new Date(row.occurred_at) : null;
     return {
@@ -1986,10 +1987,13 @@ function buildPatientJourneyEvents(patient) {
 async function loadAuthoritativePatientJourney(patient) {
   const patientId = String(patient.id);
   if (STATE.journeyLoadingPatientId === patientId ||
-      (STATE.authoritativeJourneyPatientId === patientId && STATE.patientJourneyApiStatus === 'loaded')) return;
+      (STATE.authoritativeJourneyPatientId === patientId &&
+       String(STATE.authoritativeJourneyOrgId || '') === String(STATE.orgId || '') &&
+       STATE.patientJourneyApiStatus === 'loaded')) return;
   STATE.journeyLoadingPatientId = patientId;
   STATE.patientJourneyApiStatus = 'loading';
   STATE.authoritativeJourneyPatientId = patientId;
+  STATE.authoritativeJourneyOrgId = String(STATE.orgId || '');
   STATE.authoritativeJourneyEvents = [];
   renderJourney();
   try {
@@ -2071,7 +2075,8 @@ function renderJourney() {
     '<div class="journey-panel"><div class="section-title">JLIGHT findings and follow-up</div><p class="journey-footnote">A recommendation is not proof that a correction occurred. Resolution is shown only when supported by a recorded status or action.</p>'+(events.some(e=>e.source==='JLIGHT Intelligence')?'<div class="journey-summary-list">'+events.filter(e=>e.source==='JLIGHT Intelligence').map(e=>'<div class="journey-summary-item"><strong>'+esc(e.label)+'</strong><p>'+esc(e.summary)+'</p><span>'+esc(e.status||'Recorded')+'</span></div>').join('')+'</div>':'<p class="journey-footnote">No patient-linked Decision Cards are currently available.</p>')+'</div></section></div>'+
     '<div class="journey-panel"><div class="section-title">Data and privacy boundaries</div><ul class="journey-notes"><li>Hospital, Laboratory and Bioinformatics events are retrieved from source tables only when verified organisation membership and workspace read permission allow it. Links use the exact patient UUID; no demographic similarity matching is performed.</li><li>Clinical Trials is excluded from this routine Patient Journey and remains in its separately permissioned participant timeline.</li><li>JLIGHT summarises supplied records and flags; it does not perform diagnostic tests, generate laboratory measurements or infer unrecorded events.</li><li>Unavailable integrations, missing identifiers and absent source events must be treated as unknown—not as proof that an event did not happen.</li></ul></div>' + '<div class="journey-panel"><div class="section-title">Patient journey reports</div><p class="journey-footnote">Generate two separate reports for the selected patient: a chronological journey summary and a data-quality / traceability review. Both share a correlation ID and exclude direct identifiers.</p><div id="patient-journey-report-status" class="journey-footnote" role="status" aria-live="polite"></div></div>';
   if (selected && MODE.isOnline && !['loaded','loading','error'].includes(STATE.patientJourneyApiStatus) ||
-      (selected && MODE.isOnline && String(STATE.authoritativeJourneyPatientId || '') !== String(selected.id))) {
+      (selected && MODE.isOnline && (String(STATE.authoritativeJourneyPatientId || '') !== String(selected.id) ||
+       String(STATE.authoritativeJourneyOrgId || '') !== String(STATE.orgId || '')))) {
     loadAuthoritativePatientJourney(selected);
   }
 }function downloadJourneyJson(report, filename) {
