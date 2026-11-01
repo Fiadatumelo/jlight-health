@@ -2039,6 +2039,8 @@ function renderJourney() {
   if(!selected&&patients.length)selected=patients[0];
   if(selected)STATE.currentPatientId=selected.id;
   const events=selected?buildPatientJourneyEvents(selected):[];
+  const canSeePatientIdentity = STATE.patientJourneyApiStatus === 'loaded' &&
+    (STATE.patientJourneyAvailableDomains || []).includes('hospital');
   const counts=[
     {name:'Hospital',n:events.filter(e=>e.source==='Hospital').length},
     {name:'Laboratory',n:events.filter(e=>e.source==='Laboratory').length},
@@ -2046,11 +2048,13 @@ function renderJourney() {
     {name:'JLIGHT Intelligence',n:events.filter(e=>e.source==='JLIGHT Intelligence').length}
   ];
   const countCards=counts.map(x=>'<div class="journey-metric tone-blue"><span>'+esc(x.name)+'</span><strong>'+x.n+'</strong><small>linked events</small></div>').join('');
-  const patientCards=patients.map(p=>{
+  const patientCards=patients.map((p,index)=>{
     const active=selected&&String(selected.id)===String(p.id);
-    const search=[p.fullName,p.mrn,p.id].filter(Boolean).join(' ');
+    const patientLabel = canSeePatientIdentity ? (p.fullName || 'Patient') : ('Patient record ' + (index + 1));
+    const patientRef = canSeePatientIdentity ? (p.mrn || '—') : 'Identity restricted by workspace permissions';
+    const search=canSeePatientIdentity?[p.fullName,p.mrn].filter(Boolean).join(' '):patientLabel;
     const count=buildPatientJourneyEvents(p).length;
-    return '<button type="button" data-journey-patient data-search="'+esc(search)+'" onclick="selectJourneyPatient(\''+esc(p.id)+'\')" class="journey-patient-choice" aria-pressed="'+active+'"><span><strong>'+esc(p.fullName||'Unnamed patient')+'</strong><small>MRN '+esc(p.mrn||'—')+' · '+count+' linked events</small></span><span class="journey-choice-arrow">'+(active?'Selected':'View journey')+'</span></button>';
+    return '<button type="button" data-journey-patient data-search="'+esc(search)+'" onclick="selectJourneyPatient(\''+esc(p.id)+'\')" class="journey-patient-choice" aria-pressed="'+active+'"><span><strong>'+esc(patientLabel)+'</strong><small>'+esc(patientRef)+' · '+count+' linked events</small></span><span class="journey-choice-arrow">'+(active?'Selected':'View journey')+'</span></button>';
   }).join('');
   const eventHTML=events.length?'<div class="journey-timeline">'+events.map((e,i)=>{
     const date=e.when?e.when.toLocaleString():(e.rawWhen?'Date recorded: '+String(e.rawWhen):'Date not supplied');
@@ -2060,7 +2064,7 @@ function renderJourney() {
   }).join('')+'</div>':(STATE.patientJourneyApiStatus==='loading'?'<div class="journey-empty"><strong>Loading authorised source events</strong><p>Retrieving source records under your current workspace permissions.</p></div>':STATE.patientJourneyApiStatus==='error'?'<div class="journey-empty"><strong>Patient Journey could not load</strong><p>'+esc(STATE.patientJourneyApiError||'Authorised source records are unavailable.')+'</p></div>':'<div class="journey-empty"><strong>No linked events found</strong><p>Authorised source systems returned no exact patient-ID-linked events for the workspaces you can access. Missing events are unknown, not proof that care or testing did not occur.</p></div>');
   page.innerHTML=
     '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
-    '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?esc(selected.fullName||'Patient'):'No patient selected')+'</h3><p>'+(selected?'MRN: '+esc(selected.mrn||'—')+' · Events are linked by existing patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
+    '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?(canSeePatientIdentity?esc(selected.fullName||'Patient'):'Patient record '+(patients.findIndex(p=>String(p.id)===String(selected.id))+1)):'No patient selected')+'</h3><p>'+(selected?(canSeePatientIdentity?'MRN: '+esc(selected.mrn||'—'):'Identity details are restricted by your workspace permissions')+' · Events are linked by exact patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
     '<section class="journey-main"><div class="journey-panel"><div class="section-head"><div><div class="section-title">What happened</div><p class="journey-footnote">Newest events first. Missing dates are labelled; records are not matched by name or inferred demographics.</p></div><span class="journey-badge">'+events.length+' events</span></div>'+eventHTML+'</div>'+
@@ -2317,7 +2321,7 @@ async function generatePatientJourneyReports() {
     return;
   }
   const events = buildPatientJourneyEvents(patient);
-  const participantLabel = 'Participant ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
+  const participantLabel = 'Patient record ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
   const generatedAt = new Date().toISOString();
   const intelligence = await requestJlightIntelligenceSummary(patient, events);
   const journeyReport = {
