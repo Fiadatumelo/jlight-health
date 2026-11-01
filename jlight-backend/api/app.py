@@ -32,6 +32,9 @@ from agent.jc_agent import (
     JCContext, JCAgent, JCTool, JCError, JCApprovalRequired,
     JCForbidden, JCInvalidRequest,
 )
+from agent.jc_provider import (
+    explain_jlight_evidence, JCProviderUnavailable, JCProviderInvalidResponse,
+)
 
 
 # ─── App Setup ───────────────────────────────────────────────────────────────
@@ -319,9 +322,12 @@ def api_intelligence_summary():
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             return jsonify({"success": False, "error": "A JSON object is required"}), 400
-        allowed = {"csv_analysis", "bioinformatics", "journey_checks"}
+        allowed = {"csv_analysis", "bioinformatics", "journey_checks", "intent"}
         if set(payload) - allowed:
             return jsonify({"success": False, "error": "Unsupported input fields"}), 400
+        intent = payload.get("intent", "explain_findings")
+        if intent not in {"explain_findings", "summarise", "next_steps"}:
+            return jsonify({"success": False, "error": "Unsupported JC explanation intent"}), 400
 
         context = JCContext(
             user_id=claims["sub"],
@@ -342,7 +348,18 @@ def api_intelligence_summary():
             required_permissions=frozenset({"intelligence:read"}),
             allowed_arguments=frozenset(allowed),
         ))
-        result = agent.execute("intelligence_summary", payload)
+        tool_payload = {key: value for key, value in payload.items() if key != "intent"}
+        result = agent.execute("intelligence_summary", tool_payload)
+        # The deterministic engine remains authoritative. The optional model
+        # receives only its minimised summary and may explain, never alter findings.
+        result["language_assistance"] = {"status": "not_configured", "authoritative": False}
+        try:
+            result["explanation"] = explain_jlight_evidence(result["result"], intent)
+            result["language_assistance"] = {"status": "available", "authoritative": False}
+        except JCProviderUnavailable:
+            result["language_assistance"] = {"status": "unavailable", "authoritative": False}
+        except (ValueError, JCProviderInvalidResponse):
+            result["language_assistance"] = {"status": "rejected", "authoritative": False}
         return jsonify({"success": True, "organisation_id": org_id, **result}), 200
     except JCApprovalRequired:
         return jsonify({"success": False, "error": "Explicit approval required"}), 409
