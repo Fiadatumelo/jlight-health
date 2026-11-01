@@ -388,6 +388,44 @@ def api_patient_journey(patient_id):
                         row["id"], "Admission record" + ((" · " + row["admission_no"]) if row.get("admission_no") else "") +
                         ((" · source: " + row["source"]) if row.get("source") else "")))
 
+                cur.execute(
+                    """SELECT id,test_name,priority,ordered_at,specimen_collected_at,result_received_at,
+                              clinical_action_at,tat_hours,tat_target_hours,tat_breached,journey_gap_flag
+                       FROM public.jl_clinical_orders
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY ordered_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    action_status = "action_recorded" if row.get("clinical_action_at") else (
+                        "action_overdue_review" if row.get("journey_gap_flag") or row.get("tat_breached")
+                        else "awaiting_clinical_action" if row.get("result_received_at") else "in_progress"
+                    )
+                    summary = (row.get("test_name") or "Clinical order")
+                    if row.get("priority"):
+                        summary += " · priority: " + row["priority"]
+                    if row.get("tat_hours") is not None:
+                        summary += " · turnaround: " + str(row["tat_hours"]) + " h"
+                    if row.get("tat_target_hours") is not None:
+                        summary += " · target: " + str(row["tat_target_hours"]) + " h"
+                    if row.get("journey_gap_flag"):
+                        summary += " · documented journey gap"
+                    events.append(_journey_event("Hospital", "clinical_order", row["ordered_at"],
+                        "ordered", row["id"], summary))
+                    if row.get("specimen_collected_at"):
+                        events.append(_journey_event("Hospital", "specimen_collection_recorded",
+                            row["specimen_collected_at"], "recorded", row["id"], "Specimen collection timestamp supplied by Hospital"))
+                    if row.get("result_received_at"):
+                        events.append(_journey_event("Hospital", "result_received_by_hospital",
+                            row["result_received_at"], "received", row["id"], "Result receipt recorded by Hospital"))
+                    if row.get("clinical_action_at"):
+                        events.append(_journey_event("Hospital", "clinical_action_recorded",
+                            row["clinical_action_at"], "action_recorded", row["id"], "Clinical action timestamp recorded"))
+                    elif row.get("result_received_at"):
+                        events.append(_journey_event("Hospital", "clinical_action_pending",
+                            row["result_received_at"], action_status, row["id"],
+                            "Result receipt is recorded; no clinical action timestamp is present in this source record"))
+            
             if "laboratory" in domains:
                 cur.execute(
                     """SELECT id, order_number, priority, status, ordered_at, received_at, resulted_at
@@ -435,6 +473,19 @@ def api_patient_journey(patient_id):
                     events.append(_journey_event("Laboratory", "laboratory_result", row["resulted_at"] or row["verified_at"],
                         row["status"], row["id"], summary))
 
+                cur.execute(
+                    """SELECT id,accession_no,sample_type,collection_date,received_at
+                       FROM public.jl_bio_accessions
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY received_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    events.append(_journey_event("Bioinformatics", "bioinformatics_accession",
+                        row["received_at"] or row["collection_date"], "received" if row.get("received_at") else "collected",
+                        row["id"], "Accession" +
+                        ((" " + row["accession_no"]) if row.get("accession_no") else "") +
+                        ((" · sample type: " + row["sample_type"]) if row.get("sample_type") else "")))
             if "bioinformatics" in domains:
                 cur.execute(
                     """SELECT id, run_id, analysis_type, pipeline, pipeline_version, stage,
