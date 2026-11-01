@@ -3,7 +3,7 @@ import { sendMailbuxMessage } from "../_shared/mailbux.ts";
 
 const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "https://jlight-health.co.za;https://www.jlight-health.co.za")
   .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
-const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\\d+--jlight-health\\.netlify\\.app$/.test(origin);
+const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\d+--jlight-health\.netlify\.app$/.test(origin);
 const headers = (origin: string) => ({
   "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "null",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
