@@ -1,32 +1,36 @@
-# Mailbux JMAP transactional email
+# Mailbux integration for JLIGHT
 
-JLIGHT sends organisation-code, password-recovery and organisation-invitation messages through the dedicated Mailbux mailbox. The implementation uses Mailbux JMAP over HTTPS; it does not require the paid Mailbux management API or IMAP/POP3.
+JLIGHT uses the existing Mailbux mailbox `support@jlight-health.co.za`. Clients can continue sending enquiries to this address; Mailbux receives those messages in its existing webmail inbox. No new mailbox, account, password, DNS record, or Mailbux setting is required for ordinary inbound client email.
 
-## Supabase Edge Function secrets
+JLIGHT's transactional email functions use the Mailbux JMAP service over HTTPS for organisation-code, password-recovery, and organisation-invitation messages. This does not require the paid Mailbux management API or IMAP/POP3.
 
-Configure these secrets in the target Supabase project before deploying the functions:
+## Runtime configuration
+
+The Supabase Edge Functions read these server-side secrets:
 
 - `MAILBUX_EMAIL=support@jlight-health.co.za`
-- `MAILBUX_APP_PASSWORD=<dedicated mailbox app password>`
+- `MAILBUX_APP_PASSWORD=<existing authorised Mailbux mailbox credential>`
 
-Create the app password in the Mailbux dashboard under the mailbox's App Passwords section. Do not use the dashboard login password or the Mailbux management API key. Never commit the app password, include it in logs, or place it in browser configuration.
+Use only an existing credential already authorised for this mailbox and already available to the project owner. Prefer an already-issued app password if one exists. **Do not create, reset, or change a Mailbux password or alter Mailbux account settings as part of this integration.** Never commit credentials, return them to a browser, or include them in logs.
 
-The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, then uses the advertised HTTPS API URL, primary mail account, drafts mailbox and sending identity. Messages are created and submitted using JMAP `Email/set` and `EmailSubmission/set`.
+The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, validates the advertised HTTPS API endpoint, reads the primary mail account, drafts/sent mailboxes and sending identity, then creates and submits messages using RFC 8621-compliant `Email/set` and `EmailSubmission/set` calls.
 
-## Functions using Mailbux
+## JLIGHT email functions
 
-- `send-organisation-code`
-- `send-password-reset`
-- `invite-organisation-member`
+- `send-organisation-code` — sends the organisation code only to the authenticated organisation owner.
+- `send-password-reset` — generates a Supabase recovery link and sends it without exposing whether an account exists.
+- `invite-organisation-member` — checks organisation owner/admin permissions, emails the invitation link, and creates the invited membership only after Mailbux accepts the message. Existing active, suspended, or revoked memberships are not silently duplicated or reactivated.
 
-The functions retain server-side Supabase authentication and organisation/role checks. Password-reset responses remain generic to avoid account enumeration. Invitation membership is provisioned only after Mailbux accepts the invitation message for submission.
+## Inbound client enquiries
 
-## Release procedure
+Clients can email `support@jlight-health.co.za` from their own personal or organisation email addresses. Mailbux receives these messages in the existing mailbox, which remains accessible through the existing Mailbux webmail sign-in. This PR does not create a second inbox inside JLIGHT or copy private client messages into the JLIGHT database.
 
-1. Configure the two secrets in a non-production Supabase staging project.
-2. Deploy the three functions to staging with JWT verification settings preserved from the existing project.
-3. Test one organisation-code email to the verified owner, one password-recovery email to a controlled test account, and one invitation to a controlled test address.
-4. Verify message receipt, sender identity, one-time recovery/invitation links, and that an unauthorised user cannot request an organisation code or invite members.
-5. Only after all tests pass, configure the same secrets in production and deploy the reviewed function versions.
+## Staging-first verification
 
-Do not deploy these changes to the production Supabase project until the staging mail tests pass.
+1. Confirm the existing Mailbux credential is already available in the staging Supabase secret store. Do not create or change a Mailbux credential.
+2. Deploy the three functions to staging, preserving the currently deployed JWT verification settings.
+3. Verify organisation-code, password-recovery and invitation delivery with controlled test accounts.
+4. Confirm message receipt in the existing Mailbux mailbox, sender identity, one-time links, duplicate invitation handling, and negative authorisation tests.
+5. Only after staging tests pass, separately authorise and perform production secret configuration and deployment.
+
+Do not deploy the Mailbux sender functions to production until staging delivery and authorisation tests pass.
