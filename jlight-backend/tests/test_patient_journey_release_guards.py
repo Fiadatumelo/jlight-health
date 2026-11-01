@@ -66,6 +66,11 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn("qualityReport.correlationId = correlationId", function)
         self.assertEqual(function.count("downloadJourneyJson("), 2)
 
+    def test_patient_identity_is_masked_without_hospital_read_permission(self):
+        self.assertIn("STATE.patientJourneyAvailableDomains || []).includes('hospital')", HTML)
+        self.assertIn("Identity details are restricted by your workspace permissions", HTML)
+        self.assertIn("Patient record ' + (index + 1)", HTML)
+
     def test_obsolete_aggregate_traceability_export_is_removed(self):
         self.assertNotIn("function buildJourneyReport()", HTML)
         self.assertNotIn("async function generateJourneyReport()", HTML)

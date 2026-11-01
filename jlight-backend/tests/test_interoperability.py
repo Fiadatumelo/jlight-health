@@ -10,6 +10,7 @@ from engine.interoperability import (
     classify_sync_change,
     evaluate_source_health,
     normalize_record,
+    parse_hl7_v25_message,
 )
 
 NOW = datetime(2026, 10, 23, 9, 0, tzinfo=timezone.utc)
@@ -106,6 +107,64 @@ class InteroperabilityFoundationTests(unittest.TestCase):
     def test_naive_timestamp_is_rejected(self):
         with self.assertRaises(ValueError):
             normalize_record(record("synthetic-his", "H-011", "hospital", "JL-SYN-011", updated="2026-10-23T08:30:00"), now=NOW)
+
+
+    def test_hl7_adt_message_becomes_unlinked_hospital_event(self):
+        message = (
+            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ADT^A01|MSG-ADT-1|P|2.5\r"
+            "PID|1||MRN-SYN-001^^^FAC^MR||Synthetic^Person\r"
+            "PV1|1|I|WARD^01^01"
+        )
+        parsed = parse_hl7_v25_message(message, source_system="synthetic-his")
+        self.assertEqual(parsed["domain"], "hospital")
+        self.assertEqual(parsed["events"][0]["event_type"], "admission")
+        self.assertFalse(parsed["events"][0]["patient_link_verified"])
+        self.assertIsNone(parsed["events"][0]["jlight_patient_id"])
+        self.assertEqual(parsed["patient_link_status"], "unlinked_pending_governed_reconciliation")
+        self.assertNotIn("MRN-SYN-001", str(parsed))
+        self.assertEqual(len(parsed["events"][0]["source_patient_ref_hash"]), 64)
+
+    def test_hl7_orm_message_becomes_laboratory_order_event(self):
+        message = (
+            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORM^O01|MSG-ORM-1|P|2.5\r"
+            "PID|1||MRN-SYN-002^^^FAC^MR\r"
+            "ORC|NW|ORD-001||PLACER-1|SC\r"
+            "OBR|1|ORD-001||718-7^Haemoglobin^LN"
+        )
+        parsed = parse_hl7_v25_message(message, source_system="synthetic-lis")
+        self.assertEqual(parsed["domain"], "laboratory")
+        self.assertEqual(parsed["events"][0]["event_type"], "laboratory_order")
+        self.assertEqual(parsed["events"][0]["source_record_id"], "ORD-001")
+        self.assertFalse(parsed["events"][0]["patient_link_verified"])
+
+    def test_hl7_oru_message_becomes_result_event_without_patient_identity(self):
+        message = (
+            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORU^R01|MSG-ORU-1|P|2.5\r"
+            "PID|1||MRN-SYN-003^^^FAC^MR\r"
+            "OBR|1|ORD-002||718-7^Haemoglobin^LN\r"
+            "OBX|1|NM|718-7^Haemoglobin^LN||12.5|g/dL|||N|||F|||20261101100000+0200"
+        )
+        parsed = parse_hl7_v25_message(message, source_system="synthetic-lis")
+        self.assertEqual(parsed["events"][0]["event_type"], "laboratory_result")
+        self.assertEqual(parsed["events"][0]["domain"], "laboratory")
+        self.assertFalse(parsed["events"][0]["patient_link_verified"])
+        self.assertNotIn("12.5", str(parsed))
+
+    def test_hl7_parser_rejects_timezone_free_timestamps(self):
+        message = (
+            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000||ADT^A01|MSG-ADT-2|P|2.5\r"
+            "PID|1||MRN-SYN-004^^^FAC^MR"
+        )
+        with self.assertRaisesRegex(ValueError, "timezone offset"):
+            parse_hl7_v25_message(message, source_system="synthetic-his")
+
+    def test_hl7_parser_rejects_unsupported_message_types(self):
+        message = (
+            "MSH|^~\\\\&|SYNTH|FAC|JLIGHT|JLIGHT|20261101100000+0200||SIU^S12|MSG-SIU-1|P|2.5\r"
+            "PID|1||MRN-SYN-005^^^FAC^MR"
+        )
+        with self.assertRaisesRegex(ValueError, "Unsupported HL7 message type"):
+            parse_hl7_v25_message(message, source_system="synthetic")
 
 
 if __name__ == "__main__":
