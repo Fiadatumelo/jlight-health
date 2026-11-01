@@ -29,7 +29,7 @@ async function jmapRequest(apiUrl: string, auth: string, methodCalls: unknown[][
 
 export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
   const email = Deno.env.get("MAILBUX_EMAIL")?.trim();
-  const password = Deno.env.get("MAILBUX_APP_PASSWORD");
+  const password = Deno.env.get("MAILBUX_APP_PASSWORD") ?? Deno.env.get("MAILBUX_PASSWORD");
   if (!email || !password) throw new Error("Mailbux mailbox credentials are not configured");
   const auth = buildBasicAuth(email, password);
 
