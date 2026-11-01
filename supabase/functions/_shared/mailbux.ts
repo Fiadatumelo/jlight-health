@@ -38,7 +38,7 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
   const session = await sessionResponse.json();
   const accountId = session?.primaryAccounts?.[MAIL];
   const apiUrl = session?.apiUrl;
-  if (typeof accountId !== "string" || typeof apiUrl !== "string" || !apiUrl.startsWith("https://")) {
+  if (typeof accountId !== "string" || typeof apiUrl !== "string" || new URL(apiUrl).protocol !== "https:" || new URL(apiUrl).hostname !== "my.mailbux.com") {
     throw new Error("Mailbux did not advertise a valid primary mail account and HTTPS API URL");
   }
 
