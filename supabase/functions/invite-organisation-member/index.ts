@@ -3,8 +3,9 @@ import { sendMailbuxMessage } from "../_shared/mailbux.ts";
 
 const allowedOrigins = new Set((Deno.env.get("ALLOWED_ORIGINS") ?? "https://jlight-health.co.za;https://www.jlight-health.co.za")
   .split(";").map((x) => x.trim().replace(/\/$/, "")).filter(Boolean));
+const isAllowedOrigin = (origin: string) => allowedOrigins.has(origin) || /^https:\/\/deploy-preview-\\d+--jlight-health\\.netlify\\.app$/.test(origin);
 const headers = (origin: string) => ({
-  "Access-Control-Allow-Origin": allowedOrigins.has(origin) ? origin : "null",
+  "Access-Control-Allow-Origin": isAllowedOrigin(origin) ? origin : "null",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Vary": "Origin",
@@ -16,11 +17,11 @@ Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin") ?? "";
   const cors = headers(origin);
   if (req.method === "OPTIONS") {
-    if (!allowedOrigins.has(origin)) return new Response("Forbidden origin", { status: 403 });
+    if (!isAllowedOrigin(origin)) return new Response("Forbidden origin", { status: 403 });
     return new Response("ok", { headers: cors });
   }
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405, origin);
-  if (!allowedOrigins.has(origin)) return json({ error: "Origin not allowed" }, 403, origin);
+  if (!isAllowedOrigin(origin)) return json({ error: "Origin not allowed" }, 403, origin);
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) return json({ error: "Sign in is required" }, 401, origin);
 
