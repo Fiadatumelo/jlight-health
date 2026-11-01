@@ -66,6 +66,13 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn("qualityReport.correlationId = correlationId", function)
         self.assertEqual(function.count("downloadJourneyJson("), 2)
 
+    def test_patient_journey_includes_proposal_critical_action_and_bioinformatics_sources(self):
+        api = Path("jlight-backend/api/app.py").read_text(encoding="utf-8")
+        for source in ("jl_clinical_orders", "clinical_action_at", "result_received_at",
+                       "jl_bio_accessions", "jl_bio_runs", "jl_bio_qc", "jl_bio_amr"):
+            with self.subTest(source=source):
+                self.assertIn(source, api)
+
     def test_patient_identity_is_masked_without_hospital_read_permission(self):
         self.assertIn("STATE.patientJourneyAvailableDomains || []).includes('hospital')", HTML)
         self.assertIn("Identity details are restricted by your workspace permissions", HTML)
