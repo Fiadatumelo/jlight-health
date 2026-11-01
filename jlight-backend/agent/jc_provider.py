@@ -11,7 +11,8 @@ import os
 import re
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen\nfrom urllib.parse import urlparse
+from urllib.request import Request, urlopen
+from urllib.parse import urlparse
 
 
 class JCProviderUnavailable(RuntimeError):
