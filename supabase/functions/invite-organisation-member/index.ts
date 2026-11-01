@@ -68,6 +68,20 @@ Deno.serve(async (req: Request) => {
   if (inviteError || !inviteData?.properties?.action_link || !inviteData.user?.id) {
     return json({ error: "Invitation could not be prepared. Check the address and try again." }, 400, origin);
   }
+  const { data: existingMemberships, error: existingMembershipError } = await admin.from("jl_org_memberships")
+    .select("id,access_role,status")
+    .eq("organisation_id", organisationId)
+    .eq("user_id", inviteData.user.id);
+  if (existingMembershipError) return json({ error: "Could not verify the invitee's existing organisation access" }, 500, origin);
+  const existingMembership = (existingMemberships ?? []).find((m: { access_role: string }) => m.access_role === role);
+  if (existingMembership?.status === "active") {
+    return json({ error: "This person already has the selected organisation access" }, 409, origin);
+  }
+  if (existingMembership && existingMembership.status !== "invited") {
+    return json({ error: "This person's existing access is suspended or revoked. An organisation owner must review it before sending another invitation." }, 409, origin);
+  }
+  const membershipAlreadyInvited = Boolean(existingMembership);
+
   try {
     await sendMailbuxMessage({
       to: email,
@@ -87,16 +101,18 @@ Deno.serve(async (req: Request) => {
     return json({ error: "The invitation link was created but could not be emailed. Ask an administrator to retry; no workspace membership was granted." }, 502, origin);
   }
 
-  const { error: insertError } = await admin.from("jl_org_memberships").insert({
-    organisation_id: organisationId,
-    user_id: inviteData.user.id,
-    access_role: role,
-    status: "invited",
-    created_by: authData.user.id,
-  });
-  if (insertError) {
-    console.error("[invite-organisation-member] Membership provisioning failed", insertError.code);
-    return json({ error: "The invitation email was sent, but access provisioning needs administrator attention. Do not resend repeatedly." }, 502, origin);
+  if (!membershipAlreadyInvited) {
+    const { error: insertError } = await admin.from("jl_org_memberships").insert({
+      organisation_id: organisationId,
+      user_id: inviteData.user.id,
+      access_role: role,
+      status: "invited",
+      created_by: authData.user.id,
+    });
+    if (insertError) {
+      console.error("[invite-organisation-member] Membership provisioning failed", insertError.code);
+      return json({ error: "The invitation email was sent, but access provisioning needs administrator attention. Do not resend repeatedly." }, 502, origin);
+    }
   }
   return json({ ok: true, message: "Invitation sent. Access is limited to the selected organisation role." }, 200, origin);
 });
