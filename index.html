@@ -1997,7 +1997,7 @@ async function loadAuthoritativePatientJourney(patient) {
     const sessionResult = sb ? await sb.auth.getSession() : null;
     const session = sessionResult && sessionResult.data && sessionResult.data.session;
     if (!session || !session.access_token) throw new Error('A verified session is required.');
-    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\\/+$/, '');
+    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
     const response = await fetch(baseUrl + '/api/patient-journey/' + encodeURIComponent(patientId), {
       method: 'GET',
       headers: {
