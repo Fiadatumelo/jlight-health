@@ -111,8 +111,8 @@ class InteroperabilityFoundationTests(unittest.TestCase):
 
     def test_hl7_adt_message_becomes_unlinked_hospital_event(self):
         message = (
-            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ADT^A01|MSG-ADT-1|P|2.5\\r"
-            "PID|1||MRN-SYN-001^^^FAC^MR||Synthetic^Person\\r"
+            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ADT^A01|MSG-ADT-1|P|2.5\r"
+            "PID|1||MRN-SYN-001^^^FAC^MR||Synthetic^Person\r"
             "PV1|1|I|WARD^01^01"
         )
         parsed = parse_hl7_v25_message(message, source_system="synthetic-his")
@@ -126,9 +126,9 @@ class InteroperabilityFoundationTests(unittest.TestCase):
 
     def test_hl7_orm_message_becomes_laboratory_order_event(self):
         message = (
-            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORM^O01|MSG-ORM-1|P|2.5\\r"
-            "PID|1||MRN-SYN-002^^^FAC^MR\\r"
-            "ORC|NW|ORD-001||PLACER-1|SC\\r"
+            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORM^O01|MSG-ORM-1|P|2.5\r"
+            "PID|1||MRN-SYN-002^^^FAC^MR\r"
+            "ORC|NW|ORD-001||PLACER-1|SC\r"
             "OBR|1|ORD-001||718-7^Haemoglobin^LN"
         )
         parsed = parse_hl7_v25_message(message, source_system="synthetic-lis")
@@ -139,9 +139,9 @@ class InteroperabilityFoundationTests(unittest.TestCase):
 
     def test_hl7_oru_message_becomes_result_event_without_patient_identity(self):
         message = (
-            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORU^R01|MSG-ORU-1|P|2.5\\r"
-            "PID|1||MRN-SYN-003^^^FAC^MR\\r"
-            "OBR|1|ORD-002||718-7^Haemoglobin^LN\\r"
+            "MSH|^~\\\\&|SYNTH-LIS|FAC|JLIGHT|JLIGHT|20261101100000+0200||ORU^R01|MSG-ORU-1|P|2.5\r"
+            "PID|1||MRN-SYN-003^^^FAC^MR\r"
+            "OBR|1|ORD-002||718-7^Haemoglobin^LN\r"
             "OBX|1|NM|718-7^Haemoglobin^LN||12.5|g/dL|||N|||F|||20261101100000+0200"
         )
         parsed = parse_hl7_v25_message(message, source_system="synthetic-lis")
@@ -152,7 +152,7 @@ class InteroperabilityFoundationTests(unittest.TestCase):
 
     def test_hl7_parser_rejects_timezone_free_timestamps(self):
         message = (
-            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000||ADT^A01|MSG-ADT-2|P|2.5\\r"
+            "MSH|^~\\\\&|SYNTH-HIS|FAC|JLIGHT|JLIGHT|20261101100000||ADT^A01|MSG-ADT-2|P|2.5\r"
             "PID|1||MRN-SYN-004^^^FAC^MR"
         )
         with self.assertRaisesRegex(ValueError, "timezone offset"):
@@ -160,7 +160,7 @@ class InteroperabilityFoundationTests(unittest.TestCase):
 
     def test_hl7_parser_rejects_unsupported_message_types(self):
         message = (
-            "MSH|^~\\\\&|SYNTH|FAC|JLIGHT|JLIGHT|20261101100000+0200||SIU^S12|MSG-SIU-1|P|2.5\\r"
+            "MSH|^~\\\\&|SYNTH|FAC|JLIGHT|JLIGHT|20261101100000+0200||SIU^S12|MSG-SIU-1|P|2.5\r"
             "PID|1||MRN-SYN-005^^^FAC^MR"
         )
         with self.assertRaisesRegex(ValueError, "Unsupported HL7 message type"):
