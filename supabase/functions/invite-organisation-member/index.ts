@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const role = typeof body.access_role === "string" ? body.access_role : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const roles = new Set(["hospital", "laboratory", "bioinformatics", "reviewer", "read_only", "org_admin"]);
+  const roles = new Set(["hospital", "laboratory", "bioinformatics", "clinical_trial", "reviewer", "read_only", "org_admin"]);
   if (!uuidPattern.test(organisationId) || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !roles.has(role)) {
     return json({ error: "Organisation, email or role is invalid" }, 400, origin);
   }
