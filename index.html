@@ -779,8 +779,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
       <button class="btn" id="si-toggle" onclick="toggleSignupMode()" style="width:100%;justify-content:center;padding:11px">Create new workspace</button>
       <button class="btn btn-primary" id="si-continue" onclick="continueWithSelectedPath()" style="display:none;width:100%;justify-content:center;padding:11px">Continue to selected path</button>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-top:14px;font-size:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;font-size:12px">
       <span style="color:var(--text-3)">Protected by one-time email verification codes.</span>
+      <span style="color:var(--text-3)">Need help? <a href="mailto:support@jlight-health.co.za" style="color:var(--teal);font-weight:600">Contact JLIGHT Support</a></span>
     </div>
   </div>
 </div>
@@ -805,6 +806,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
             <div class="sb-userrole" id="sb-userrole">role</div>
           </div>
         </div>
+        <a href="mailto:support@jlight-health.co.za" style="display:block;margin:12px 0 8px;color:var(--text-2);font-size:12px;text-decoration:none">Contact support</a>
         <button class="sb-signout" onclick="signOut()">Sign out</button>
       </div>
     </aside>
