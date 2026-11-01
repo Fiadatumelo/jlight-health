@@ -92,8 +92,8 @@ def test_patient_journey_rejects_patient_from_another_organisation():
 
 def test_patient_journey_includes_bioinformatics_accession_qc_and_amr():
     db = JourneyDB()
-    with patch("api.app.verify_access_token", return_value=claims()), \\
-         patch("api.app._patient_journey_authorisation", return_value=(ORG_ID, {"bioinformatics"}, None)), \\
+    with patch("api.app.verify_access_token", return_value=claims()), \
+         patch("api.app._patient_journey_authorisation", return_value=(ORG_ID, {"bioinformatics"}, None)), \
          patch("api.app.get_db", return_value=db):
         response = app.test_client().get(
             "/api/patient-journey/" + PATIENT_ID,
