@@ -114,8 +114,7 @@ def test_patient_journey_returns_only_permitted_domains_and_excludes_trials():
 
 def test_patient_journey_integrates_all_three_care_domains_and_clinical_action_gap():
     db = JourneyDB(include_events=True)
-    with patch("api.app.verify_access_token", return_value=claims()), \
-         patch("api.app._patient_journey_authorisation", return_value=(ORG_ID, {"hospital", "laboratory", "bioinformatics"}, None)), \
+    with patch("api.app.verify_access_token", return_value=claims()), patch("api.app._patient_journey_authorisation", return_value=(ORG_ID, {"hospital", "laboratory", "bioinformatics"}, None)), patch("api.app.get_db", return_value=db):
          patch("api.app.get_db", return_value=db):
         response = app.test_client().get(
             "/api/patient-journey/" + PATIENT_ID,
