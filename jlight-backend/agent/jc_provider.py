@@ -11,7 +11,7 @@ import os
 import re
 from typing import Any, Mapping
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request, urlopen\nfrom urllib.parse import urlparse
 
 
 class JCProviderUnavailable(RuntimeError):
@@ -62,8 +62,15 @@ def explain_jlight_evidence(summary: Mapping[str, Any], intent: str = "explain_f
     endpoint = os.environ.get(
         "JLIGHT_JC_PROVIDER_URL", "https://api.openai.com/v1/chat/completions"
     ).strip()
-    if not endpoint.startswith("https://"):
-        raise JCProviderUnavailable("JC provider endpoint must use HTTPS")
+    parsed_endpoint = urlparse(endpoint)
+    if (
+        parsed_endpoint.scheme != "https"
+        or parsed_endpoint.hostname != "api.openai.com"
+        or parsed_endpoint.port not in (None, 443)
+        or parsed_endpoint.username
+        or parsed_endpoint.password
+    ):
+        raise JCProviderUnavailable("JC provider endpoint must use the approved OpenAI HTTPS host")
     model = os.environ.get("JLIGHT_JC_PROVIDER_MODEL", "gpt-4.1-mini").strip()
     if not model or len(model) > 100:
         raise JCProviderUnavailable("JC provider model configuration is invalid")
