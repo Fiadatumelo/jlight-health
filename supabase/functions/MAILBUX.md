@@ -13,7 +13,7 @@ The Supabase Edge Functions read these server-side secrets:
 
 Use only an existing credential already authorised for this mailbox and already available to the project owner. Prefer an already-issued app password if one exists. **Do not create, reset, or change a Mailbux password or alter Mailbux account settings as part of this integration.** Never commit credentials, return them to a browser, or include them in logs.
 
-The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, validates the advertised HTTPS API endpoint, reads the primary mail account, drafts/sent mailboxes and sending identity, then creates and submits messages using RFC 8621-compliant `Email/set` and `EmailSubmission/set` calls.
+The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, validates the advertised HTTPS API endpoint, reads the primary mail account, drafts/sent mailboxes and sending identity, then creates and submits messages using RFC 8621-compliant `Email/set` and `EmailSubmission/set` calls with a MIME body part and body value.
 
 ## JLIGHT email functions
 
@@ -23,7 +23,7 @@ The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, valid
 
 ## Inbound client enquiries
 
-Clients can email `support@jlight-health.co.za` from their own personal or organisation email addresses. Mailbux receives these messages in the existing mailbox, which remains accessible through the existing Mailbux webmail sign-in. This PR does not create a second inbox inside JLIGHT or copy private client messages into the JLIGHT database.
+Clients can email `support@jlight-health.co.za` from their own personal or organisation email addresses. The existing Mailbux forwarder is already enabled and routes incoming messages to the mailbox owner's existing inbox; the Mailbux webmail inbox also retains the messages. No forwarding rule, DNS record, mailbox, password, or Mailbux account setting was changed during this PR. This PR does not create a second inbox inside JLIGHT or copy private client messages into the JLIGHT database. Mailbux documents JMAP access for mailbox operations; its separate tenant-management REST API is not required for this sender. A future in-JLIGHT shared inbox would need its own authenticated JMAP sync, message storage, access controls, and UI.
 
 ## Staging-first verification
 
