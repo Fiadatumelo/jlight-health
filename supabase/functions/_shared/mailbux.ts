@@ -1,29 +1,24 @@
-export type MailMessage = {
-  to: string;
-  subject: string;
-  text: string;
-};
+export type MailMessage = { to: string; subject: string; text: string };
 
 const SESSION_URL = "https://my.mailbux.com/jmap/";
+const CORE = "urn:ietf:params:jmap:core";
+const MAIL = "urn:ietf:params:jmap:mail";
+const SUBMISSION = "urn:ietf:params:jmap:submission";
 
-function basicAuth(username: string, password: string): string {
-  return "Basic " + btoa(unescape(encodeURIComponent(username + ":" + password)));
+export function buildBasicAuth(username: string, password: string): string {
+  const bytes = new TextEncoder().encode(username + ":" + password);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return "Basic " + btoa(binary);
 }
 
-async function jmapRequest(url: string, auth: string, calls: unknown[][], using: string[]) {
-  const response = await fetch(url, {
+async function jmapRequest(apiUrl: string, auth: string, methodCalls: unknown[][]) {
+  const response = await fetch(apiUrl, {
     method: "POST",
-    headers: {
-      "Authorization": auth,
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    body: JSON.stringify({ using, methodCalls: calls }),
+    headers: { Authorization: auth, "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ using: [CORE, MAIL, SUBMISSION], methodCalls }),
   });
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error("Mailbux JMAP request failed (" + response.status + "): " + detail.slice(0, 200));
-  }
+  if (!response.ok) throw new Error("Mailbux JMAP request failed (" + response.status + ")");
   const result = await response.json();
   if (!Array.isArray(result.methodResponses)) throw new Error("Mailbux returned an invalid JMAP response");
   for (const item of result.methodResponses) {
@@ -36,49 +31,40 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
   const email = Deno.env.get("MAILBUX_EMAIL")?.trim();
   const password = Deno.env.get("MAILBUX_APP_PASSWORD");
   if (!email || !password) throw new Error("Mailbux mailbox credentials are not configured");
+  const auth = buildBasicAuth(email, password);
 
-  const auth = basicAuth(email, password);
-  const sessionResponse = await fetch(SESSION_URL, {
-    headers: { "Authorization": auth, "Accept": "application/json" },
-  });
+  const sessionResponse = await fetch(SESSION_URL, { headers: { Authorization: auth, Accept: "application/json" } });
   if (!sessionResponse.ok) throw new Error("Mailbux session discovery failed (" + sessionResponse.status + ")");
   const session = await sessionResponse.json();
-  const accountId = session?.primaryAccounts?.["urn:ietf:params:jmap:mail"];
+  const accountId = session?.primaryAccounts?.[MAIL];
   const apiUrl = session?.apiUrl;
-  if (typeof accountId !== "string" || typeof apiUrl !== "string") {
-    throw new Error("Mailbux did not advertise a primary mail account and API URL");
+  if (typeof accountId !== "string" || typeof apiUrl !== "string" || !apiUrl.startsWith("https://")) {
+    throw new Error("Mailbux did not advertise a valid primary mail account and HTTPS API URL");
   }
 
-  const core = "urn:ietf:params:jmap:core";
-  const mail = "urn:ietf:params:jmap:mail";
-  const submission = "urn:ietf:params:jmap:submission";
   const metadata = await jmapRequest(apiUrl, auth, [
     ["Mailbox/get", { accountId }, "mailboxes"],
     ["Identity/get", { accountId }, "identities"],
-  ], [core, mail, submission]);
+  ]);
+  const mailboxes = metadata.find((x: any[]) => x?.[0] === "Mailbox/get")?.[1]?.list ?? [];
+  const identities = metadata.find((x: any[]) => x?.[0] === "Identity/get")?.[1]?.list ?? [];
+  const drafts = mailboxes.find((x: any) => x?.role === "drafts");
+  const identity = identities.find((x: any) => x?.email?.toLowerCase() === email.toLowerCase()) ?? identities[0];
+  if (!drafts?.id || !identity?.id) throw new Error("Mailbux drafts mailbox or sending identity is unavailable");
 
-  const mailboxResult = metadata.find((x: any[]) => x?.[0] === "Mailbox/get")?.[1];
-  const identityResult = metadata.find((x: any[]) => x?.[0] === "Identity/get")?.[1];
-  const drafts = (mailboxResult?.list ?? []).find((x: any) => x?.role === "drafts");
-  const identity = (identityResult?.list ?? []).find((x: any) => x?.email?.toLowerCase() === email.toLowerCase())
-    ?? (identityResult?.list ?? [])[0];
-  if (!drafts?.id || !identity?.id) throw new Error("Mailbux mailbox is missing a drafts folder or sending identity");
-
-  const cleanTo = message.to.trim().toLowerCase();
-  if (cleanTo.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(cleanTo)) {
-    throw new Error("Recipient email address is invalid");
-  }
-  const subject = message.subject.replace(/[\\r\\n]+/g, " ").trim().slice(0, 200);
+  const recipient = message.to.trim().toLowerCase();
+  if (recipient.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) throw new Error("Recipient email address is invalid");
+  const subject = message.subject.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
   if (!subject || message.text.length > 100000) throw new Error("Email content is invalid");
 
-  const sendCalls = await jmapRequest(apiUrl, auth, [
+  const responses = await jmapRequest(apiUrl, auth, [
     ["Email/set", {
       accountId,
       create: {
         draft1: {
           mailboxIds: { [drafts.id]: true },
           from: [{ email }],
-          to: [{ email: cleanTo }],
+          to: [{ email: recipient }],
           subject,
           textBody: [{ type: "text/plain", value: message.text }],
         },
@@ -90,19 +76,12 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
         send1: {
           identityId: identity.id,
           emailId: "#draft1",
-          envelope: {
-            mailFrom: { email },
-            rcptTo: [{ email: cleanTo }],
-          },
+          envelope: { mailFrom: { email }, rcptTo: [{ email: recipient }] },
         },
       },
     }, "submit"],
-  ], [core, mail, submission]);
-
-  const created = sendCalls.find((x: any[]) => x?.[0] === "Email/set")?.[1]?.created?.draft1;
-  const submissionResult = sendCalls.find((x: any[]) => x?.[0] === "EmailSubmission/set")?.[1];
-  if (!created?.id || !submissionResult?.created?.send1) {
-    const notCreated = submissionResult?.notCreated?.send1;
-    throw new Error("Mailbux did not confirm email submission" + (notCreated?.type ? ": " + notCreated.type : ""));
-  }
+  ]);
+  const created = responses.find((x: any[]) => x?.[0] === "Email/set")?.[1]?.created?.draft1;
+  const submitted = responses.find((x: any[]) => x?.[0] === "EmailSubmission/set")?.[1]?.created?.send1;
+  if (!created?.id || !submitted) throw new Error("Mailbux did not confirm email submission");
 }
