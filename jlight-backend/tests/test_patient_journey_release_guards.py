@@ -73,6 +73,10 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
             with self.subTest(source=source):
                 self.assertIn(source, api)
 
+    def test_patient_journey_cache_is_bound_to_active_organisation(self):
+        self.assertIn("STATE.authoritativeJourneyOrgId", HTML)
+        self.assertIn("String(STATE.authoritativeJourneyOrgId || '') !== String(STATE.orgId || '')", HTML)
+
     def test_patient_identity_is_masked_without_hospital_read_permission(self):
         self.assertIn("STATE.patientJourneyAvailableDomains || []).includes('hospital')", HTML)
         self.assertIn("Identity details are restricted by your workspace permissions", HTML)
