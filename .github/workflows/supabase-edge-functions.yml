@@ -1,0 +1,28 @@
+name: Supabase Edge Function checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/supabase-edge-functions.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Mailbux helper and transactional functions
+        run: |
+          deno check supabase/functions/_shared/mailbux.ts
+          deno check supabase/functions/send-organisation-code/index.ts
+          deno check supabase/functions/send-password-reset/index.ts
+          deno check supabase/functions/invite-organisation-member/index.ts
