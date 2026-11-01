@@ -1,15 +1,15 @@
 """JLIGHT Intelligence Engine — evidence-first aggregation of existing analyses.
 
-This is a deterministic first layer, not a diagnostic model. It reuses structured
-outputs from the existing CSV/QC, bioinformatics and patient-journey checks. It does
-not read raw patient records, sequence payloads, free-text summaries, or trial data.
+This is a deterministic, evidence-first rules layer, not a diagnostic model. It reuses structured
+outputs from validated CSV/QC, bioinformatics, patient-journey and Clinical Trials database checks.
+It does not read raw patient records, sequence payloads, consent documents or free-text clinical narratives.
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
-ENGINE_VERSION = "0.1.2"
+ENGINE_VERSION = "0.2.0"
 ALLOWED_SOURCES = {"hospital", "laboratory", "bioinformatics", "interoperability"}
 ALLOWED_STATUSES = {"pass", "review", "fail", "unknown"}
 ALLOWED_SEVERITIES = {"info", "low", "medium", "high", "critical"}
@@ -41,6 +41,41 @@ def _status(value: Any) -> str:
 def _severity(value: Any) -> str:
     candidate = str(value or "").strip().lower()
     return candidate if candidate in ALLOWED_SEVERITIES else "medium"
+
+
+ALLOWED_TRIAL_EVIDENCE_EVENT_TYPES = {
+    "visit_scheduled", "protocol_deviation_recorded", "study_link_missing",
+    "consent_record_incomplete", "adverse_event_recorded",
+    "serious_adverse_event_recorded", "participant_withdrawn",
+}
+
+
+def _bounded_trial_evidence_refs(value: Any) -> list[dict[str, str]]:
+    """Accept only opaque timeline-event references, never participant or patient IDs."""
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return []
+    refs: list[dict[str, str]] = []
+    for item in value[:20]:
+        if not isinstance(item, Mapping):
+            continue
+        if item.get("source_table") != "jl_trial_participant_events":
+            continue
+        event_type = str(item.get("event_type", "")).strip().lower()
+        source_record_id = str(item.get("source_record_id", "")).strip()
+        occurred_at = str(item.get("occurred_at", "")).strip()
+        if event_type not in ALLOWED_TRIAL_EVIDENCE_EVENT_TYPES:
+            continue
+        if not source_record_id or len(source_record_id) > 64:
+            continue
+        if not occurred_at or len(occurred_at) > 40:
+            continue
+        refs.append({
+            "source_table": "jl_trial_participant_events",
+            "source_record_id": source_record_id,
+            "event_type": event_type,
+            "occurred_at": occurred_at,
+        })
+    return refs
 
 
 def _finding(finding_id: str, source: str, rule_id: str, severity: str,
@@ -165,3 +200,82 @@ def build_intelligence_summary(
             "No direct patient identifiers, raw sequences, free-text source summaries or Clinical Trials data are included.",
         ],
     }
+
+
+# Clinical Trials has a deliberately separate allow-list and summary builder.
+ALLOWED_CLINICAL_TRIAL_CHECKS = {
+    "overdue_visit", "protocol_deviation", "incomplete_trial_record",
+    "consent_record_incomplete", "adverse_event_followup", "participant_withdrawal",
+}
+
+
+def build_clinical_trials_intelligence_summary(
+    *, clinical_trials_checks: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Aggregate server-derived, de-identified trial workflow checks only.
+
+    Evidence is limited to opaque timeline-event references and a versioned rule
+    identifier. No patient identifiers, participant codes, consent text, adverse
+    event narratives, medical details or arbitrary source text are accepted.
+    """
+    findings: list[dict[str, Any]] = []
+    rule_versions: set[str] = set()
+    for item in clinical_trials_checks or ():
+        if not isinstance(item, Mapping):
+            continue
+        check_id = str(item.get("check_id", "")).strip().lower()
+        if check_id not in ALLOWED_CLINICAL_TRIAL_CHECKS:
+            continue
+        status = _status(item.get("status"))
+        severity = _severity(item.get("severity"))
+        evidence_count = _bounded_int(item.get("evidence_count"))
+        rule_version = str(item.get("rule_version", "")).strip()[:40]
+        if rule_version:
+            rule_versions.add(rule_version)
+        evidence_refs = _bounded_trial_evidence_refs(item.get("evidence_refs"))
+        findings.append(_finding(
+            finding_id=f"trial_{check_id}",
+            source="clinical_trials",
+            rule_id=check_id,
+            severity=severity,
+            status=status,
+            evidence={
+                "evidence_count": evidence_count,
+                "rule_version": rule_version or "unspecified",
+                "evidence_refs": evidence_refs,
+            },
+            action=(
+                "Review the referenced study timeline records with the authorised investigator or study team; JC does not make clinical or protocol decisions."
+                if status in {"review", "fail", "unknown"} or severity in {"high", "critical"}
+                else "Retain the study record and continue the approved oversight process."
+            ),
+        ))
+
+    counts = {key: 0 for key in ("pass", "review", "fail", "unknown")}
+    for finding in findings:
+        counts[finding["status"]] += 1
+    review_required = any(item["requires_human_review"] for item in findings)
+    overall = (
+        "insufficient_input" if not findings else
+        "review_required" if review_required else
+        "no_flags_from_server_derived_checks"
+    )
+    return {
+        "engine": "JLIGHT Clinical Trials Intelligence",
+        "engine_version": ENGINE_VERSION,
+        "rule_versions": sorted(rule_versions),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "overall_status": overall,
+        "finding_count": len(findings),
+        "status_counts": counts,
+        "human_review_required": review_required,
+        "findings": findings,
+        "limitations": [
+            "This is an aggregate workflow review, not clinical, safety, eligibility or protocol adjudication.",
+            "Evidence counts and references are calculated by versioned database rules, not supplied by the browser.",
+            "Evidence references identify only opaque Clinical Trials timeline events; they do not contain participant codes or patient identifiers.",
+            "No consent documents, adverse-event narratives or medical details are included.",
+            "Missing inputs mean unknown, not normal or complete.",
+        ],
+    }
+

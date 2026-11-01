@@ -43,8 +43,6 @@ class JCContext:
     def __post_init__(self) -> None:
         if not self.user_id.strip() or not self.organisation_id.strip():
             raise JCInvalidRequest("Verified user and organisation context are required.")
-        if self.clinical_trials_scope:
-            raise JCForbidden("JC core tools are not enabled for Clinical Trials context.")
 
 
 @dataclass(frozen=True)
@@ -56,6 +54,7 @@ class JCTool:
     required_permissions: frozenset[str] = frozenset()
     requires_approval: bool = False
     allowed_arguments: frozenset[str] = frozenset()
+    allowed_scopes: frozenset[str] = frozenset({"general"})
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[a-z][a-z0-9_]{1,63}", self.name):
@@ -86,6 +85,7 @@ class JCAgent:
             {"name": tool.name, "description": tool.description}
             for tool in self.tools.values()
             if tool.required_permissions.issubset(self.context.permissions)
+            and ("clinical_trials" if self.context.clinical_trials_scope else "general") in tool.allowed_scopes
         ]
 
     def execute(
@@ -103,6 +103,10 @@ class JCAgent:
         tool = self.tools[tool_name]
         args = dict(arguments or {})
 
+        current_scope = "clinical_trials" if self.context.clinical_trials_scope else "general"
+        if current_scope not in tool.allowed_scopes:
+            self._audit(tool_name, "denied", "workspace_scope_mismatch")
+            raise JCForbidden("This JC tool is not available in the current workspace.")
         if not tool.required_permissions.issubset(self.context.permissions):
             self._audit(tool_name, "denied", "missing_permission")
             raise JCForbidden("You do not have permission to perform this action.")

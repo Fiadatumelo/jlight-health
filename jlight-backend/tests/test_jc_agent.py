@@ -103,14 +103,24 @@ def test_sensitive_action_requires_explicit_approval():
     assert called == [True]
 
 
-def test_clinical_trials_context_is_rejected():
-    with pytest.raises(JCForbidden):
-        JCContext(
-            user_id="user-test-1",
-            organisation_id="org-test-1",
-            permissions=frozenset({"system:read"}),
-            clinical_trials_scope=True,
-        )
+def test_general_tools_are_blocked_in_clinical_trials_scope():
+    events = []
+    context = JCContext(
+        user_id="user-test-1",
+        organisation_id="org-test-1",
+        permissions=frozenset({"system:read"}),
+        clinical_trials_scope=True,
+    )
+    agent = JCAgent(context, audit=make_audit(events))
+    agent.register(JCTool(
+        name="system_status",
+        description="General workspace status.",
+        handler=lambda ctx, args: {"status": "ok"},
+        required_permissions=frozenset({"system:read"}),
+    ))
+    with pytest.raises(JCForbidden, match="current workspace"):
+        agent.execute("system_status")
+    assert events[-1]["reason"] == "workspace_scope_mismatch"
 
 
 def test_unsupported_arguments_are_rejected_before_execution():
