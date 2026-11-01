@@ -9,9 +9,10 @@ JLIGHT's transactional email functions use the Mailbux JMAP service over HTTPS f
 The Supabase Edge Functions read these server-side secrets:
 
 - `MAILBUX_EMAIL=support@jlight-health.co.za`
-- `MAILBUX_APP_PASSWORD=<existing authorised Mailbux mailbox credential>`
+- `MAILBUX_APP_PASSWORD=<existing authorised Mailbux app password>` (preferred, if one already exists)
+- `MAILBUX_PASSWORD=<existing authorised mailbox password>` (supported alternative; do not create or change a password)
 
-Use only an existing credential already authorised for this mailbox and already available to the project owner. Prefer an already-issued app password if one exists. **Do not create, reset, or change a Mailbux password or alter Mailbux account settings as part of this integration.** Never commit credentials, return them to a browser, or include them in logs.
+Use only an existing credential already authorised for this mailbox and already available to the project owner. The sender accepts an already-issued app password or the existing mailbox password as a server-side Supabase secret. **Do not create, reset, or change a Mailbux password or alter Mailbux account settings as part of this integration.** Never commit credentials, return them to a browser, or include them in logs.
 
 The helper discovers the JMAP session from `https://my.mailbux.com/jmap/`, validates the advertised HTTPS API endpoint, reads the primary mail account, drafts/sent mailboxes and sending identity, then creates and submits messages using RFC 8621-compliant `Email/set` and `EmailSubmission/set` calls with a MIME body part and body value.
 
