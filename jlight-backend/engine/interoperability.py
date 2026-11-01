@@ -6,6 +6,8 @@ verified patient identifiers. This module does not infer identity or diagnose di
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
+import re
 from typing import Any, Iterable, Mapping
 
 DOMAINS = {"hospital", "laboratory", "bioinformatics", "clinical_trials"}
@@ -162,6 +164,160 @@ def evaluate_source_health(
         "data_freshness": "current" if fresh else "stale",
         "age_minutes": round(age_minutes, 2),
         "usable_as_current": status == "connected" and fresh,
+    }
+
+
+
+def _hl7_timestamp(value: str, field: str) -> datetime:
+    """Parse an HL7 TS value only when its timezone offset is explicit."""
+    raw = str(value or "").strip()
+    match = re.fullmatch(r"(\d{8})(\d{2})?(\d{2})?(\d{2})?(?:\.(\d{1,4}))?([+-]\d{4})", raw)
+    if not match:
+        raise ValueError(f"{field} must include an explicit HL7 timezone offset")
+    date_part, hour, minute, second, fraction, offset = match.groups()
+    text = date_part + (hour or "00") + (minute or "00") + (second or "00")
+    parsed = datetime.strptime(text, "%Y%m%d%H%M%S")
+    sign = 1 if offset[0] == "+" else -1
+    offset_minutes = sign * (int(offset[1:3]) * 60 + int(offset[3:5]))
+    from datetime import timedelta
+    tz = timezone(timedelta(minutes=offset_minutes))
+    if fraction:
+        parsed = parsed.replace(microsecond=int(fraction.ljust(6, "0")))
+    return parsed.replace(tzinfo=tz).astimezone(timezone.utc)
+
+
+def parse_hl7_v25_message(message: str, *, source_system: str) -> dict[str, Any]:
+    """Parse supported HL7 v2.5 ADT/ORM/ORU messages into de-identified intake events.
+
+    This parser does not authenticate a source, persist data, match a patient,
+    or establish a live HL7 connection. Patient identifiers are one-way hashed
+    for reconciliation; no JLIGHT patient link is asserted by parsing.
+    """
+    if not isinstance(message, str) or not message.strip() or len(message.encode("utf-8")) > 5_000_000:
+        raise ValueError("HL7 message must be non-empty and no larger than 5 MB")
+    source = str(source_system or "").strip()
+    if not source or len(source) > 128:
+        raise ValueError("source_system must be 1–128 characters")
+    segments = [line.strip() for line in re.split(r"[\r\n]+", message) if line.strip()]
+    if not segments or not segments[0].startswith("MSH"):
+        raise ValueError("HL7 message must begin with MSH")
+    field_sep = segments[0][3:4]
+    if not field_sep or len(segments[0]) < 8:
+        raise ValueError("HL7 MSH segment is malformed")
+    parsed_segments = []
+    for line in segments:
+        if len(line) < 3:
+            continue
+        parsed_segments.append((line[:3], line.split(field_sep)))
+    msh = parsed_segments[0][1]
+    if len(msh) <= 11 or msh[0] != "MSH":
+        raise ValueError("HL7 MSH header is incomplete")
+    version = msh[12] if len(msh) > 12 else ""
+    if version not in {"2.5", "2.5.1"}:
+        raise ValueError("Only HL7 v2.5 and v2.5.1 are supported")
+    message_type = msh[9] if len(msh) > 9 else ""
+    message_control_id = msh[10] if len(msh) > 10 else ""
+    message_time = msh[6] if len(msh) > 6 else ""
+    if not message_control_id:
+        raise ValueError("HL7 message control ID is required")
+    trigger = message_type.split("^", 1)
+    code = trigger[0] if trigger else ""
+    event_code = trigger[1] if len(trigger) > 1 else ""
+    domain_by_type = {
+        ("ADT", "A01"): ("hospital", "admission"),
+        ("ADT", "A03"): ("hospital", "discharge"),
+        ("ADT", "A08"): ("hospital", "patient_update"),
+        ("ORM", "O01"): ("laboratory", "laboratory_order"),
+        ("ORU", "R01"): ("laboratory", "laboratory_result"),
+    }
+    if (code, event_code) not in domain_by_type:
+        raise ValueError("Unsupported HL7 message type; supported: ADT A01/A03/A08, ORM O01, ORU R01")
+    domain, default_event_type = domain_by_type[(code, event_code)]
+    pid = next((fields for name, fields in parsed_segments if name == "PID"), None)
+    if pid is None or len(pid) <= 3 or not pid[3]:
+        raise ValueError("HL7 PID-3 patient identifier is required for reconciliation")
+    # PID-3 may contain repeated identifiers. Hash the first identifier plus
+    # assigning authority; never return or persist the raw value from this parser.
+    identifier_components = pid[3].split("~", 1)[0].split("^")
+    raw_identifier = identifier_components[0].strip()
+    assigning_authority = identifier_components[3].strip() if len(identifier_components) > 3 else ""
+    if not raw_identifier:
+        raise ValueError("HL7 PID-3 patient identifier is empty")
+    patient_ref_hash = hashlib.sha256(
+        (source + "|" + assigning_authority + "|" + raw_identifier).encode("utf-8")
+    ).hexdigest()
+    fallback_time = _hl7_timestamp(message_time, "MSH-7")
+    events: list[dict[str, Any]] = []
+    if code == "ADT":
+        pv1 = next((fields for name, fields in parsed_segments if name == "PV1"), [])
+        event_time = fallback_time
+        event_status = {"A01": "admitted", "A03": "discharged", "A08": "updated"}[event_code]
+        visit_id = pv1[19] if len(pv1) > 19 and pv1[19] else message_control_id
+        events.append({
+            "event_id": f"{source}::{message_control_id}::ADT",
+            "source_system": source,
+            "source_record_id": visit_id,
+            "domain": domain,
+            "event_type": default_event_type,
+            "observed_at": event_time.isoformat().replace("+00:00", "Z"),
+            "source_status": event_status,
+            "source_patient_ref_hash": patient_ref_hash,
+            "jlight_patient_id": None,
+            "patient_link_verified": False,
+            "source_values_modified": False,
+        })
+    else:
+        order_segments = [fields for name, fields in parsed_segments if name in {"ORC", "OBR"}]
+        result_segments = [fields for name, fields in parsed_segments if name == "OBX"]
+        if code == "ORM" and not order_segments:
+            raise ValueError("HL7 ORM message requires ORC or OBR")
+        if code == "ORU" and not result_segments:
+            raise ValueError("HL7 ORU message requires at least one OBX result")
+        if code == "ORM":
+            for index, fields in enumerate(order_segments):
+                order_ref = fields[2] if len(fields) > 2 and fields[2] else message_control_id
+                status = fields[5] if len(fields) > 5 and fields[5] else "received"
+                events.append({
+                    "event_id": f"{source}::{message_control_id}::ORM::{index}",
+                    "source_system": source,
+                    "source_record_id": order_ref,
+                    "domain": domain,
+                    "event_type": "laboratory_order",
+                    "observed_at": fallback_time.isoformat().replace("+00:00", "Z"),
+                    "source_status": status,
+                    "source_patient_ref_hash": patient_ref_hash,
+                    "jlight_patient_id": None,
+                    "patient_link_verified": False,
+                    "source_values_modified": False,
+                })
+        else:
+            for index, fields in enumerate(result_segments):
+                result_time = _hl7_timestamp(fields[14], f"OBX-{index + 1}-14") if len(fields) > 14 and fields[14] else fallback_time
+                observation_code = fields[3] if len(fields) > 3 and fields[3] else "unknown_observation"
+                result_status = fields[11] if len(fields) > 11 and fields[11] else "unknown"
+                events.append({
+                    "event_id": f"{source}::{message_control_id}::ORU::{index}",
+                    "source_system": source,
+                    "source_record_id": f"{message_control_id}:{index + 1}:{observation_code}",
+                    "domain": domain,
+                    "event_type": "laboratory_result",
+                    "observed_at": result_time.isoformat().replace("+00:00", "Z"),
+                    "source_status": result_status,
+                    "source_patient_ref_hash": patient_ref_hash,
+                    "jlight_patient_id": None,
+                    "patient_link_verified": False,
+                    "source_values_modified": False,
+                })
+    return {
+        "message_control_id": message_control_id,
+        "hl7_version": version,
+        "message_type": message_type,
+        "source_system": source,
+        "domain": domain,
+        "patient_link_status": "unlinked_pending_governed_reconciliation",
+        "events": events,
+        "raw_patient_identifier_returned": False,
+        "raw_message_persisted": False,
     }
 
 
