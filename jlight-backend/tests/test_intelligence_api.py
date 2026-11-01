@@ -160,8 +160,8 @@ def test_clinical_trials_route_rejects_identifiers_and_unapproved_fields():
 def test_intelligence_route_reports_language_assistance_unavailable_without_provider_key(monkeypatch):
     claims = verified_claims()
     monkeypatch.delenv("JLIGHT_JC_PROVIDER_API_KEY", raising=False)
-    with patch("api.app.verify_access_token", return_value=claims), \\
-         patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])), \\
+    with patch("api.app.verify_access_token", return_value=claims), \
+         patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])), \
          patch("api.app._write_jc_audit"):
         response = app.test_client().post(
             "/api/intelligence/summary",
@@ -176,7 +176,7 @@ def test_intelligence_route_reports_language_assistance_unavailable_without_prov
 
 def test_intelligence_route_rejects_unsupported_ai_intent():
     claims = verified_claims()
-    with patch("api.app.verify_access_token", return_value=claims), \\
+    with patch("api.app.verify_access_token", return_value=claims), \
          patch("api.app.resolve_verified_workspace_scope", return_value=scope(user_id=claims["sub"])):
         response = app.test_client().post(
             "/api/intelligence/summary",
