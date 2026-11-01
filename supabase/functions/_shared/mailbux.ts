@@ -38,17 +38,20 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
   const session = await sessionResponse.json();
   const accountId = session?.primaryAccounts?.[MAIL];
   const apiUrl = session?.apiUrl;
-  if (typeof accountId !== "string" || typeof apiUrl !== "string" || new URL(apiUrl).protocol !== "https:" || new URL(apiUrl).hostname !== "my.mailbux.com") {
+  let parsedApiUrl: URL;
+  try { parsedApiUrl = new URL(apiUrl); } catch { throw new Error("Mailbux advertised an invalid JMAP API URL"); }
+  if (typeof accountId !== "string" || parsedApiUrl.protocol !== "https:" || parsedApiUrl.hostname !== "my.mailbux.com") {
     throw new Error("Mailbux did not advertise a valid primary mail account and HTTPS API URL");
   }
 
-  const metadata = await jmapRequest(apiUrl, auth, [
+  const metadata = await jmapRequest(parsedApiUrl.toString(), auth, [
     ["Mailbox/get", { accountId }, "mailboxes"],
     ["Identity/get", { accountId }, "identities"],
   ]);
   const mailboxes = metadata.find((x: any[]) => x?.[0] === "Mailbox/get")?.[1]?.list ?? [];
   const identities = metadata.find((x: any[]) => x?.[0] === "Identity/get")?.[1]?.list ?? [];
   const drafts = mailboxes.find((x: any) => x?.role === "drafts");
+  const sent = mailboxes.find((x: any) => x?.role === "sent");
   const identity = identities.find((x: any) => x?.email?.toLowerCase() === email.toLowerCase()) ?? identities[0];
   if (!drafts?.id || !identity?.id) throw new Error("Mailbux drafts mailbox or sending identity is unavailable");
 
@@ -57,16 +60,24 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
   const subject = message.subject.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
   if (!subject || message.text.length > 100000) throw new Error("Email content is invalid");
 
-  const responses = await jmapRequest(apiUrl, auth, [
+  const onSuccessUpdateEmail: Record<string, unknown> = {
+    ["mailboxIds/" + drafts.id]: null,
+    "keywords/$draft": null,
+  };
+  if (sent?.id) onSuccessUpdateEmail["mailboxIds/" + sent.id] = true;
+
+  const responses = await jmapRequest(parsedApiUrl.toString(), auth, [
     ["Email/set", {
       accountId,
       create: {
         draft1: {
           mailboxIds: { [drafts.id]: true },
+          keywords: { "$draft": true },
           from: [{ email }],
           to: [{ email: recipient }],
           subject,
-          textBody: [{ type: "text/plain", value: message.text }],
+          textBody: [{ partId: "text1", type: "text/plain" }],
+          bodyValues: { text1: { value: message.text } },
         },
       },
     }, "create"],
@@ -79,9 +90,10 @@ export async function sendMailbuxMessage(message: MailMessage): Promise<void> {
           envelope: { mailFrom: { email }, rcptTo: [{ email: recipient }] },
         },
       },
+      onSuccessUpdateEmail: { "#send1": onSuccessUpdateEmail },
     }, "submit"],
   ]);
   const created = responses.find((x: any[]) => x?.[0] === "Email/set")?.[1]?.created?.draft1;
   const submitted = responses.find((x: any[]) => x?.[0] === "EmailSubmission/set")?.[1]?.created?.send1;
-  if (!created?.id || !submitted) throw new Error("Mailbux did not confirm email submission");
+  if (!created?.id || !submitted?.id) throw new Error("Mailbux did not confirm email submission");
 }
