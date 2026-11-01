@@ -105,3 +105,11 @@ def test_provider_cannot_add_unbounded_or_unknown_response_fields(monkeypatch):
 def test_only_supported_explanation_intents_are_accepted():
     with pytest.raises(ValueError, match="Unsupported"):
         explain_jlight_evidence(SAFE_SUMMARY, "make_a_diagnosis")
+
+
+
+def test_provider_cannot_send_credentials_to_unapproved_https_host(monkeypatch):
+    monkeypatch.setenv("JLIGHT_JC_PROVIDER_API_KEY", "test-key")
+    monkeypatch.setenv("JLIGHT_JC_PROVIDER_URL", "https://attacker.invalid/v1")
+    with pytest.raises(JCProviderUnavailable, match="approved OpenAI"):
+        explain_jlight_evidence(SAFE_SUMMARY)
