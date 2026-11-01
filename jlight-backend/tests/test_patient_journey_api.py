@@ -32,6 +32,17 @@ class JourneyCursor:
         return None
 
     def fetchall(self):
+        if "FROM public.jl_bio_runs" in self.last_query:
+            return [{
+                "id": "00000000-0000-4000-8000-000000000077",
+                "run_id": "SYNTH-RUN-001",
+                "analysis_type": "TBProfiler",
+                "pipeline": "TBProfiler",
+                "pipeline_version": "6.7.0",
+                "stage": "completed",
+                "submitted_at": None,
+                "completed_at": None,
+            }]
         return []
 
 
