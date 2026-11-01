@@ -488,6 +488,19 @@ def api_patient_journey(patient_id):
                         ((" · sample type: " + row["sample_type"]) if row.get("sample_type") else "")))
             if "bioinformatics" in domains:
                 cur.execute(
+                    """SELECT id,accession_no,sample_type,collection_date,received_at
+                       FROM public.jl_bio_accessions
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                       ORDER BY received_at DESC NULLS LAST LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    events.append(_journey_event("Bioinformatics", "bioinformatics_accession",
+                        row["received_at"] or row["collection_date"], "received" if row.get("received_at") else "collected",
+                        row["id"], "Accession" +
+                        ((" " + row["accession_no"]) if row.get("accession_no") else "") +
+                        ((" · sample type: " + row["sample_type"]) if row.get("sample_type") else "")))
+                cur.execute(
                     """SELECT id, run_id, analysis_type, pipeline, pipeline_version, stage,
                               submitted_at, completed_at
                        FROM public.jl_bio_runs
