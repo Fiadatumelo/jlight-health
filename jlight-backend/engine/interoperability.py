@@ -212,11 +212,11 @@ def parse_hl7_v25_message(message: str, *, source_system: str) -> dict[str, Any]
     msh = parsed_segments[0][1]
     if len(msh) <= 11 or msh[0] != "MSH":
         raise ValueError("HL7 MSH header is incomplete")
-    version = msh[12] if len(msh) > 12 else ""
+    version = msh[11] if len(msh) > 11 else ""
     if version not in {"2.5", "2.5.1"}:
         raise ValueError("Only HL7 v2.5 and v2.5.1 are supported")
-    message_type = msh[9] if len(msh) > 9 else ""
-    message_control_id = msh[10] if len(msh) > 10 else ""
+    message_type = msh[8] if len(msh) > 8 else ""
+    message_control_id = msh[9] if len(msh) > 9 else ""
     message_time = msh[6] if len(msh) > 6 else ""
     if not message_control_id:
         raise ValueError("HL7 message control ID is required")
