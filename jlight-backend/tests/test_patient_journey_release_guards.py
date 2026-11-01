@@ -37,7 +37,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
     def test_patient_events_require_exact_patient_id_and_tenant(self):
         api = Path("jlight-backend/api/app.py").read_text(encoding="utf-8")
         self.assertIn("@app.route(\"/api/patient-journey/<uuid:patient_id>\"", api)
-        self.assertIn("patient_id=%s::uuid AND org_id=%s::uuid", api)
+        self.assertIn("WHERE id=%s::uuid AND org_id=%s::uuid", api)
         self.assertIn("patient_id=%s::uuid", api)
         self.assertIn("patient_link_verified=true", api)
         self.assertIn("source_record_id", api)
