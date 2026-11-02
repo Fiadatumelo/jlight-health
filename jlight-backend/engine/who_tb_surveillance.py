@@ -13,7 +13,7 @@ WHO_FILES = {
     "burden": ("TB_burden_countries", {"country", "iso3", "year", "e_inc_num", "e_inc_num_lo", "e_inc_num_hi", "e_inc_100k", "e_mort_num", "e_mort_100k"}),
     "mdr_rr": ("MDR_RR_TB_burden_estimates", {"country", "iso3", "year", "e_rr_pct_new", "e_rr_pct_ret", "e_inc_rr_num"}),
     "notifications": ("TB_notifications", {"country", "iso3", "year", "new_labconf", "c_newinc"}),
-    "outcomes": ("TB_outcomes", {"country", "iso3", "year", "newrel_coh", "newrel_succ", "newrel_died", "newrel_lost", "c_new_tsr"}),
+    "outcomes": ("TB_outcomes_2026", {"country", "iso3", "year", "newrel_coh", "newrel_succ", "newrel_died", "newrel_lost", "c_new_tsr"}),
     "drug_resistance_surveillance": ("TB_dr_surveillance", {"country", "iso3", "year", "rr_new", "rr_ret", "mdr_new", "mdr_ret"}),
     "laboratories": ("TB_laboratories", {"country", "iso3", "year", "dx_test_sites", "m_wrd_tests_performed", "m_wrd_tests_positive"}),
     "burden_age_sex": ("TB_burden_age_sex", {"country", "iso3", "year", "measure", "unit", "age_group", "sex", "best"}),
