@@ -58,7 +58,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
 
     def test_empty_patient_journey_does_not_generate_reports(self):
         start = HTML.index("async function generatePatientJourneyReports()")
-        end = HTML.index("\\nfunction renderDashboard()", start)
+        end = HTML.index("\nfunction renderDashboard()", start)
         function = HTML[start:end]
         self.assertIn("if (!events.length)", function)
         self.assertLess(function.index("if (!events.length)"), function.index("requestJlightIntelligenceSummary"))
