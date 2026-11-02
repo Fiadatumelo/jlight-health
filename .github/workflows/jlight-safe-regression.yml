@@ -62,3 +62,6 @@ jobs:
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
+      - name: Test patient journey discrepancy reconciliation
+        working-directory: jlight-backend
+        run: python -m unittest tests.test_patient_journey_reconciliation
