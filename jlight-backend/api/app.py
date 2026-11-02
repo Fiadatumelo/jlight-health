@@ -551,7 +551,7 @@ def api_patient_journey(patient_id):
                     journey_records.append({
                         "domain": "hospital", "source_key": "hospital::clinical_order::" + str(row["id"]),
                         "jlight_patient_id": str(patient_id), "link_status": "verified",
-                        "data": {"order_id": str(row["lab_order_id"])},
+                        "data": {"order_id": str(row.get("lab_order_id")) if row.get("lab_order_id") else None},
                     })
 
             if "laboratory" in domains:
