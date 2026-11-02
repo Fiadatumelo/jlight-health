@@ -51,6 +51,18 @@ class PatientJourneyReconciliationTests(unittest.TestCase):
         self.assertEqual(result["excluded_records"]["clinical_trials"], 1)
         self.assertFalse(result["clinical_trials_included"])
 
+    def test_multiple_valid_orders_do_not_create_patient_wide_false_mismatch(self):
+        records = [
+            rec("hospital", "H-1", {"order_id": "ORD-1"}),
+            rec("hospital", "H-2", {"order_id": "ORD-2"}),
+            rec("laboratory", "L-1", {"order_id": "ORD-1"}),
+            rec("laboratory", "L-2", {"order_id": "ORD-2"}),
+            rec("bioinformatics", "B-1", {"accession_id": "ACC-1"}),
+        ]
+        result = reconcile_patient_journeys(records)
+        codes = {f["code"] for f in result["journeys"][0]["findings"]}
+        self.assertNotIn("cross_system_identifier_conflict", codes)
+
     def test_missing_references_are_incomplete_not_mismatch(self):
         records = [
             rec("hospital", "H-1", {"encounter_id": "ENC-1"}),
