@@ -62,3 +62,6 @@ jobs:
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
+      - name: Test WHO TB aggregate surveillance ingestion
+        working-directory: jlight-backend
+        run: python -m unittest tests.test_who_tb_surveillance
