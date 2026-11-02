@@ -74,8 +74,15 @@ def reconcile_patient_journeys(records: Iterable[Mapping[str, Any]]) -> dict[str
                 values = sorted({_value(item, field) for item in domain_items} - {None})
                 if values:
                     observed.append((domain, values))
-            flattened = {value for _, values in observed for value in values}
-            if len(flattened) > 1:
+            # A patient may legitimately have multiple orders/specimens. A
+            # patient-wide set comparison would falsely call those normal
+            # multiple records a mismatch. Compare only when each participating
+            # domain contributes exactly one distinct value; multi-record
+            # one-to-one reconciliation requires a source-level join key.
+            singleton_values = [values[0] for _, values in observed if len(values) == 1]
+            all_domains_singleton = len(observed) >= 2 and all(len(values) == 1 for _, values in observed)
+            flattened = set(singleton_values)
+            if all_domains_singleton and len(flattened) > 1:
                 findings.append({
                     "code": "cross_system_identifier_conflict", "severity": "high",
                     "field": field,
