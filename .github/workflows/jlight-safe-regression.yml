@@ -65,3 +65,6 @@ jobs:
       - name: Test WHO TB aggregate surveillance ingestion
         working-directory: jlight-backend
         run: python -m unittest tests.test_who_tb_surveillance
+      - name: Test verified patient-journey reconciliation
+        working-directory: jlight-backend
+        run: python -m unittest tests.test_patient_journey_reconciliation
