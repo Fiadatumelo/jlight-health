@@ -367,6 +367,46 @@ def parse_hl7_v25_message(
     }
 
 
+
+def compare_hl7_order_to_result(order_event: Mapping[str, Any], result_event: Mapping[str, Any]) -> dict[str, Any]:
+    """Compare an ORM order with an ORU result using exact placer order and test code."""
+    order_ref = str(order_event.get("placer_order_number") or "")
+    result_ref = str(result_event.get("placer_order_number") or "")
+    if not order_ref or not result_ref or order_ref != result_ref:
+        return {
+            "status": "review_required",
+            "reason": "placer_order_number_missing_or_mismatched",
+            "order_reference_match": False,
+            "test_code_match": False,
+        }
+    order_code = str((order_event.get("service_identifier") or {}).get("code") or "")
+    result_code = str((result_event.get("service_identifier") or {}).get("code") or "")
+    if not order_code or not result_code:
+        return {
+            "status": "review_required",
+            "reason": "service_identifier_missing",
+            "order_reference_match": True,
+            "test_code_match": False,
+        }
+    if order_code != result_code:
+        return {
+            "status": "review_required",
+            "reason": "ordered_test_does_not_match_result_test",
+            "order_reference_match": True,
+            "test_code_match": False,
+            "ordered_test_code": order_code,
+            "result_test_code": result_code,
+        }
+    return {
+        "status": "matched",
+        "reason": None,
+        "order_reference_match": True,
+        "test_code_match": True,
+        "ordered_test_code": order_code,
+        "result_test_code": result_code,
+    }
+
+
 def classify_sync_change(existing: Mapping[str, Any] | None, incoming: Mapping[str, Any]) -> dict[str, Any]:
     """Classify a sync item without silently overwriting an existing source record."""
     source_key = str(incoming.get("source_key") or "")
