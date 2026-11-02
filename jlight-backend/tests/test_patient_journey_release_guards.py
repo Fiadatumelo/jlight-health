@@ -56,6 +56,16 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn('onclick="generatePatientJourneyReports()"', function)
         self.assertIn('id="patient-journey-report-status"', function)
 
+    def test_empty_patient_journey_does_not_generate_reports(self):
+        start = HTML.index("async function generatePatientJourneyReports()")
+        end = HTML.index("\nfunction renderDashboard()", start)
+        function = HTML[start:end]
+        self.assertIn("if (!events.length)", function)
+        self.assertLess(function.index("if (!events.length)"), function.index("requestJlightIntelligenceSummary"))
+        self.assertIn("No reports have been generated", function)
+        self.assertEqual(function.count("downloadJourneyJson("), 2)
+        self.assertIn("if (!events.length)", function)
+
     def test_two_separate_patient_reports_share_correlation_id(self):
         start = HTML.index("async function generatePatientJourneyReports()")
         end = HTML.index("\nfunction renderDashboard()", start)
