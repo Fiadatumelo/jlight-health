@@ -109,6 +109,7 @@ def test_patient_journey_returns_only_permitted_domains_and_excludes_trials():
     assert any("clinical_action_at" in q for q in queries)
     assert any("jl_lab_orders" in q for q in queries)
     assert not any("jl_bio_runs" in q for q in queries)
+    assert not any("jl_bio_accessions" in q for q in queries)
     assert not any("jl_trial_participant" in q for q in queries)
 
 
