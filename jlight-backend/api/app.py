@@ -28,6 +28,7 @@ from engine.csv_engine import analyse_csv
 from api.security import verify_access_token
 
 from engine.intelligence_engine import build_intelligence_summary, build_clinical_trials_intelligence_summary
+from engine.patient_journey_reconciliation import reconcile_patient_journeys
 from agent.jc_agent import (
     JCContext, JCAgent, JCTool, JCError, JCApprovalRequired,
     JCForbidden, JCInvalidRequest,
@@ -361,6 +362,7 @@ def api_patient_journey(patient_id):
     if db is None:
         return error("Patient Journey data service unavailable", 503)
     events = []
+    journey_records = []
     try:
         with db.cursor() as cur:
             cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (claims["sub"],))
@@ -473,19 +475,6 @@ def api_patient_journey(patient_id):
                     events.append(_journey_event("Laboratory", "laboratory_result", row["resulted_at"] or row["verified_at"],
                         row["status"], row["id"], summary))
 
-                cur.execute(
-                    """SELECT id,accession_no,sample_type,collection_date,received_at
-                       FROM public.jl_bio_accessions
-                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
-                       ORDER BY received_at DESC NULLS LAST LIMIT 500""",
-                    (org_id, str(patient_id)),
-                )
-                for row in cur.fetchall():
-                    events.append(_journey_event("Bioinformatics", "bioinformatics_accession",
-                        row["received_at"] or row["collection_date"], "received" if row.get("received_at") else "collected",
-                        row["id"], "Accession" +
-                        ((" " + row["accession_no"]) if row.get("accession_no") else "") +
-                        ((" · sample type: " + row["sample_type"]) if row.get("sample_type") else "")))
             if "bioinformatics" in domains:
                 cur.execute(
                     """SELECT id,accession_no,sample_type,collection_date,received_at
@@ -549,6 +538,75 @@ def api_patient_journey(patient_id):
                         events.append(_journey_event("Bioinformatics", "resistance_finding", None, row["resistance_level"],
                             row["id"], summary))
 
+            # Build reconciliation evidence from canonical, organisation-scoped
+            # source rows. Patient UUID is the exact FK link; no demographic matching.
+            if "hospital" in domains:
+                cur.execute(
+                    """SELECT id, lab_order_id FROM public.jl_clinical_orders
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid
+                         AND lab_order_id IS NOT NULL LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    journey_records.append({
+                        "domain": "hospital", "source_key": "hospital::clinical_order::" + str(row["id"]),
+                        "jlight_patient_id": str(patient_id), "link_status": "verified",
+                        "data": {"order_id": str(row.get("lab_order_id")) if row.get("lab_order_id") else None},
+                    })
+
+            if "laboratory" in domains:
+                cur.execute(
+                    """SELECT id FROM public.jl_lab_orders
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    journey_records.append({
+                        "domain": "laboratory", "source_key": "laboratory::order::" + str(row["id"]),
+                        "jlight_patient_id": str(patient_id), "link_status": "verified",
+                        "data": {"order_id": str(row["id"])},
+                    })
+                cur.execute(
+                    """SELECT id, order_id, accession_no FROM public.jl_lab_samples
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    journey_records.append({
+                        "domain": "laboratory", "source_key": "laboratory::sample::" + str(row["id"]),
+                        "jlight_patient_id": str(patient_id), "link_status": "verified",
+                        "data": {
+                            "order_id": str(row["order_id"]) if row.get("order_id") else None,
+                            "accession_id": row.get("accession_no"),
+                        },
+                    })
+
+            if "bioinformatics" in domains:
+                cur.execute(
+                    """SELECT id, accession_no FROM public.jl_bio_accessions
+                       WHERE org_id=%s::uuid AND patient_id=%s::uuid LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    journey_records.append({
+                        "domain": "bioinformatics", "source_key": "bioinformatics::accession::" + str(row["id"]),
+                        "jlight_patient_id": str(patient_id), "link_status": "verified",
+                        "data": {"accession_id": row.get("accession_no")},
+                    })
+                cur.execute(
+                    """SELECT r.id, a.accession_no FROM public.jl_bio_runs r
+                       LEFT JOIN public.jl_bio_accessions a
+                         ON a.id=r.accession_id AND a.org_id=r.org_id
+                       WHERE r.org_id=%s::uuid AND r.patient_id=%s::uuid LIMIT 500""",
+                    (org_id, str(patient_id)),
+                )
+                for row in cur.fetchall():
+                    journey_records.append({
+                        "domain": "bioinformatics", "source_key": "bioinformatics::run::" + str(row["id"]),
+                        "jlight_patient_id": str(patient_id), "link_status": "verified",
+                        "data": {"accession_id": row.get("accession_no")},
+                    })
+
             # Cross-domain event stream is included only for verified patient links
             # and only when the member has permission for the event's own domain.
             cur.execute(
@@ -572,12 +630,17 @@ def api_patient_journey(patient_id):
         return error("Patient Journey could not retrieve authorised source events", 503)
 
     events.sort(key=lambda item: item["occurred_at"] or "", reverse=True)
+    reconciliation = None
+    if {"hospital", "laboratory", "bioinformatics"}.issubset(domains):
+        reconciliation = reconcile_patient_journeys(journey_records)
     return jsonify({
         "success": True,
         "patient_id": str(patient_id),
         "organisation_id": org_id,
         "available_domains": sorted(domains),
         "clinical_trials_included": False,
+        "reconciliation": reconciliation,
+        "reconciliation_status": "completed" if reconciliation is not None else "not_run_insufficient_workspace_permissions",
         "event_count": len(events),
         "events": events[:3000],
         "limitations": [
