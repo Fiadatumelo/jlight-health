@@ -1,0 +1,23 @@
+# Research-only TB worker image. No HTTP listener and no embedded credentials.
+FROM mambaorg/micromamba:2.3.0
+
+USER root
+RUN mkdir -p /opt/jlight/bioinformatics /private-data \
+    && chown -R mambauser:mambauser /opt/jlight /private-data \
+    && chmod 0700 /private-data
+
+USER mambauser
+WORKDIR /opt/jlight
+COPY --chown=mambauser:mambauser bioinformatics/environment.yml /opt/jlight/bioinformatics/environment.yml
+RUN micromamba create --yes --file /opt/jlight/bioinformatics/environment.yml \
+    && micromamba clean --all --yes
+
+COPY --chown=mambauser:mambauser bioinformatics/tb_pipeline.py /opt/jlight/bioinformatics/tb_pipeline.py
+ENV MAMBA_DOCKERFILE_ACTIVATE=1
+ENV JLIGHT_PRIVATE_DATA_ROOT=/private-data
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# The orchestrator must pass a validated sample alias, private input paths,
+# and an isolated output directory. This image intentionally exposes no port.
+ENTRYPOINT ["micromamba", "run", "--name", "jlight-tb-research", "python", "/opt/jlight/bioinformatics/tb_pipeline.py"]

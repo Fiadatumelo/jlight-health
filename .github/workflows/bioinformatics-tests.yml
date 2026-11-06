@@ -1,0 +1,34 @@
+name: JLIGHT bioinformatics report and input tests
+
+on:
+  pull_request:
+    paths:
+      - "index.html"
+      - "bioinformatics/**"
+      - "jlight-backend/tests/test_bioinformatics_release_guards.py"
+      - ".github/workflows/bioinformatics-tests.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "bioinformatics/**"
+      - "jlight-backend/tests/test_bioinformatics_release_guards.py"
+      - ".github/workflows/bioinformatics-tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  bioinformatics-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Test FASTQ validation
+        run: python -m unittest discover -s bioinformatics -p "test_*.py" -v
+      - name: Test report and privacy release guards
+        run: python jlight-backend/tests/test_bioinformatics_release_guards.py
