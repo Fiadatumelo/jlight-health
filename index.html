@@ -2328,6 +2328,11 @@ async function generatePatientJourneyReports() {
     return;
   }
   const events = buildPatientJourneyEvents(patient);
+  if (!events.length) {
+    if (status) status.textContent = 'No linked patient records are available. No reports have been generated. Reports will become available when authorised Hospital, Laboratory or Bioinformatics source records are linked to this patient.';
+    toast('No patient records yet', 'Both Patient Journey reports remain empty until authorised source records are available.', 'warn');
+    return;
+  }
   const participantLabel = 'Patient record ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
   const generatedAt = new Date().toISOString();
   const intelligence = await requestJlightIntelligenceSummary(patient, events);

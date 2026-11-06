@@ -1,0 +1,37 @@
+name: JLIGHT isolated TB worker image checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "bioinformatics/Dockerfile.worker"
+      - "bioinformatics/environment.yml"
+      - "bioinformatics/tb_pipeline.py"
+      - ".github/workflows/jlight-tb-worker-image.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-isolated-worker:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build TB research worker image
+        run: docker build --pull -f bioinformatics/Dockerfile.worker -t jlight-tb-worker:test .
+
+      - name: Verify worker is non-root and exposes no network ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          uid="$(docker run --rm --entrypoint /usr/bin/id jlight-tb-worker:test -u)"
+          test "$uid" != "0"
+          mode="$(docker run --rm --entrypoint /usr/bin/stat jlight-tb-worker:test -c '%a' /private-data)"
+          test "$mode" = "700"
+          ports="$(docker image inspect jlight-tb-worker:test --format '{{json .Config.ExposedPorts}}')"
+          test "$ports" = "null"
+          echo "Worker image is non-root, has private-data mode 0700, and exposes no ports."

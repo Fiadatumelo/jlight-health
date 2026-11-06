@@ -1,0 +1,113 @@
+name: JLIGHT TB public-data benchmark
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "bioinformatics/**"
+      - ".github/workflows/tb-public-benchmark.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-tb-benchmark:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up micromamba environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: bioinformatics/environment.yml
+          cache-environment: true
+          init-shell: bash
+
+      - name: Download public reduced TBProfiler test reads using an anonymised alias
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
+          git clone --depth 1 https://github.com/jodyphelan/tb-profiler-test-data.git "$RUNNER_TEMP/tb-public-input/source"
+          SOURCE_COMMIT="$(git -C "$RUNNER_TEMP/tb-public-input/source" rev-parse HEAD)"
+          printf '%s\n' "$SOURCE_COMMIT" > "$RUNNER_TEMP/tb-public-input/source-commit.txt"
+          cp "$RUNNER_TEMP/tb-public-input/source/por5A.reduced_1.fastq.gz" "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz"
+          cp "$RUNNER_TEMP/tb-public-input/source/por5A.reduced_2.fastq.gz" "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz"
+          test -s "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz"
+          test -s "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz"
+
+      - name: Record database provenance and run TB pipeline
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          export JLIGHT_PRIVATE_DATA_ROOT="$RUNNER_TEMP"
+          tb-profiler --version
+          DB_COMMIT="$(git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' | awk 'NR==1 {print $1}')"
+          test -n "$DB_COMMIT"
+          # Explicitly install the database at the same immutable commit recorded in the manifest.
+          tb-profiler update_tbdb --branch 'who_v2+' --commit "$DB_COMMIT" --force
+          python bioinformatics/tb_pipeline.py \
+            --sample-id PATION-001 \
+            --r1 "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz" \
+            --r2 "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz" \
+            --outdir "$RUNNER_TEMP/tb-public-output/PATION-001" \
+            --threads 2 \
+            --db-version "$DB_COMMIT"
+
+      - name: Assert completed run and print safe summary
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest_path = Path(os.environ["RUNNER_TEMP"]) / "tb-public-output" / "PATION-001" / "run-manifest.json"
+          manifest = json.loads(manifest_path.read_text())
+          assert manifest["status"] == "completed_pending_expert_review", manifest.get("status")
+          assert manifest["sample_id"] == "PATION-001"
+          assert manifest["stages"] and all(stage["status"] == "completed" for stage in manifest["stages"])
+          result_path = Path(os.environ["RUNNER_TEMP"]) / "tb-public-output" / "PATION-001" / "results" / "PATION-001.results.json"
+          result = json.loads(result_path.read_text())
+          assert result["main_lineage"] == "lineage4", result.get("main_lineage")
+          assert result["sub_lineage"] == "lineage4.3.4.2", result.get("sub_lineage")
+          expected_variants = [
+              ("rpoB", "p.Ser450Leu"),
+              ("inhA", "c.-777C>T"),
+              ("pncA", "p.Val125Gly"),
+              ("embB", "p.Met306Val"),
+          ]
+          observed_variants = [(v["gene_name"], v["change"]) for v in result["dr_variants"]]
+          assert observed_variants == expected_variants, observed_variants
+          source_commit = (Path(os.environ["RUNNER_TEMP"]) / "tb-public-input" / "source-commit.txt").read_text().strip()
+          provenance = {
+              "benchmark_alias": "PATION-001",
+              "source_repository": "https://github.com/jodyphelan/tb-profiler-test-data",
+              "source_commit": source_commit,
+              "database_commit": manifest["database_version"],
+              "sample_accession_disclosed_to_end_users": False,
+              "raw_reads_retained_after_job": False
+          }
+          (manifest_path.parent / "benchmark-provenance.json").write_text(json.dumps(provenance, indent=2))
+          print(json.dumps({
+              "status": manifest["status"],
+              "sample_id": manifest["sample_id"],
+              "tool_versions": manifest["tools"],
+              "input_count": len(manifest["input_files"]),
+              "stage_count": len(manifest["stages"]),
+              "main_lineage": result["main_lineage"],
+              "sub_lineage": result["sub_lineage"],
+              "expected_variants_match": observed_variants == expected_variants,
+              "source_commit": source_commit,
+              "limitations": manifest["limitations"],
+          }, indent=2))
+          PY
+
+      - name: Remove sequence data and analysis outputs
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
