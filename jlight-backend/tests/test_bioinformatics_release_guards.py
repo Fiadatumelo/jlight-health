@@ -37,10 +37,10 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
     def test_patient_journey_exports_only_summary_fields_not_sequence_payloads(self):
         reports = function_source(HTML, "async function generatePatientJourneyReports()")
         self.assertIn("buildPatientJourneyEvents(patient)", reports)
-        self.assertIn("Raw sequence reads", HTML)
         self.assertNotIn("fastq", reports.lower())
         self.assertNotIn("sequence_payload", reports.lower())
         self.assertNotIn("vcf_content", reports.lower())
+        self.assertNotIn("patientId:", reports)
         self.assertIn("sourceRecordId: e.sourceRecordId || null", reports)
 
     def test_bioinformatics_analysis_report_is_separate_from_journey_reports(self):
@@ -87,7 +87,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         self.assertIn("class StageFailure", PIPELINE)
 
     def test_patient_journey_api_is_exact_patient_and_tenant_scoped(self):
-        journey = function_source(API, '@app.route("/api/patient-journey/<uuid:patient_id>"')
+        journey = function_source(API, "def api_patient_journey(")
         self.assertIn("WHERE id=%s::uuid AND org_id=%s::uuid", journey)
         self.assertIn("WHERE org_id=%s::uuid AND patient_id=%s::uuid", journey)
         self.assertIn("Clinical Trials is deliberately excluded", journey)
