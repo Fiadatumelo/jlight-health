@@ -1,7 +1,7 @@
-"""Release guards for the current JLIGHT Bioinformatics and Patient Journey architecture.
+"""Release guards for the unified JLIGHT Bioinformatics/Patient Journey baseline.
 
-These tests intentionally validate behaviour and trust boundaries, not obsolete
-frontend helper names from the legacy Patient Journey implementation.
+Tests assert current behaviour and trust boundaries rather than obsolete
+frontend helper names from the pre-reconciliation implementation.
 """
 from pathlib import Path
 import unittest
@@ -13,12 +13,14 @@ PIPELINE = (ROOT / "bioinformatics" / "tb_pipeline.py").read_text(encoding="utf-
 
 
 def function_source(source, signature):
-    """Return a named JS/Python function body up to the next top-level function."""
     start = source.index(signature)
-    next_js = source.find("\nfunction ", start + len(signature))
-    next_async_js = source.find("\nasync function ", start + len(signature))
-    next_py = source.find("\ndef ", start + len(signature))
-    ends = [p for p in (next_js, next_async_js, next_py) if p >= 0]
+    ends = [
+        p for p in (
+            source.find("\nfunction ", start + len(signature)),
+            source.find("\nasync function ", start + len(signature)),
+            source.find("\ndef ", start + len(signature)),
+        ) if p >= 0
+    ]
     return source[start:min(ends)] if ends else source[start:]
 
 
@@ -43,7 +45,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         self.assertNotIn("patientId:", reports)
         self.assertIn("sourceRecordId: e.sourceRecordId || null", reports)
 
-    def test_bioinformatics_analysis_report_is_separate_from_journey_reports(self):
+    def test_bioinformatics_analysis_report_is_available_in_bioinformatics_workspace(self):
         render = function_source(HTML, "function renderBioinformaticsTB()")
         report = function_source(HTML, "function generateTBProfilerGenomicReport(")
         self.assertIn("generateTBProfilerGenomicReport()", render)
