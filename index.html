@@ -2772,7 +2772,21 @@ async function commitTBProfilerJson() {
           analysis_type:String(record.analysisType || 'TBProfiler'),
           pipeline:String(record.pipelineName || 'TBProfiler'),
           pipeline_version:String(record.pipelineVersion || ''),
-          stage:'completed'
+          database_version:String(record.databaseVersion || ''),
+          stage:'completed',
+          qc:{
+            status:String(record.qualityStatus || record.tbProfiler?.qc?.status || 'not_reported'),
+            medianDepth:record.tbProfiler?.qc?.medianDepth ?? record.tbProfiler?.qc?.targetMedianDepth ?? record.tbProfiler?.qc?.genomeMedianDepth ?? null,
+            mappingRate:record.tbProfiler?.qc?.pctReadsMapped ?? null,
+            qScore:record.tbProfiler?.qc?.qScore ?? null,
+            dupRate:record.tbProfiler?.qc?.dupRate ?? null,
+            gcContent:record.tbProfiler?.qc?.gcContent ?? null,
+            contamination:record.tbProfiler?.qc?.contamination ?? null
+          },
+          amr:(record.tbProfiler?.resistanceEvidence || []).map(x=>({
+            gene:x.gene,drug:x.drug,confidence:x.confidence,resistanceLevel:x.confidence,
+            databaseVersion:record.databaseVersion || ''
+          }))
         })
         record.canonicalRunId = canonical.canonical_run_id
         record.canonicalAccessionId = canonical.canonical_accession_id
@@ -2801,6 +2815,24 @@ async function commitTBProfilerJson() {
 async function retryTBProfilerCloudSync() {
   const pending=window._tbProfilerPendingSync||[]
   if(!pending.length||!MODE.isOnline){toast('No pending TB sync','No pending online import batch.','warn');return}
+  try {
+    for (const record of pending) {
+      if (record.canonicalRunId) continue
+      const canonical=await jlightCanonicalApiRequest('/api/bioinformatics/runs/upsert','POST',{
+        run_id:String(record.sampleId||record.sourceRecordId||record.id),
+        accession_no:String(record.sampleId||record.sourceRecordId||record.id),
+        analysis_type:String(record.analysisType||'TBProfiler'),
+        pipeline:String(record.pipelineName||'TBProfiler'),
+        pipeline_version:String(record.pipelineVersion||''),
+        database_version:String(record.databaseVersion||''),
+        stage:'completed',
+        qc:{status:String(record.qualityStatus||'not_reported'),medianDepth:record.tbProfiler?.qc?.medianDepth??null,mappingRate:record.tbProfiler?.qc?.pctReadsMapped??null},
+        amr:(record.tbProfiler?.resistanceEvidence||[]).map(x=>({gene:x.gene,drug:x.drug,confidence:x.confidence,resistanceLevel:x.confidence,databaseVersion:record.databaseVersion||''}))
+      })
+      record.canonicalRunId=canonical.canonical_run_id
+      record.canonicalAccessionId=canonical.canonical_accession_id
+    }
+  } catch(e) { toast('Canonical sync failed',e.message||'Retry the import sync.','crit');return }
   const result=await syncDomainToBackend('bioRuns',pending)
   if(!result.ok){toast('Cloud sync failed',result.reason||'Check connectivity.','crit');return}
   window._tbProfilerPendingSync=null
@@ -2878,7 +2910,21 @@ async function linkTBProfilerRunToPatient(record, patientId) {
     const result=await jlightCanonicalApiRequest('/api/bioinformatics/runs/upsert','POST',{
       run_id:sampleId,accession_no:sampleId,analysis_type:String(record.analysisType||'TBProfiler'),
       pipeline:String(record.pipelineName||'TBProfiler'),pipeline_version:String(record.pipelineVersion||''),
-      stage:'completed',patient_id:String(patientId)
+      stage:'completed',patient_id:String(patientId),
+      database_version:String(record.databaseVersion || ''),
+      qc:{
+        status:String(record.qualityStatus || record.tbProfiler?.qc?.status || 'not_reported'),
+        medianDepth:record.tbProfiler?.qc?.medianDepth ?? record.tbProfiler?.qc?.targetMedianDepth ?? record.tbProfiler?.qc?.genomeMedianDepth ?? null,
+        mappingRate:record.tbProfiler?.qc?.pctReadsMapped ?? null,
+        qScore:record.tbProfiler?.qc?.qScore ?? null,
+        dupRate:record.tbProfiler?.qc?.dupRate ?? null,
+        gcContent:record.tbProfiler?.qc?.gcContent ?? null,
+        contamination:record.tbProfiler?.qc?.contamination ?? null
+      },
+      amr:(record.tbProfiler?.resistanceEvidence || []).map(x=>({
+        gene:x.gene,drug:x.drug,confidence:x.confidence,resistanceLevel:x.confidence,
+        databaseVersion:record.databaseVersion || ''
+      }))
     })
     record.canonicalRunId=result.canonical_run_id
     record.canonicalAccessionId=result.canonical_accession_id
