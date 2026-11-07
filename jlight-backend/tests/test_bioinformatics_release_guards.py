@@ -56,6 +56,20 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         self.assertIn("No patient details or nucleotide sequences are included", report)
         self.assertIn("Only drugs explicitly named in source annotations are listed", report)
 
+    def test_patient_journey_exposes_patient_scoped_analysis_report_only_for_verified_exact_links(self):
+        linked = function_source(HTML, "function getPatientLinkedBioinformaticsRuns(")
+        action = function_source(HTML, "function generateSelectedPatientBioinformaticsReport(")
+        render = function_source(HTML, "function renderJourney()")
+        self.assertIn("String(r.orgId || '') === orgId", linked)
+        self.assertIn("String(r.patientId || r.canonicalPatientId || '') === patientId", linked)
+        self.assertIn("patientLinkStatus || '').toLowerCase() === 'verified'", linked)
+        self.assertIn("includes('bioinformatics')", action)
+        self.assertIn("generateTBProfilerGenomicReport(records)", action)
+        self.assertIn("patientBioRuns.length", render)
+        self.assertIn("generateSelectedPatientBioinformaticsReport()", render)
+        report = function_source(HTML, "function generateTBProfilerGenomicReport(")
+        self.assertIn("Array.isArray(recordsOverride)", report)
+
     def test_bioinformatics_report_does_not_claim_unavailable_drug_panel(self):
         report = function_source(HTML, "function generateTBProfilerGenomicReport(")
         self.assertIn("complete evaluated drug panel", report)
