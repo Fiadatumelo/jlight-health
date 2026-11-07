@@ -85,28 +85,44 @@ jobs:
           observed_variants = [(v["gene_name"], v["change"]) for v in result["dr_variants"]]
           assert observed_variants == expected_variants, observed_variants
           source_commit = (Path(os.environ["RUNNER_TEMP"]) / "tb-public-input" / "source-commit.txt").read_text().strip()
-          provenance = {
-              "benchmark_alias": "PATION-001",
-              "source_repository": "https://github.com/jodyphelan/tb-profiler-test-data",
-              "source_commit": source_commit,
-              "database_commit": manifest["database_version"],
-              "sample_accession_disclosed_to_end_users": False,
-              "raw_reads_retained_after_job": False
+          summary = {
+            "status": manifest["status"],
+            "benchmark_alias": "PATION-001",
+            "tool_versions": manifest["tools"],
+            "database": manifest["database"],
+            "database_commit": manifest["database_version"],
+            "input_count": len(manifest["input_files"]),
+            "stage_count": len(manifest["stages"]),
+            "main_lineage": result["main_lineage"],
+            "sub_lineage": result["sub_lineage"],
+            "observed_dr_variants": observed_variants,
+            "expected_variants_match": observed_variants == expected_variants,
+            "source_repository": "https://github.com/jodyphelan/tb-profiler-test-data",
+            "source_commit": source_commit,
+            "raw_reads_retained_after_job": False,
+            "limitations": manifest["limitations"],
           }
-          (manifest_path.parent / "benchmark-provenance.json").write_text(json.dumps(provenance, indent=2))
-          print(json.dumps({
-              "status": manifest["status"],
-              "sample_id": manifest["sample_id"],
-              "tool_versions": manifest["tools"],
-              "input_count": len(manifest["input_files"]),
-              "stage_count": len(manifest["stages"]),
-              "main_lineage": result["main_lineage"],
-              "sub_lineage": result["sub_lineage"],
-              "expected_variants_match": observed_variants == expected_variants,
-              "source_commit": source_commit,
-              "limitations": manifest["limitations"],
-          }, indent=2))
+          summary_path = Path(os.environ["GITHUB_WORKSPACE"]) / "tb-benchmark-summary.json"
+          summary_path.write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as report:
+            report.write("# JLIGHT TB public-data benchmark\n\n")
+            report.write("- Status: **" + summary["status"] + "**\n")
+            report.write("- Tools: " + manifest["tools"]["fastqc"] + "; " + manifest["tools"]["multiqc"] + "; " + manifest["tools"]["tb-profiler"] + "\n")
+            report.write("- TBDB commit: " + manifest["database_version"] + "\n")
+            report.write("- Source data commit: " + source_commit + "\n")
+            report.write("- Lineage: " + result["main_lineage"] + " / " + result["sub_lineage"] + "\n")
+            report.write("- Expected resistance variant profile matched: **" + str(observed_variants == expected_variants) + "**\n")
+            report.write("- Intended use: technical/research benchmark only; not clinical validation.\n")
           PY
+
+      - name: Retain non-identifying benchmark provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: jlight-tb-benchmark-provenance
+          path: tb-benchmark-summary.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Remove sequence data and analysis outputs
         if: always()
