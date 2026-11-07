@@ -440,6 +440,49 @@ def api_bioinformatics_run_upsert():
             if not row:
                 db.rollback()
                 return error("Run is already linked to a different patient; no changes made", 409)
+            run_uuid = row["id"]
+            if "qc" in data and isinstance(data.get("qc"), dict):
+                qc = data["qc"]
+                def numeric(value):
+                    try:
+                        return float(value) if value is not None and str(value).strip() != "" else None
+                    except (TypeError, ValueError):
+                        return None
+                cur.execute("DELETE FROM public.jl_bio_qc WHERE org_id=%s::uuid AND run_id=%s::uuid",
+                            (org_id, run_uuid))
+                cur.execute(
+                    """INSERT INTO public.jl_bio_qc
+                       (org_id,run_id,coverage_mean,mapping_rate,q_score,dup_rate,gc_content,contamination,qc_status,created_at)
+                       VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,%s,%s,now())""",
+                    (org_id, run_uuid, numeric(qc.get("medianDepth")),
+                     numeric(qc.get("mappingRate")), numeric(qc.get("qScore")),
+                     numeric(qc.get("dupRate")), numeric(qc.get("gcContent")),
+                     numeric(qc.get("contamination")), str(qc.get("status") or "not_reported")),
+                )
+            if "amr" in data and isinstance(data.get("amr"), list):
+                cur.execute("DELETE FROM public.jl_bio_amr WHERE org_id=%s::uuid AND run_id=%s::uuid",
+                            (org_id, run_uuid))
+                for finding in data["amr"][:2000]:
+                    if not isinstance(finding, dict):
+                        continue
+                    gene = str(finding.get("gene") or "").strip()
+                    if not gene:
+                        continue
+                    confidence = None
+                    try:
+                        confidence = float(finding.get("confidence")) if finding.get("confidence") not in (None, "") else None
+                    except (TypeError, ValueError):
+                        confidence = None
+                    cur.execute(
+                        """INSERT INTO public.jl_bio_amr
+                           (org_id,run_id,gene,antibiotic_class,resistance_level,confidence,database_version,created_at)
+                           VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,now())""",
+                        (org_id, run_uuid, gene,
+                         str(finding.get("drug") or "") or None,
+                         str(finding.get("resistanceLevel") or finding.get("confidence") or "reported"),
+                         confidence,
+                         str(finding.get("databaseVersion") or data.get("database_version") or "") or None),
+                    )
             db.commit()
             return success({"run": dict(row), "canonical_run_id": row["id"],
                             "canonical_accession_id": row["accession_id"]})
