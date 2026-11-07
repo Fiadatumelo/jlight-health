@@ -15,6 +15,8 @@ on:
       - "index.html"
       - "bioinformatics/**"
       - "jlight-backend/tests/test_bioinformatics_release_guards.py"
+      - "jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py"
+      - "jlight-backend/api/app.py"
       - ".github/workflows/bioinformatics-tests.yml"
 
 permissions:
@@ -32,7 +34,7 @@ jobs:
           python-version: "3.11"
       - name: Test FASTQ validation
         run: python -m unittest discover -s bioinformatics -p "test_*.py" -v
-      - name: Test report and privacy release guards
-        run: python jlight-backend/tests/test_bioinformatics_release_guards.py
       - name: Test canonical patient and Bioinformatics connection
         run: python jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py
+      - name: Test report and privacy release guards
+        run: python jlight-backend/tests/test_bioinformatics_release_guards.py
