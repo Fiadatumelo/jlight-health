@@ -2038,6 +2038,37 @@ function filterJourneyPatients(value) {
     el.hidden=!!q&&!hay.includes(q);
   });
 }
+function getPatientLinkedBioinformaticsRuns(patient) {
+  if (!patient || !STATE.orgId || STATE.orgId === 'default') return [];
+  const patientId = String(patient.canonicalPatientId || patient.id || '');
+  const orgId = String(STATE.orgId);
+  return (STATE.bioRuns || []).map(hydrateTBProfilerRecord).filter(r =>
+    r && String(r.orgId || '') === orgId &&
+    String(r.patientId || r.canonicalPatientId || '') === patientId &&
+    String(r.patientLinkStatus || '').toLowerCase() === 'verified' &&
+    (r.pathogen === 'Mycobacterium tuberculosis complex' ||
+     r.analysisType === 'TBProfiler' || r.outputType === 'TBProfiler JSON summary')
+  );
+}
+
+function generateSelectedPatientBioinformaticsReport() {
+  const patient = (STATE.patients || []).find(p =>
+    String(p.id) === String(STATE.currentPatientId) &&
+    !p.archivedAt && String(p.orgId || '') === String(STATE.orgId || '')
+  );
+  if (!patient || STATE.patientJourneyApiStatus !== 'loaded' ||
+      !(STATE.patientJourneyAvailableDomains || []).includes('bioinformatics')) {
+    toast('Bioinformatics report unavailable', 'Load the authorised Patient Journey and Bioinformatics read permission first.', 'warn');
+    return;
+  }
+  const records = getPatientLinkedBioinformaticsRuns(patient);
+  if (!records.length) {
+    toast('No linked Bioinformatics run', 'No verified TBProfiler run is linked to this exact patient and organisation.', 'warn');
+    return;
+  }
+  generateTBProfilerGenomicReport(records);
+}
+
 function renderJourney() {
   const page=document.getElementById('page-journey');if(!page)return;
   const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
@@ -2047,6 +2078,9 @@ function renderJourney() {
   const events=selected?buildPatientJourneyEvents(selected):[];
   const canSeePatientIdentity = STATE.patientJourneyApiStatus === 'loaded' &&
     (STATE.patientJourneyAvailableDomains || []).includes('hospital');
+  const patientBioRuns = selected && STATE.patientJourneyApiStatus === 'loaded' &&
+    (STATE.patientJourneyAvailableDomains || []).includes('bioinformatics')
+      ? getPatientLinkedBioinformaticsRuns(selected) : [];
   const counts=[
     {name:'Hospital',n:events.filter(e=>e.source==='Hospital').length},
     {name:'Laboratory',n:events.filter(e=>e.source==='Laboratory').length},
@@ -2069,7 +2103,7 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+(e.sourceRecordId?' · Record ref: '+esc(e.sourceRecordId):' · Source reference unavailable')+'</span></div></div></article>';
   }).join('')+'</div>':(STATE.patientJourneyApiStatus==='loading'?'<div class="journey-empty"><strong>Loading authorised source events</strong><p>Retrieving source records under your current workspace permissions.</p></div>':STATE.patientJourneyApiStatus==='error'?'<div class="journey-empty"><strong>Patient Journey could not load</strong><p>'+esc(STATE.patientJourneyApiError||'Authorised source records are unavailable.')+'</p></div>':'<div class="journey-empty"><strong>No linked events found</strong><p>Authorised source systems returned no exact patient-ID-linked events for the workspaces you can access. Missing events are unknown, not proof that care or testing did not occur.</p></div>');
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">'+(patientBioRuns.length?'<button class="btn" onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button>':'')+'<button class="btn" onclick="goPage(\\'patients\\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?(canSeePatientIdentity?esc(selected.fullName||'Patient'):'Patient record '+(patients.findIndex(p=>String(p.id)===String(selected.id))+1)):'No patient selected')+'</h3><p>'+(selected?(canSeePatientIdentity?'MRN: '+esc(selected.mrn||'—'):'Identity details are restricted by your workspace permissions')+' · Events are linked by exact patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
@@ -2983,8 +3017,8 @@ function renderBioinformaticsTB() {
   })
 }
 
-function generateTBProfilerGenomicReport(){
-const records=(STATE.bioRuns||[]).map(hydrateTBProfilerRecord).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler'||r.outputType==='TBProfiler JSON summary');
+function generateTBProfilerGenomicReport(recordsOverride){
+const records=Array.isArray(recordsOverride)?recordsOverride:(STATE.bioRuns||[]).map(hydrateTBProfilerRecord).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler'||r.outputType==='TBProfiler JSON summary');
 if(!records.length){toast('No TBProfiler results','Import validated results first.','warn');return}
 const esc=v=>String(v??'—').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const table=(h,rs)=>'<table><thead><tr>'+h.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+(rs.length?rs:[h.map(()=> 'Not supplied')]).map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
