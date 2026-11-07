@@ -1,73 +1,113 @@
+"""Release guards for the current JLIGHT Bioinformatics and Patient Journey architecture.
+
+These tests intentionally validate behaviour and trust boundaries, not obsolete
+frontend helper names from the legacy Patient Journey implementation.
+"""
 from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
+API = (ROOT / "jlight-backend" / "api" / "app.py").read_text(encoding="utf-8")
 PIPELINE = (ROOT / "bioinformatics" / "tb_pipeline.py").read_text(encoding="utf-8")
 
+
+def function_source(source, signature):
+    """Return a named JS/Python function body up to the next top-level function."""
+    start = source.index(signature)
+    next_js = source.find("\nfunction ", start + len(signature))
+    next_async_js = source.find("\nasync function ", start + len(signature))
+    next_py = source.find("\ndef ", start + len(signature))
+    ends = [p for p in (next_js, next_async_js, next_py) if p >= 0]
+    return source[start:min(ends)] if ends else source[start:]
+
+
 class BioinformaticsReleaseGuards(unittest.TestCase):
-    def test_patient_journey_report_action_is_present(self):
-        self.assertIn("generateSelectedPatientJourneyReport()", HTML)
-        self.assertIn("function generateSelectedPatientJourneyReport()", HTML)
-        self.assertIn("JLIGHT Patient Journey Report", HTML)
+    def test_patient_journey_uses_current_two_report_workflow(self):
+        render = function_source(HTML, "function renderJourney()")
+        reports = function_source(HTML, "async function generatePatientJourneyReports()")
+        self.assertIn('onclick="generatePatientJourneyReports()"', render)
+        self.assertIn('id="patient-journey-report-status"', render)
+        self.assertIn("reportType: 'patient-journey-summary'", reports)
+        self.assertIn("reportType: 'patient-data-quality-traceability'", reports)
+        self.assertEqual(reports.count("downloadJourneyJson("), 2)
+        self.assertIn("if (!events.length)", reports)
+        self.assertIn("No reports have been generated", reports)
 
-    def test_printable_report_helper_is_present(self):
-        self.assertIn("function openPrintableReport(", HTML)
-        self.assertIn("Print / Save as PDF", HTML)
+    def test_patient_journey_exports_only_summary_fields_not_sequence_payloads(self):
+        reports = function_source(HTML, "async function generatePatientJourneyReports()")
+        self.assertIn("buildPatientJourneyEvents(patient)", reports)
+        self.assertIn("Raw sequence reads", HTML)
+        self.assertNotIn("fastq", reports.lower())
+        self.assertNotIn("sequence_payload", reports.lower())
+        self.assertNotIn("vcf_content", reports.lower())
+        self.assertIn("sourceRecordId: e.sourceRecordId || null", reports)
 
-    def test_patient_journey_report_excludes_raw_sequence_payloads(self):
-        start = HTML.index("function generateSelectedPatientJourneyReport()")
-        end = HTML.index("\nfunction renderDashboard()", start)
-        report = HTML[start:end]
-        self.assertIn("Raw sequence reads, sequence files and unrestricted variant files are excluded.", report)
-        self.assertIn("buildPatientJourneyEvents(patient)", report)
+    def test_bioinformatics_analysis_report_is_separate_from_journey_reports(self):
+        render = function_source(HTML, "function renderBioinformaticsTB()")
+        report = function_source(HTML, "function generateTBProfilerGenomicReport()")
+        self.assertIn("generateTBProfilerGenomicReport()", render)
+        self.assertIn("Generate full report", render)
+        self.assertIn("TB GENOMIC DRUG-RESISTANCE REPORT", report)
+        self.assertIn("Genotypic predictions are not phenotypic DST", report)
+        self.assertIn("no-call results are not evidence of susceptibility", report)
+        self.assertIn("No patient details or nucleotide sequences are included", report)
+        self.assertIn("Only drugs explicitly named in source annotations are listed", report)
 
-    def test_tb_runner_uses_real_external_tools_and_provenance(self):
-        for token in ("fastqc", "multiqc", "tb-profiler", "sha256", "run-manifest.json", "completed_pending_expert_review"):
+    def test_bioinformatics_report_does_not_claim_unavailable_drug_panel(self):
+        report = function_source(HTML, "function generateTBProfilerGenomicReport()")
+        self.assertIn("complete evaluated drug panel", report)
+        self.assertIn("Absence of a drug or mutation is not proof of susceptibility", report)
+        self.assertIn("confirm by phenotypic DST", report)
+
+    def test_pipeline_runs_required_tools_and_records_provenance(self):
+        for token in (
+            '"fastqc": version(["fastqc", "--version"])',
+            '"multiqc": version(["multiqc", "--version"])',
+            '"tb-profiler": version(["tb-profiler", "--version"])',
+            "sha256(p)",
+            '"run-manifest.json"',
+            '"completed_pending_expert_review"',
+            '"UNPINNED: exact mutation database commit was not supplied"',
+        ):
             with self.subTest(token=token):
                 self.assertIn(token, PIPELINE)
 
-    def test_bioinformatics_analysis_report_exists_and_blocks_trial_workspace(self):
-        start = HTML.index("function exportBioReport(entryId)")
-        end = HTML.index("\nfunction ", start + 1)
-        report = HTML[start:end]
-        self.assertIn("JLIGHT Bioinformatics Analysis Report", report)
-        self.assertIn("qcMetrics", report)
-        self.assertIn("qcIssues", report)
-        self.assertIn("if(STATE.role==='Trial')", report)
+    def test_pipeline_enforces_private_storage_and_fastq_pair_validation(self):
+        self.assertIn("JLIGHT_PRIVATE_DATA_ROOT", PIPELINE)
+        self.assertIn("validate_private_path", PIPELINE)
+        self.assertIn("validate_paired_fastq(args.r1, args.r2)", PIPELINE)
+        self.assertIn("Paired FASTQ files contain different record counts", PIPELINE)
+        self.assertIn("Paired FASTQ read names are out of sync", PIPELINE)
 
-    def test_each_patient_journey_offers_both_reports_and_bio_runs_are_linked_by_id(self):
-        self.assertIn("Generate Patient Journey Report", HTML)
-        self.assertIn("Generate Bioinformatics Analysis Report", HTML)
-        self.assertIn("function generateSelectedPatientBioinformaticsReport()", HTML)
-        self.assertIn("patientId: get('bf-patient') || null", HTML)
-        self.assertIn("String(e.orgId||'')===orgId", HTML)
-        self.assertIn("String(p.orgId||'')===orgId", HTML)
-        self.assertIn("String(e.patientId||'')===pid", HTML)
-
-    def test_bioinformatics_qc_issues_are_bound_to_exact_patient_org_and_run(self):
-        start = HTML.index("function generateSelectedPatientBioinformaticsReport()")
-        end = HTML.index("function renderDashboard()", start)
-        report = HTML[start:end]
-        self.assertIn("String(card.orgId||'')===orgId", report)
-        self.assertIn("String(card.patientId||'')===pid", report)
-        self.assertIn("String(card.analysisEntryId||'')===String(e.id||'')", report)
-        self.assertIn("analysisEntryId: e.id", HTML)
-        self.assertIn("String(c.analysisEntryId || '') === String(e.id)", HTML)
-
-    def test_trial_journey_is_isolated_and_matches_exact_patient_id(self):
-        start = HTML.index("function buildPatientJourneyEvents(patient)")
-        end = HTML.index("\nfunction ", start + 1)
-        journey = HTML[start:end]
-        self.assertIn("if(STATE.role==='Trial')", journey)
-        self.assertIn("String(row.patientId)!==pid", journey)
-        trial_branch = journey.split("const add=(source,label,rows,summaryFn)=>", 1)[0]
-        self.assertIn("return events", trial_branch)
-        self.assertNotIn("STATE.entries", trial_branch)
-
-    def test_failed_run_is_not_a_negative_result(self):
+    def test_failed_pipeline_stage_is_not_reported_as_negative_result(self):
         self.assertIn("QC failure or pipeline failure must not be interpreted as a negative result.", PIPELINE)
         self.assertIn('manifest["status"] = "failed"', PIPELINE)
+        self.assertIn('"status": "failed"', PIPELINE)
+        self.assertIn("class StageFailure", PIPELINE)
+
+    def test_patient_journey_api_is_exact_patient_and_tenant_scoped(self):
+        journey = function_source(API, '@app.route("/api/patient-journey/<uuid:patient_id>"')
+        self.assertIn("WHERE id=%s::uuid AND org_id=%s::uuid", journey)
+        self.assertIn("WHERE org_id=%s::uuid AND patient_id=%s::uuid", journey)
+        self.assertIn("Clinical Trials is deliberately excluded", journey)
+        self.assertIn('"bioinformatics" in domains', journey)
+        self.assertIn("jl_bio_runs", journey)
+        self.assertIn("jl_bio_qc", journey)
+        self.assertIn("jl_bio_amr", journey)
+
+    def test_trial_workspace_is_not_in_shared_patient_journey_authorisation(self):
+        auth = function_source(API, "def _patient_journey_authorisation(")
+        self.assertIn('("hospital", "laboratory", "bioinformatics")', auth)
+        self.assertNotIn('"trial"', auth.lower())
+        self.assertNotIn('"clinical_trials"', auth.lower())
+
+    def test_patient_journey_does_not_use_legacy_trial_participant_state(self):
+        journey = function_source(HTML, "function buildPatientJourneyEvents(patient)")
+        self.assertNotIn("STATE.participants", journey)
+        self.assertNotIn("STATE.visits", journey)
+        self.assertNotIn("STATE.adverseEvents", journey)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
