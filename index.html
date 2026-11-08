@@ -2103,7 +2103,11 @@ function renderTBProfilerPatientLinkPanel(records) {
     p.active !== false
   );
   if (!records.length) return '';
-  if (!patients.length) return '<section class="form-card" style="margin:14px 0"><h3>Verified patient links</h3><p class="form-help">No canonical patient records are available in this organisation. Register or verify the patient in an authorised Hospital or Laboratory workspace before linking the run.</p></section>';
+  if (!patients.length) {
+    return '<section class="form-card" style="margin:14px 0"><h3>Verified patient links</h3><p class="form-help">Enter the exact canonical patient UUID supplied by an authorised patient registry. JLIGHT validates that it belongs to this organisation; it does not match names or demographics.</p>' +
+      records.map((r,i) => '<div class="form-row" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:10px;align-items:center"><label class="form-label">' + esc(r.sampleId || r.sourceRecordId || r.id || '') + ' · ' + esc(r.drtype || 'TBProfiler') + '</label><input class="form-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Canonical patient UUID" data-tb-patient-id="' + i + '"><button class="btn btn-sm btn-primary" type="button" data-tb-link-save="' + i + '">Save link</button></div>').join('') +
+      '</section>';
+  }
   return '<section class="form-card" style="margin:14px 0"><h3>Verified patient links</h3><p class="form-help">Choose an exact canonical patient record. JLIGHT never matches patients by name or demographics.</p>' +
     records.map((r,i) => {
       const runKey = String(r.sampleId || r.sourceRecordId || r.id || '');
@@ -2117,7 +2121,6 @@ function renderTBProfilerPatientLinkPanel(records) {
         '</select><button class="btn btn-sm btn-primary" type="button" data-tb-link-save="' + i + '">Save link</button></div>';
     }).join('') + '</section>';
 }
-
 async function linkTBProfilerRunToPatient(record, patientId) {
   if(!record||!patientId){toast('Select a patient','Choose an exact patient record before linking this run.','warn');return}
   try {
@@ -3052,8 +3055,8 @@ function renderBioinformaticsTB() {
   page.querySelectorAll('[data-tb-link-save]').forEach(button=>{
     button.addEventListener('click',()=>{
       const index=Number(button.getAttribute('data-tb-link-save'))
-      const select=page.querySelector('[data-tb-patient-link="'+index+'"]')
-      linkTBProfilerRunToPatient(all[index],select&&select.value)
+      const target=page.querySelector('[data-tb-patient-link="'+index+'"]') || page.querySelector('[data-tb-patient-id="'+index+'"]')
+      linkTBProfilerRunToPatient(all[index],target&&target.value)
     })
   })
 }
@@ -6031,8 +6034,24 @@ async function loadDomainDataFromBackend() {
     const allowedDomainsByPath = {
       hospital: ['patients', 'admissions', 'wards', 'clinicalOrders', 'infections', 'reports'],
       laboratory: ['patients', 'labOrders', 'results', 'qcRuns', 'samples', 'reports'],
-      bioinformatics: ['patients', 'bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
+      bioinformatics: ['bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
       clinical_trials: ['protocols', 'participants', 'visits', 'adverseEvents', 'consents', 'deviations', 'reports']
+    }
+    // Patient demographics are not part of Bioinformatics workspace data.
+    // Load the patients domain only when the member independently has
+    // Hospital or Laboratory read permission.
+    if (MODE.organisationType === 'bioinformatics') {
+      const [hospitalRead, laboratoryRead] = await Promise.all([
+        sb.rpc('jlight_has_domain_permission', {
+          p_organization_id: STATE.orgId, p_domain: 'hospital', p_access: 'read'
+        }),
+        sb.rpc('jlight_has_domain_permission', {
+          p_organization_id: STATE.orgId, p_domain: 'laboratory', p_access: 'read'
+        })
+      ])
+      if (hospitalRead.data === true || laboratoryRead.data === true) {
+        allowedDomainsByPath.bioinformatics.unshift('patients')
+      }
     }
     const allowedDomains = allowedDomainsByPath[MODE.organisationType]
     if (!allowedDomains) throw new Error('No verified organisation path is available for data loading.')
