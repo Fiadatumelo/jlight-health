@@ -1,7 +1,6 @@
 -- Patient identity is a Hospital/Laboratory data domain.
 -- Bioinformatics can associate a run to an exact canonical patient UUID through
 -- the authenticated backend API, but must not read or write patient demographics.
-BEGIN;
 
 CREATE OR REPLACE FUNCTION private.jlight_entry_domain_access_allowed(
   p_org_id uuid,
