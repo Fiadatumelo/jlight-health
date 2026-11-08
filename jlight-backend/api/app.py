@@ -274,6 +274,261 @@ def require_domain_auth(allowed_domains, access="read"):
 
 
 
+# ─── Canonical Patient Registry and Bioinformatics Linking ─────────────────────
+
+@app.route("/api/patients/upsert", methods=["POST"])
+@require_auth
+def api_patient_upsert():
+    """Create/update a canonical patient in the active tenant; return its UUID."""
+    claims = getattr(g, "auth_claims", None) or {}
+    scope, scope_error = resolve_verified_workspace_scope(
+        {"hospital", "laboratory"}, access="write"
+    )
+    if scope_error:
+        return scope_error
+    data = request.get_json(silent=True) or {}
+    mrn = str(data.get("mrn") or "").strip()
+    full_name = str(data.get("full_name") or "").strip()
+    if not mrn or not full_name:
+        return error("MRN and full name are required", 400)
+    if len(mrn) > 128 or len(full_name) > 300:
+        return error("Patient identifiers exceed the permitted length", 400)
+    patient_id = str(data.get("patient_id") or "").strip() or None
+    allergies = data.get("allergies") if isinstance(data.get("allergies"), list) else []
+    chronic = data.get("chronic_conditions") if isinstance(data.get("chronic_conditions"), list) else []
+    db = get_db()
+    if db is None:
+        return error("Patient registry service unavailable", 503)
+    org_id = scope["organisation_id"]
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (claims["sub"],))
+            cur.execute("SELECT set_config('jlight.organization_id', %s, true)", (org_id,))
+            cur.execute("SELECT set_config('jlight.auth_subject', %s, true)", (claims["sub"],))
+            values = (
+                mrn, str(data.get("id_number") or "").strip() or None, full_name,
+                str(data.get("date_of_birth") or "").strip() or None,
+                str(data.get("gender") or "").strip() or None,
+                str(data.get("phone") or "").strip() or None,
+                str(data.get("address") or "").strip() or None,
+                str(data.get("next_of_kin") or "").strip() or None,
+                str(data.get("next_of_kin_phone") or "").strip() or None,
+                str(data.get("blood_group") or "").strip() or None,
+                [str(x).strip() for x in allergies if str(x).strip()][:100],
+                [str(x).strip() for x in chronic if str(x).strip()][:100],
+            )
+            if patient_id:
+                cur.execute(
+                    """UPDATE public.jl_patients SET mrn=%s,id_number=%s,full_name=%s,
+                       date_of_birth=NULLIF(%s,'')::date,gender=%s,phone=%s,address=%s,
+                       next_of_kin=%s,next_of_kin_phone=%s,blood_group=%s,allergies=%s,
+                       chronic_conditions=%s,updated_at=now()
+                       WHERE id=%s::uuid AND org_id=%s::uuid AND coalesce(active,true)=true
+                       RETURNING id::text,mrn,full_name""",
+                    values + (patient_id, org_id),
+                )
+                row = cur.fetchone()
+                if not row:
+                    db.rollback()
+                    return error("Canonical patient was not found in this organisation", 404)
+            else:
+                cur.execute(
+                    """INSERT INTO public.jl_patients
+                       (org_id,mrn,id_number,full_name,date_of_birth,gender,phone,address,
+                        next_of_kin,next_of_kin_phone,blood_group,allergies,chronic_conditions,
+                        active,source,created_at,updated_at)
+                       VALUES (%s::uuid,%s,%s,%s,NULLIF(%s,'')::date,%s,%s,%s,%s,%s,%s,%s,%s,
+                               true,'jlight_patient_registry',now(),now())
+                       ON CONFLICT (org_id,mrn) DO UPDATE SET
+                         id_number=EXCLUDED.id_number,full_name=EXCLUDED.full_name,
+                         date_of_birth=EXCLUDED.date_of_birth,gender=EXCLUDED.gender,
+                         phone=EXCLUDED.phone,address=EXCLUDED.address,
+                         next_of_kin=EXCLUDED.next_of_kin,next_of_kin_phone=EXCLUDED.next_of_kin_phone,
+                         blood_group=EXCLUDED.blood_group,allergies=EXCLUDED.allergies,
+                         chronic_conditions=EXCLUDED.chronic_conditions,active=true,updated_at=now()
+                       RETURNING id::text,mrn,full_name""",
+                    (org_id,) + values,
+                )
+                row = cur.fetchone()
+            db.commit()
+            return success({"patient": dict(row), "canonical_patient_id": row["id"]})
+    except Exception:
+        db.rollback()
+        app.logger.exception("Canonical patient upsert failed")
+        return error("Patient could not be saved to the authorised registry", 503)
+
+
+@app.route("/api/bioinformatics/runs/upsert", methods=["POST"])
+@require_domain_auth({"bioinformatics"}, access="write")
+def api_bioinformatics_run_upsert():
+    """Persist an imported run and optionally link it to one exact canonical patient UUID."""
+    data = request.get_json(silent=True) or {}
+    run_id = str(data.get("run_id") or "").strip()
+    analysis_type = str(data.get("analysis_type") or "Bioinformatics").strip()
+    if not run_id or len(run_id) > 255 or not analysis_type:
+        return error("A valid source run ID and analysis type are required", 400)
+    scope = g.jlight_scope
+    org_id = scope["organisation_id"]
+    patient_id = str(data.get("patient_id") or "").strip() or None
+    accession_no = str(data.get("accession_no") or run_id).strip()
+    if not accession_no or len(accession_no) > 255:
+        return error("A valid accession number is required", 400)
+    db = get_db()
+    if db is None:
+        return error("Bioinformatics persistence service unavailable", 503)
+    try:
+        with db.cursor() as cur:
+            cur.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (scope["user_id"],))
+            cur.execute("SELECT set_config('jlight.organization_id', %s, true)", (org_id,))
+            cur.execute("SELECT set_config('jlight.auth_subject', %s, true)", (scope["user_id"],))
+            if patient_id:
+                cur.execute(
+                    """SELECT id FROM public.jl_patients
+                       WHERE id=%s::uuid AND org_id=%s::uuid AND coalesce(active,true)=true LIMIT 1""",
+                    (patient_id, org_id),
+                )
+                if not cur.fetchone():
+                    db.rollback()
+                    return error("Patient UUID is not an active patient in this organisation", 404)
+            cur.execute(
+                """INSERT INTO public.jl_bio_accessions
+                   (org_id,patient_id,accession_no,sample_type,created_at)
+                   VALUES (%s::uuid,%s::uuid,%s,%s,now())
+                   ON CONFLICT (org_id,accession_no) DO UPDATE SET
+                     patient_id=COALESCE(public.jl_bio_accessions.patient_id,EXCLUDED.patient_id)
+                   WHERE public.jl_bio_accessions.patient_id IS NULL
+                      OR EXCLUDED.patient_id IS NULL
+                      OR public.jl_bio_accessions.patient_id=EXCLUDED.patient_id
+                   RETURNING id,patient_id""",
+                (org_id, patient_id, accession_no, str(data.get("sample_type") or "Not supplied")),
+            )
+            accession = cur.fetchone()
+            if not accession:
+                db.rollback()
+                return error("Accession is already linked to a different patient; no changes made", 409)
+            cur.execute(
+                """INSERT INTO public.jl_bio_runs
+                   (org_id,accession_id,patient_id,run_id,analysis_type,platform,
+                    reference_genome,pipeline,pipeline_version,operator,stage,submitted_at,
+                    completed_at,created_at)
+                   VALUES (%s::uuid,%s::uuid,%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s,now(),
+                           CASE WHEN %s='completed' THEN now() ELSE NULL END,now())
+                   ON CONFLICT (org_id,run_id) DO UPDATE SET
+                     accession_id=COALESCE(public.jl_bio_runs.accession_id,EXCLUDED.accession_id),
+                     patient_id=COALESCE(EXCLUDED.patient_id,public.jl_bio_runs.patient_id),
+                     analysis_type=EXCLUDED.analysis_type,
+                     platform=COALESCE(EXCLUDED.platform,public.jl_bio_runs.platform),
+                     reference_genome=COALESCE(EXCLUDED.reference_genome,public.jl_bio_runs.reference_genome),
+                     pipeline=COALESCE(EXCLUDED.pipeline,public.jl_bio_runs.pipeline),
+                     pipeline_version=COALESCE(EXCLUDED.pipeline_version,public.jl_bio_runs.pipeline_version),
+                     stage=EXCLUDED.stage,
+                     completed_at=COALESCE(EXCLUDED.completed_at,public.jl_bio_runs.completed_at)
+                   WHERE public.jl_bio_runs.patient_id IS NULL
+                      OR EXCLUDED.patient_id IS NULL
+                      OR public.jl_bio_runs.patient_id=EXCLUDED.patient_id
+                   RETURNING id::text,run_id,patient_id::text,accession_id::text""",
+                (org_id, accession["id"], patient_id, run_id, analysis_type,
+                 str(data.get("platform") or "") or None,
+                 str(data.get("reference_genome") or "") or None,
+                 str(data.get("pipeline") or "TBProfiler"),
+                 str(data.get("pipeline_version") or "") or None,
+                 str(data.get("operator") or "") or None,
+                 str(data.get("stage") or "completed"),
+                 str(data.get("stage") or "completed")),
+            )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return error("Run is already linked to a different patient; no changes made", 409)
+            run_uuid = row["id"]
+            # Keep the accession and run patient foreign keys in lockstep. If
+            # either side is already linked to a different patient, fail closed.
+            cur.execute(
+                """UPDATE public.jl_bio_accessions a
+                   SET patient_id=r.patient_id
+                   FROM public.jl_bio_runs r
+                   WHERE r.id=%s::uuid AND r.org_id=%s::uuid
+                     AND a.id=r.accession_id AND a.org_id=r.org_id
+                     AND a.patient_id IS NULL AND r.patient_id IS NOT NULL""",
+                (run_uuid, org_id),
+            )
+            cur.execute(
+                """UPDATE public.jl_bio_runs r
+                   SET patient_id=a.patient_id
+                   FROM public.jl_bio_accessions a
+                   WHERE r.id=%s::uuid AND r.org_id=%s::uuid
+                     AND a.id=r.accession_id AND a.org_id=r.org_id
+                     AND r.patient_id IS NULL AND a.patient_id IS NOT NULL""",
+                (run_uuid, org_id),
+            )
+            cur.execute(
+                """SELECT r.patient_id::text AS run_patient_id,
+                          a.patient_id::text AS accession_patient_id
+                   FROM public.jl_bio_runs r
+                   JOIN public.jl_bio_accessions a
+                     ON a.id=r.accession_id AND a.org_id=r.org_id
+                   WHERE r.id=%s::uuid AND r.org_id=%s::uuid""",
+                (run_uuid, org_id),
+            )
+            linked = cur.fetchone()
+            if not linked or (
+                linked["run_patient_id"] and linked["accession_patient_id"]
+                and linked["run_patient_id"] != linked["accession_patient_id"]
+            ):
+                db.rollback()
+                return error("Run and accession patient links conflict; no changes made", 409)
+            if "qc" in data and isinstance(data.get("qc"), dict):
+                qc = data["qc"]
+                def numeric(value):
+                    try:
+                        return float(value) if value is not None and str(value).strip() != "" else None
+                    except (TypeError, ValueError):
+                        return None
+                cur.execute("DELETE FROM public.jl_bio_qc WHERE org_id=%s::uuid AND run_id=%s::uuid",
+                            (org_id, run_uuid))
+                cur.execute(
+                    """INSERT INTO public.jl_bio_qc
+                       (org_id,run_id,coverage_mean,mapping_rate,q_score,dup_rate,gc_content,contamination,qc_status,created_at)
+                       VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,%s,%s,now())""",
+                    (org_id, run_uuid, numeric(qc.get("coverageMean")),
+                     numeric(qc.get("mappingRate")), numeric(qc.get("qScore")),
+                     numeric(qc.get("dupRate")), numeric(qc.get("gcContent")),
+                     numeric(qc.get("contamination")), str(qc.get("status") or "not_reported")),
+                )
+            if "amr" in data and isinstance(data.get("amr"), list):
+                cur.execute("DELETE FROM public.jl_bio_amr WHERE org_id=%s::uuid AND run_id=%s::uuid",
+                            (org_id, run_uuid))
+                for finding in data["amr"][:2000]:
+                    if not isinstance(finding, dict):
+                        continue
+                    gene = str(finding.get("gene") or "").strip()
+                    if not gene:
+                        continue
+                    confidence = None
+                    try:
+                        confidence = float(finding.get("confidence")) if finding.get("confidence") not in (None, "") else None
+                    except (TypeError, ValueError):
+                        confidence = None
+                    cur.execute(
+                        """INSERT INTO public.jl_bio_amr
+                           (org_id,run_id,gene,antibiotic_class,resistance_level,confidence,database_version,created_at)
+                           VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,now())""",
+                        (org_id, run_uuid, gene,
+                         str(finding.get("drug") or "") or None,
+                         str(finding.get("resistanceLevel") or finding.get("confidence") or "reported"),
+                         confidence,
+                         str(finding.get("databaseVersion") or data.get("database_version") or "") or None),
+                    )
+            db.commit()
+            return success({"run": dict(row), "canonical_run_id": row["id"],
+                            "canonical_accession_id": row["accession_id"]})
+    except Exception:
+        db.rollback()
+        app.logger.exception("Canonical Bioinformatics run upsert failed")
+        return error("Bioinformatics run could not be saved to the authorised registry", 503)
+
+
+
 # ─── Authoritative Patient Journey ────────────────────────────────────────────
 
 def _patient_journey_authorisation(user_id):
