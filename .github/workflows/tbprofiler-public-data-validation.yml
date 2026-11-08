@@ -2,7 +2,7 @@ name: JLIGHT public TBProfiler data validation
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "integration/jlight-unified-reconciliation-20261106"]
     paths:
       - "validation/tbprofiler/**"
       - ".github/workflows/tbprofiler-public-data-validation.yml"
@@ -93,13 +93,33 @@ jobs:
             "https://ftp.sra.ebi.ac.uk/vol1/fastq/ERR106/083/ERR10610083/ERR10610083_2.fastq.gz"
           sha256sum work/reads/* > work/fastq_sha256.txt
 
-      - name: Run TBProfiler on both samples
+      - name: Execute the JLIGHT FASTQ pipeline wrapper on both public runs
+        env:
+          JLIGHT_PRIVATE_DATA_ROOT: ${{ runner.temp }}/jlight-private
+          TBPROFILER_DB_COMMIT: ${{ env.TBPROFILER_DB_VERSION }}
         run: |
-          cd work
-          tb-profiler profile -1 reads/ERR10610053_1.fastq.gz -2 reads/ERR10610053_2.fastq.gz -t 2 -p ERR10610053 --txt --csv
-          tb-profiler profile -1 reads/ERR10610083_1.fastq.gz -2 reads/ERR10610083_2.fastq.gz -t 2 -p ERR10610083 --txt --csv
-          test -s results/ERR10610053.results.json
-          test -s results/ERR10610083.results.json
+          set -euo pipefail
+          PRIVATE_ROOT="$JLIGHT_PRIVATE_DATA_ROOT"
+          install -d -m 700 "$PRIVATE_ROOT/reads" "$PRIVATE_ROOT/runs"
+          install -d work/results work/worker_runs
+          cp work/reads/ERR10610053_1.fastq.gz "$PRIVATE_ROOT/reads/"
+          cp work/reads/ERR10610053_2.fastq.gz "$PRIVATE_ROOT/reads/"
+          cp work/reads/ERR10610083_1.fastq.gz "$PRIVATE_ROOT/reads/"
+          cp work/reads/ERR10610083_2.fastq.gz "$PRIVATE_ROOT/reads/"
+          for sample in ERR10610053 ERR10610083; do
+            python bioinformatics/tb_pipeline.py \
+              --sample-id "$sample" \
+              --r1 "$PRIVATE_ROOT/reads/${sample}_1.fastq.gz" \
+              --r2 "$PRIVATE_ROOT/reads/${sample}_2.fastq.gz" \
+              --outdir "$PRIVATE_ROOT/runs/$sample" \
+              --threads 2 \
+              --db who_v2+ \
+              --db-version "$TBPROFILER_DB_VERSION"
+            test -s "$PRIVATE_ROOT/runs/$sample/run-manifest.json"
+            test -s "$PRIVATE_ROOT/runs/$sample/results/$sample.results.json"
+            cp "$PRIVATE_ROOT/runs/$sample/results/$sample.results.json" work/results/
+            cp -a "$PRIVATE_ROOT/runs/$sample" "work/worker_runs/"
+          done
 
       - name: Test TBProfiler result normalization
         run: python -m unittest validation.tbprofiler.test_normalize_results -v
@@ -136,6 +156,9 @@ jobs:
           path: |
             work/results/*.results.json
             work/results/*.results.csv
+            work/worker_runs/**/run-manifest.json
+            work/worker_runs/**/logs/**
+            work/worker_runs/**/qc/**
             work/jlight_bioruns_import.csv
             work/tbprofiler_validation_report.json
             work/tbdb-update.log
