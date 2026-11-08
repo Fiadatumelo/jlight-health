@@ -119,6 +119,22 @@ jobs:
             cp "$PRIVATE_ROOT/runs/$sample/results/$sample.results.json" work/results/
             cp -a "$PRIVATE_ROOT/runs/$sample" "work/worker_runs/"
           done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for sample in ("ERR10610053", "ERR10610083"):
+              manifest_path = Path("work/worker_runs") / sample / "run-manifest.json"
+              manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+              assert manifest["status"] == "completed_pending_expert_review", (sample, manifest["status"])
+              assert manifest["database"] == "who_v2+"
+              assert manifest["database_version"] == "fbd11a9065212bb576b729b80fd7a3feccaad8ff"
+              assert manifest["paired_record_count"] > 0
+              assert len(manifest["input_files"]) == 2
+              assert {stage["name"].split(":")[0] for stage in manifest["stages"]} >= {"fastqc", "multiqc", "tb-profiler"}
+              assert all(stage["status"] == "completed" and stage["exit_code"] == 0 for stage in manifest["stages"])
+              assert Path("work/results", sample + ".results.json").is_file()
+              print(f"{sample}: wrapper stages, paired reads, checksums and output manifest verified")
+          PY
 
       - name: Test TBProfiler result normalization
         run: python -m unittest validation.tbprofiler.test_normalize_results -v
