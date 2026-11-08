@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "index.html"
+      - "jlight-backend/api/app.py"
       - "bioinformatics/**"
       - "jlight-backend/tests/test_bioinformatics_release_guards.py"
       - "jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py"
