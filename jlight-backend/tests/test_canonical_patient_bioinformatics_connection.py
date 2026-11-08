@@ -62,6 +62,18 @@ class CanonicalPatientBioinformaticsConnectionTests(unittest.TestCase):
         self.assertNotIn("mrn", route)
         self.assertNotIn("date_of_birth", route)
 
+    def test_bioinformatics_only_frontend_does_not_load_patient_demographics(self):
+        loader_start = HTML.index("async function loadDomainDataFromBackend()")
+        loader_end = HTML.find("\\nasync function ", loader_start + 1)
+        loader = HTML[loader_start:loader_end if loader_end >= 0 else len(HTML)]
+        self.assertIn("bioinformatics: ['bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports']", loader)
+        self.assertIn("p_domain: 'hospital'", loader)
+        self.assertIn("p_domain: 'laboratory'", loader)
+        self.assertIn("allowedDomainsByPath.bioinformatics.unshift('patients')", loader)
+        self.assertIn("Canonical patient UUID", HTML)
+        self.assertIn("data-tb-patient-id", HTML)
+
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
