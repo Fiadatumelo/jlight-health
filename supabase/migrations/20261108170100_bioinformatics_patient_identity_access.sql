@@ -103,4 +103,3 @@ CREATE POLICY jl_patients_domain_delete ON public.jl_patients
     )
   );
 
-COMMIT;
