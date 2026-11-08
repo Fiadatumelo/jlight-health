@@ -96,7 +96,6 @@ jobs:
       - name: Execute the JLIGHT FASTQ pipeline wrapper on both public runs
         env:
           JLIGHT_PRIVATE_DATA_ROOT: ${{ runner.temp }}/jlight-private
-          TBPROFILER_DB_COMMIT: ${{ env.TBPROFILER_DB_VERSION }}
         run: |
           set -euo pipefail
           PRIVATE_ROOT="$JLIGHT_PRIVATE_DATA_ROOT"
