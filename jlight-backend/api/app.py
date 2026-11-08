@@ -423,9 +423,12 @@ def api_bioinformatics_run_upsert():
                      pipeline_version=COALESCE(EXCLUDED.pipeline_version,public.jl_bio_runs.pipeline_version),
                      stage=EXCLUDED.stage,
                      completed_at=COALESCE(EXCLUDED.completed_at,public.jl_bio_runs.completed_at)
-                   WHERE public.jl_bio_runs.patient_id IS NULL
+                   WHERE (public.jl_bio_runs.patient_id IS NULL
                       OR EXCLUDED.patient_id IS NULL
-                      OR public.jl_bio_runs.patient_id=EXCLUDED.patient_id
+                      OR public.jl_bio_runs.patient_id=EXCLUDED.patient_id)
+                     AND (public.jl_bio_runs.accession_id IS NULL
+                      OR EXCLUDED.accession_id IS NULL
+                      OR public.jl_bio_runs.accession_id=EXCLUDED.accession_id)
                    RETURNING id::text,run_id,patient_id::text,accession_id::text""",
                 (org_id, accession["id"], patient_id, run_id, analysis_type,
                  str(data.get("platform") or "") or None,
@@ -477,6 +480,18 @@ def api_bioinformatics_run_upsert():
             ):
                 db.rollback()
                 return error("Run and accession patient links conflict; no changes made", 409)
+            # Return the reconciled patient foreign key, not the pre-reconciliation
+            # row snapshot from the initial INSERT/ON CONFLICT statement.
+            cur.execute(
+                """SELECT id::text,run_id,patient_id::text,accession_id::text
+                   FROM public.jl_bio_runs
+                   WHERE id=%s::uuid AND org_id=%s::uuid""",
+                (run_uuid, org_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                db.rollback()
+                return error("Canonical Bioinformatics run could not be re-read", 503)
             if "qc" in data and isinstance(data.get("qc"), dict):
                 qc = data["qc"]
                 def numeric(value):
@@ -514,8 +529,8 @@ def api_bioinformatics_run_upsert():
                            (org_id,run_id,gene,antibiotic_class,resistance_level,confidence,database_version,created_at)
                            VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,now())""",
                         (org_id, run_uuid, gene,
-                         str(finding.get("drug") or "") or None,
-                         str(finding.get("resistanceLevel") or finding.get("confidence") or "reported"),
+                         str(finding.get("antibioticClass") or finding.get("drugClass") or "") or None,
+                         str(finding.get("resistanceLevel") or "reported"),
                          confidence,
                          str(finding.get("databaseVersion") or data.get("database_version") or "") or None),
                     )
