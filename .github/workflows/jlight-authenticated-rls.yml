@@ -11,7 +11,9 @@ on:
       - "jlight-backend/api/app.py"
       - "docs/security/**"
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - integration/jlight-unified-reconciliation-20261106
     paths:
       - "jlight-backend/tests/test_authenticated_supabase_rls.py"
       - ".github/workflows/jlight-authenticated-rls.yml"
