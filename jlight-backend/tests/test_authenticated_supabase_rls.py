@@ -140,6 +140,18 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
              cls.org_a, cls.hospital_only, cls.a,
              cls.org_a, cls.bioinformatics_only, cls.a),
         )
+        # Seed legacy memberships as well: the restrictive tenant fence
+        # checks jl_org_memberships, while the sync trigger maintains the newer model.
+        for uid, access_role in (
+            (cls.bioinformatics_only, "bioinformatics"),
+            (cls.hospital_only, "hospital"),
+        ):
+            c.execute(
+                """INSERT INTO public.jl_org_memberships
+                   (id, organisation_id, user_id, access_role, status, created_by)
+                   VALUES (%s, %s, %s, %s, 'active', %s)""",
+                (str(uuid.uuid4()), cls.org_a, uid, access_role, cls.a),
+            )
         # The patients_org policy additionally requires a current organisation
         # in jl_user_profiles; use one active profile per synthetic user.
         for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b), (cls.hospital_only, cls.org_a), (cls.bioinformatics_only, cls.org_a)):
