@@ -138,7 +138,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "profile":
             root = Path(tmp)
             r1 = root / "sample_R1.fastq"
             r2 = root / "sample_R2.fastq"
-            record = "@r1\\nACGT\\n+\\n!!!!\\n"
+            record = "@r1\nACGT\n+\n!!!!\n"
             r1.write_text(record, encoding="ascii")
             r2.write_text(record, encoding="ascii")
             failed_stage = {
