@@ -6,13 +6,17 @@ on:
       - "index.html"
       - "jlight-backend/api/app.py"
       - "jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py"
+      - "jlight-backend/tests/test_bioinformatics_release_guards.py"
+      - "bioinformatics/**"
       - ".github/workflows/bioinformatics-tests.yml"
   push:
-    branches: ["main"]
+    branches: ["main", "staging/unified-main-20261101", "integration/jlight-bioinformatics-reconciliation-20261110"]
     paths:
       - "index.html"
       - "jlight-backend/api/app.py"
       - "jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py"
+      - "jlight-backend/tests/test_bioinformatics_release_guards.py"
+      - "bioinformatics/**"
       - ".github/workflows/bioinformatics-tests.yml"
 
 permissions:
@@ -28,5 +32,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Test FASTQ pipeline and failure manifests
+        run: python -m unittest discover -s bioinformatics -p "test_*.py" -v
       - name: Test canonical patient and Bioinformatics connection
         run: python jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py
+      - name: Test Bioinformatics and Patient Journey release guards
+        run: python jlight-backend/tests/test_bioinformatics_release_guards.py
