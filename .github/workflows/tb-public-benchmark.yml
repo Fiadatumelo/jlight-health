@@ -1,0 +1,136 @@
+name: JLIGHT TB public-data benchmark
+
+on:
+  push:
+    branches: [main, staging/unified-main-20261101, integration/jlight-bioinformatics-reconciliation-20261110]
+    paths:
+      - "bioinformatics/**"
+      - ".github/workflows/tb-public-benchmark.yml"
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - staging/unified-main-20261101
+      - integration/jlight-unified-reconciliation-20261106
+    paths:
+      - "bioinformatics/**"
+      - ".github/workflows/tb-public-benchmark.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  public-tb-benchmark:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up micromamba environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-file: bioinformatics/environment.yml
+          cache-environment: true
+          init-shell: bash
+
+      - name: Download public reduced TBProfiler test reads using an anonymised alias
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
+          git clone --depth 1 https://github.com/jodyphelan/tb-profiler-test-data.git "$RUNNER_TEMP/tb-public-input/source"
+          SOURCE_COMMIT="$(git -C "$RUNNER_TEMP/tb-public-input/source" rev-parse HEAD)"
+          printf '%s\n' "$SOURCE_COMMIT" > "$RUNNER_TEMP/tb-public-input/source-commit.txt"
+          cp "$RUNNER_TEMP/tb-public-input/source/por5A.reduced_1.fastq.gz" "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz"
+          cp "$RUNNER_TEMP/tb-public-input/source/por5A.reduced_2.fastq.gz" "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz"
+          test -s "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz"
+          test -s "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz"
+
+      - name: Record database provenance and run TB pipeline
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          export JLIGHT_PRIVATE_DATA_ROOT="$RUNNER_TEMP"
+          tb-profiler --version
+          DB_COMMIT="$(git ls-remote https://github.com/jodyphelan/tbdb.git 'refs/heads/who_v2+' | awk 'NR==1 {print $1}')"
+          test -n "$DB_COMMIT"
+          # Explicitly install the database at the same immutable commit recorded in the manifest.
+          tb-profiler update_tbdb --branch 'who_v2+' --commit "$DB_COMMIT" --force
+          python bioinformatics/tb_pipeline.py \
+            --sample-id PATION-001 \
+            --r1 "$RUNNER_TEMP/tb-public-input/PATION-001_R1.fastq.gz" \
+            --r2 "$RUNNER_TEMP/tb-public-input/PATION-001_R2.fastq.gz" \
+            --outdir "$RUNNER_TEMP/tb-public-output/PATION-001" \
+            --threads 2 \
+            --db-version "$DB_COMMIT"
+
+      - name: Assert completed run and print safe summary
+        shell: bash -el {0}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          manifest_path = Path(os.environ["RUNNER_TEMP"]) / "tb-public-output" / "PATION-001" / "run-manifest.json"
+          manifest = json.loads(manifest_path.read_text())
+          assert manifest["status"] == "completed_pending_expert_review", manifest.get("status")
+          assert manifest["sample_id"] == "PATION-001"
+          assert manifest["stages"] and all(stage["status"] == "completed" for stage in manifest["stages"])
+          result_path = Path(os.environ["RUNNER_TEMP"]) / "tb-public-output" / "PATION-001" / "results" / "PATION-001.results.json"
+          result = json.loads(result_path.read_text())
+          assert result["main_lineage"] == "lineage4", result.get("main_lineage")
+          assert result["sub_lineage"] == "lineage4.3.4.2", result.get("sub_lineage")
+          expected_variants = [
+              ("rpoB", "p.Ser450Leu"),
+              ("inhA", "c.-777C>T"),
+              ("pncA", "p.Val125Gly"),
+              ("embB", "p.Met306Val"),
+          ]
+          observed_variants = [(v["gene_name"], v["change"]) for v in result["dr_variants"]]
+          assert observed_variants == expected_variants, observed_variants
+          source_commit = (Path(os.environ["RUNNER_TEMP"]) / "tb-public-input" / "source-commit.txt").read_text().strip()
+          summary = {
+            "status": manifest["status"],
+            "benchmark_alias": "PATION-001",
+            "tool_versions": manifest["tools"],
+            "database": manifest["database"],
+            "database_commit": manifest["database_version"],
+            "input_count": len(manifest["input_files"]),
+            "stage_count": len(manifest["stages"]),
+            "main_lineage": result["main_lineage"],
+            "sub_lineage": result["sub_lineage"],
+            "observed_dr_variants": observed_variants,
+            "expected_variants_match": observed_variants == expected_variants,
+            "source_repository": "https://github.com/jodyphelan/tb-profiler-test-data",
+            "source_commit": source_commit,
+            "raw_reads_retained_after_job": False,
+            "limitations": manifest["limitations"],
+          }
+          summary_path = Path(os.environ["GITHUB_WORKSPACE"]) / "tb-benchmark-summary.json"
+          summary_path.write_text(json.dumps(summary, indent=2))
+          print(json.dumps(summary, indent=2))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as report:
+            report.write("# JLIGHT TB public-data benchmark\n\n")
+            report.write("- Status: **" + summary["status"] + "**\n")
+            report.write("- Tools: " + manifest["tools"]["fastqc"] + "; " + manifest["tools"]["multiqc"] + "; " + manifest["tools"]["tb-profiler"] + "\n")
+            report.write("- TBDB commit: " + manifest["database_version"] + "\n")
+            report.write("- Source data commit: " + source_commit + "\n")
+            report.write("- Lineage: " + result["main_lineage"] + " / " + result["sub_lineage"] + "\n")
+            report.write("- Expected resistance variant profile matched: **" + str(observed_variants == expected_variants) + "**\n")
+            report.write("- Intended use: technical/research benchmark only; not clinical validation.\n")
+          PY
+
+      - name: Retain non-identifying benchmark provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: jlight-tb-benchmark-provenance
+          path: tb-benchmark-summary.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove sequence data and analysis outputs
+        if: always()
+        shell: bash
+        run: |
+          rm -rf "$RUNNER_TEMP/tb-public-input" "$RUNNER_TEMP/tb-public-output"
