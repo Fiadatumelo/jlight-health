@@ -1986,6 +1986,23 @@ function buildPatientJourneyEvents(patient) {
     };
   });
 }
+function getJlightApiBaseUrl() {
+  const configured = (window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL;
+  if (typeof configured !== 'string' || !configured.trim()) {
+    throw new Error('JLIGHT API configuration is missing. Configure the API URL for this environment.');
+  }
+  const base = configured.trim().replace(/\/+$/, '');
+  let parsed;
+  try { parsed = new URL(base); } catch (_) {
+    throw new Error('JLIGHT API configuration must be an absolute HTTPS URL.');
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+  if ((parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) ||
+      parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('JLIGHT API configuration must use HTTPS without credentials, query parameters or a fragment.');
+  }
+  return base;
+}
 async function loadAuthoritativePatientJourney(patient) {
   const patientId = String(patient.id);
   if (STATE.journeyLoadingPatientId === patientId ||
@@ -2003,7 +2020,7 @@ async function loadAuthoritativePatientJourney(patient) {
     const sessionResult = sb ? await sb.auth.getSession() : null;
     const session = sessionResult && sessionResult.data && sessionResult.data.session;
     if (!session || !session.access_token) throw new Error('A verified session is required.');
-    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/patient-journey/' + encodeURIComponent(patientId), {
       method: 'GET',
       headers: {
@@ -2107,8 +2124,8 @@ async function requestJlightIntelligenceSummary(patient, events) {
   if (undated > 0) {
     checks.push({ check_id: 'source_data_incomplete', source: 'interoperability', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, undated) });
   }
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
   try {
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/intelligence/summary', {
       method: 'POST',
       headers: {
@@ -2121,8 +2138,8 @@ async function requestJlightIntelligenceSummary(patient, events) {
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Intelligence service returned HTTP ' + response.status) };
     return { success: true, summary: body.result, engine: body.result && body.result.engine_version || null };
-  } catch (_) {
-    return { success: false, message: 'Intelligence service could not be reached. The two local reports can still be generated.' };
+  } catch (error) {
+    return { success: false, message: error.message || 'Intelligence service could not be reached.' };
   }
 }
 
@@ -2133,8 +2150,8 @@ async function requestJlightClinicalTrialsSummary() {
   const sessionResult = await sb.auth.getSession();
   const session = sessionResult && sessionResult.data && sessionResult.data.session;
   if (!session || !session.access_token) return { success: false, message: 'A verified Clinical Trials session is required.' };
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
   try {
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
       method: 'POST',
       headers: {
@@ -2148,8 +2165,8 @@ async function requestJlightClinicalTrialsSummary() {
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Clinical Trials JC returned HTTP ' + response.status) };
     return { success: true, summary: body.result };
-  } catch (_) {
-    return { success: false, message: 'Clinical Trials JC could not reach the intelligence service.' };
+  } catch (error) {
+    return { success: false, message: error.message || 'Clinical Trials JC could not reach the intelligence service.' };
   }
 }
 
@@ -2762,6 +2779,10 @@ async function commitTBProfilerJson() {
   if(MODE.isOnline&&!sync.ok){
     window._tbProfilerPendingSync=imported
     if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>Local cache saved; retry cloud sync before relying on the server copy.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
+    return
+  }
+  if (!MODE.isOnline) {
+    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Saved on this device only</strong><p>Cloud persistence is not confirmed. Sign in online and synchronise before using this result in an authoritative patient report.</p></div>'
     return
   }
   await audit('TBProfiler result imported',imported.length+' profile(s); '+TB_PROFILER_IMPORT_NAME+'; no patient identity linked.')
