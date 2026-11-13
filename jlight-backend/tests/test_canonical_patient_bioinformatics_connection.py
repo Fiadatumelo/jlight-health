@@ -57,6 +57,16 @@ class CanonicalPatientBioinformaticsConnectionTests(unittest.TestCase):
         self.assertIn("Clinical Trials is deliberately excluded", journey)
         self.assertIn('if "bioinformatics" in domains:', journey)
 
+    def test_tbprofiler_import_preserves_mean_depth_and_source_amr_fields(self):
+        importer = route_source(HTML, "async function commitTBProfilerJson()")
+        retry = route_source(HTML, "async function retryTBProfilerCloudSync()")
+        for source in (importer, retry):
+            self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", source)
+            self.assertIn("drug:x.drug", source)
+            self.assertIn("mutation:x.mutation", source)
+            self.assertIn("annotationSource:x.source", source)
+            self.assertIn("sourceConfidence:x.confidence", source)
+
     def test_patient_uuid_is_never_demographically_matched(self):
         route = route_source(API, '@app.route("/api/bioinformatics/runs/upsert"')
         self.assertNotIn("full_name", route)
