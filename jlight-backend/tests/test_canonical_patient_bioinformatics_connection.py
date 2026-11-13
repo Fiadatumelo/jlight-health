@@ -57,12 +57,17 @@ class CanonicalPatientBioinformaticsConnectionTests(unittest.TestCase):
         self.assertIn("Clinical Trials is deliberately excluded", journey)
         self.assertIn('if "bioinformatics" in domains:', journey)
 
-    def test_tbprofiler_import_preserves_mean_depth_and_source_amr_fields(self):
-        self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", HTML)
-        self.assertIn("drug:x.drug", HTML)
-        self.assertIn("mutation:x.mutation", HTML)
-        self.assertIn("annotationSource:x.source", HTML)
-        self.assertIn("sourceConfidence:x.confidence", HTML)
+    def test_tbprofiler_initial_import_and_retry_preserve_mean_depth_and_amr_fields(self):
+        initial = HTML[HTML.index("async function commitTBProfilerJson()"):
+                       HTML.index("async function retryTBProfilerCloudSync()")]
+        retry = HTML[HTML.index("async function retryTBProfilerCloudSync()"):
+                     HTML.index("function hydrateTBProfilerRecord(")]
+        self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", initial)
+        self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", retry)
+        for field in ("drug:x.drug", "mutation:x.mutation",
+                      "annotationSource:x.source", "sourceConfidence:x.confidence"):
+            self.assertIn(field, initial)
+            self.assertIn(field, retry)
 
     def test_patient_uuid_is_never_demographically_matched(self):
         route = route_source(API, '@app.route("/api/bioinformatics/runs/upsert"')
