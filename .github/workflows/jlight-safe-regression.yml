@@ -60,7 +60,7 @@ jobs:
         working-directory: jlight-backend
         run: python -m pytest tests/test_api_security.py tests/test_workspace_scope_api.py tests/test_intelligence_api.py tests/test_jc_agent.py tests/test_jc_provider.py tests/test_patient_journey_api.py tests/test_canonical_patient_bioinformatics_api.py tests/test_intelligence_engine.py tests/test_clinical_trials_jc.py -q
       - name: Test canonical Bioinformatics patient-link source contract
-        run: python -m unittest jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py -v
+        run: python jlight-backend/tests/test_canonical_patient_bioinformatics_connection.py
       - name: Run analytical engine regression tests
         working-directory: jlight-backend
         run: python tests/test_all.py
