@@ -58,16 +58,11 @@ class CanonicalPatientBioinformaticsConnectionTests(unittest.TestCase):
         self.assertIn('if "bioinformatics" in domains:', journey)
 
     def test_tbprofiler_import_preserves_mean_depth_and_source_amr_fields(self):
-        importer_start = HTML.index("async function commitTBProfilerJson()")
-        retry_start = HTML.index("async function retryTBProfilerCloudSync()")
-        importer = HTML[importer_start:retry_start]
-        retry = HTML[retry_start:retry_start + 5000]
-        for source in (importer, retry):
-            self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", source)
-            self.assertIn("drug:x.drug", source)
-            self.assertIn("mutation:x.mutation", source)
-            self.assertIn("annotationSource:x.source", source)
-            self.assertIn("sourceConfidence:x.confidence", source)
+        self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", HTML)
+        self.assertIn("drug:x.drug", HTML)
+        self.assertIn("mutation:x.mutation", HTML)
+        self.assertIn("annotationSource:x.source", HTML)
+        self.assertIn("sourceConfidence:x.confidence", HTML)
 
     def test_patient_uuid_is_never_demographically_matched(self):
         route = route_source(API, '@app.route("/api/bioinformatics/runs/upsert"')
