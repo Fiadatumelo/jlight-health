@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/jlight-runtime-config.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -1997,6 +1998,12 @@ function getJlightApiBaseUrl() {
     throw new Error('JLIGHT API configuration must be an absolute HTTPS URL.');
   }
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+  const host = String(window.location?.hostname || '').toLowerCase();
+  const production = ['jlight-health.co.za', 'www.jlight-health.co.za',
+    'jlight-health.netlify.app', 'main--jlight-health.netlify.app'].includes(host);
+  if (production && parsed.hostname === 'jlight-backend-staging.onrender.com') {
+    throw new Error('JLIGHT API configuration cannot use the staging backend on a production host.');
+  }
   if ((parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) ||
       parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error('JLIGHT API configuration must use HTTPS without credentials, query parameters or a fragment.');
@@ -2757,6 +2764,77 @@ function handleTBProfilerJsonFile(event) {
   reader.readAsText(file)
 }
 
+// Recovered PR #92 client contract; canonical writes remain on the existing API.
+async function jlightCanonicalApiRequest(path, method, payload) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) throw new Error('An authenticated online workspace is required.')
+  const orgId = String(STATE.orgId || '')
+  const workspace = String(MODE.organisationType || '').toLowerCase()
+  if (!orgId || orgId === 'default') throw new Error('Select an active organisation first.')
+  if (workspace !== 'bioinformatics') throw new Error('Select the authorised Bioinformatics workspace.')
+  const {data, error} = await sb.auth.getSession()
+  if (error || !data?.session?.access_token) throw new Error('A verified sign-in session is required.')
+  const response = await fetch(getJlightApiBaseUrl() + path, {
+    method: method || 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + data.session.access_token,
+      'Content-Type': 'application/json',
+      'X-JLIGHT-Organisation': orgId,
+      'X-JLIGHT-Workspace': workspace
+    },
+    body: JSON.stringify(payload || {})
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body.success !== true) throw new Error('Canonical Bioinformatics save was not confirmed (HTTP ' + response.status + ').')
+  if (String(STATE.orgId || '') !== orgId || MODE.organisationType !== workspace) {
+    throw new Error('The active workspace changed during the request. Reload the authorised workspace before retrying.')
+  }
+  return body
+}
+
+async function persistTBProfilerCanonicalRecords(records) {
+  try {
+    for (const original of records) {
+      const record = hydrateTBProfilerRecord(original)
+      if (String(record.orgId || '') !== String(STATE.orgId || '')) throw new Error('Import organisation does not match the active workspace.')
+      const runKey = String(record.sampleId || record.sourceRecordId || '')
+      if (!runKey) throw new Error('A source run identifier is required.')
+      const qc = record.tbProfiler?.qc || {}
+      const canonical = await jlightCanonicalApiRequest('/api/bioinformatics/runs/upsert', 'POST', {
+        run_id: runKey, accession_no: runKey,
+        analysis_type: String(record.analysisType || 'TBProfiler'),
+        pipeline: String(record.pipelineName || 'TBProfiler'),
+        pipeline_version: String(record.pipelineVersion || ''),
+        database_version: String(record.databaseVersion || ''),
+        stage: String(record.status || 'completed'),
+        // Imports never supply patient_id. A sample accession is not patient identity.
+        qc: {status: String(record.qualityStatus || qc.status || 'not_reported'),
+          coverageMean: qc.coverageMean ?? qc.meanDepth ?? null,
+          mappingRate: qc.pctReadsMapped ?? null, qScore: qc.qScore ?? null,
+          dupRate: qc.dupRate ?? null, gcContent: qc.gcContent ?? null,
+          contamination: qc.contamination ?? null},
+        amr: (record.tbProfiler?.resistanceEvidence || []).map(x => ({
+          gene: x.gene, antibioticClass: x.antibioticClass || x.drugClass || null,
+          confidence: x.confidence, resistanceLevel: x.resistanceLevel || x.interpretation || 'reported',
+          databaseVersion: record.databaseVersion || ''
+        }))
+      })
+      const saved = canonical.run
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!saved || !uuid.test(String(canonical.canonical_run_id || '')) ||
+          !uuid.test(String(canonical.canonical_accession_id || '')) ||
+          saved.id !== canonical.canonical_run_id || saved.accession_id !== canonical.canonical_accession_id ||
+          saved.run_id !== runKey) throw new Error('The API did not confirm the expected canonical run and accession.')
+      original.canonicalRunId = canonical.canonical_run_id
+      original.canonicalAccessionId = canonical.canonical_accession_id
+      // This acknowledgement never authorises a patient link or a cached report.
+    }
+    return {ok: true}
+  } catch (_) {
+    return {ok: false, reason: 'Canonical Bioinformatics save is not confirmed. Check API configuration, session, permissions and connectivity; retry before relying on this result.'}
+  }
+}
+
 async function commitTBProfilerJson() {
   const records=TB_PROFILER_IMPORT_PREVIEW
   const preview=document.getElementById('tb-profiler-preview')
@@ -2775,33 +2853,38 @@ async function commitTBProfilerJson() {
   try{localStorage.setItem(jlightStorageKey(BIORUN_KEY),JSON.stringify(next.slice(-2000)))}catch(e){toast('Local save failed','No records were imported.','crit');return}
   STATE.bioRuns=next
   let sync={ok:false,reason:'offline'}
-  if(MODE.isOnline)sync=await syncDomainToBackend('bioRuns',imported)
+  if(MODE.isOnline) {
+    sync=await persistTBProfilerCanonicalRecords(imported)
+    if(sync.ok) sync=await syncDomainToBackend('bioRuns',imported)
+  }
   if(MODE.isOnline&&!sync.ok){
     window._tbProfilerPendingSync=imported
-    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>Local cache saved; retry cloud sync before relying on the server copy.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
+    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>'+esc(sync.reason || 'The workspace copy was not saved.')+' Local cache retained.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
     return
   }
   if (!MODE.isOnline) {
     if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Saved on this device only</strong><p>Cloud persistence is not confirmed. Sign in online and synchronise before using this result in an authoritative patient report.</p></div>'
     return
   }
-  await audit('TBProfiler workspace copy saved',imported.length+' profile(s); canonical persistence and patient linking not verified.')
+  await audit('TBProfiler canonical save acknowledged',imported.length+' profile(s); independent retrieval and patient linking not verified.')
   TB_PROFILER_IMPORT_PREVIEW=null
-  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>'+imported.length+' TB profile workspace copy/copies saved</strong><p>The generic workspace copy was saved. Canonical Bioinformatics persistence, backend readback and patient linking are not verified. These results are not available for authoritative Patient Journey reports.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Canonical save acknowledged</strong><p>'+imported.length+' run/accession response(s) verified; workspace copies saved. Independent retrieval, full evidence readback and patient linking are not verified. These cached results do not authorise Patient Journey reports.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
   const button=document.getElementById('tb-profiler-import');if(button)button.disabled=true
   renderDashboard()
-  toast('Workspace copy saved','Canonical persistence and patient linking are not verified.','warn')
+  toast('Canonical save acknowledged','Independent retrieval and patient linking are not verified.','warn')
 }
 
 async function retryTBProfilerCloudSync() {
   const pending=window._tbProfilerPendingSync||[]
   if(!pending.length||!MODE.isOnline){toast('No pending TB sync','No pending online import batch.','warn');return}
+  const canonical=await persistTBProfilerCanonicalRecords(pending)
+  if(!canonical.ok){toast('Canonical save failed',canonical.reason,'crit');return}
   const result=await syncDomainToBackend('bioRuns',pending)
   if(!result.ok){toast('Cloud sync failed',result.reason||'Check connectivity.','crit');return}
   window._tbProfilerPendingSync=null
-  await audit('TBProfiler workspace copy retried',pending.length+' workspace copies saved; canonical persistence not verified.')
+  await audit('TBProfiler canonical save retry acknowledged',pending.length+' run/accession responses verified; independent retrieval not verified.')
   const preview=document.getElementById('tb-profiler-preview')
-  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Workspace copy saved</strong><p>'+pending.length+' generic workspace copy/copies saved. Canonical Bioinformatics persistence and backend readback are not verified. This is not an authoritative patient result.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Canonical save acknowledged</strong><p>'+pending.length+' run/accession response(s) verified; workspace copies saved. Independent retrieval and patient linking are not verified. This is not an authoritative patient result.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
 }
 
 function hydrateTBProfilerRecord(record) {
