@@ -50,7 +50,8 @@ jobs:
       - name: Create isolated TBProfiler environment
         uses: mamba-org/setup-micromamba@v2
         with:
-          environment-file: validation/tbprofiler/environment.yml
+          # Reuse the canonical worker environment so FastQC, MultiQC and TBProfiler are all installed.
+          environment-file: bioinformatics/environment.yml
           cache-environment: true
           init-shell: bash
 
