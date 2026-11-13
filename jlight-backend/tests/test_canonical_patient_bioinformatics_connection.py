@@ -58,8 +58,10 @@ class CanonicalPatientBioinformaticsConnectionTests(unittest.TestCase):
         self.assertIn('if "bioinformatics" in domains:', journey)
 
     def test_tbprofiler_import_preserves_mean_depth_and_source_amr_fields(self):
-        importer = route_source(HTML, "async function commitTBProfilerJson()")
-        retry = route_source(HTML, "async function retryTBProfilerCloudSync()")
+        importer_start = HTML.index("async function commitTBProfilerJson()")
+        retry_start = HTML.index("async function retryTBProfilerCloudSync()")
+        importer = HTML[importer_start:retry_start]
+        retry = HTML[retry_start:retry_start + 5000]
         for source in (importer, retry):
             self.assertIn("coverageMean:record.tbProfiler?.qc?.meanDepth", source)
             self.assertIn("drug:x.drug", source)
