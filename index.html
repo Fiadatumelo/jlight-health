@@ -2902,7 +2902,7 @@ async function commitTBProfilerJson() {
           stage:'completed',
           qc:{
             status:String(record.qualityStatus || record.tbProfiler?.qc?.status || 'not_reported'),
-            coverageMean:record.tbProfiler?.qc?.coverageMean ?? null,
+            coverageMean:record.tbProfiler?.qc?.meanDepth ?? null,
             mappingRate:record.tbProfiler?.qc?.pctReadsMapped ?? null,
             qScore:record.tbProfiler?.qc?.qScore ?? null,
             dupRate:record.tbProfiler?.qc?.dupRate ?? null,
