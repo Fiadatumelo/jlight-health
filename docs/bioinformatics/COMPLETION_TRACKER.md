@@ -20,22 +20,23 @@ JLIGHT's approved architecture treats specialist bioinformatics tools such as TB
 
 ## Confirmed issues requiring correction or explicit disposition
 
-1. **TBProfiler-to-canonical AMR mapping:** the UI normaliser produces resistance evidence with `drug`, `confidence` (text), and gene/mutation annotations. The import/link payload currently maps `antibioticClass`/ `drugClass` but not `drug`; the backend stores `antibiotic_class`. The backend parses confidence as numeric, so textual confidence labels may be stored as null. Define a scientifically faithful mapping; do not invent numeric confidence or silently discard the source label.
-2. **Mean coverage mapping:** the normaliser retains `meanDepth`, but the canonical payload reads `coverageMean`. The current UI hydration path does not expose a confirmed mean-coverage field either. Median depth must never be relabelled as mean coverage. Decide whether to preserve mean depth separately using existing schema/API support or leave it explicitly unavailable.
+1. **TBProfiler-to-canonical AMR mapping:** corrected on the feature branch. The canonical AMR extension adds nullable `drug`, `mutation`, `annotation_source`, and `source_confidence` fields; the importer now carries these separately. Existing numeric confidence remains numeric-only; textual labels are retained as source confidence.
+2. **Mean coverage mapping:** corrected on the feature branch. The canonical payload now receives the normaliser's `meanDepth` value as mean coverage. Median depth is not substituted.
 3. **QC/AMR replacement semantics:** the canonical upsert deletes existing QC and AMR rows for a run before inserting the submitted set. Existing schema constraints do not establish whether these are current snapshots or historical evidence. Inspect migrations, readers, reports and tests before changing this behaviour.
 4. **Canonical versus compatibility persistence:** the importer saves canonical run data and then invokes the existing domain sync for `bioRuns`. Verify what the compatibility sync writes, which screens read each source, and that a failed canonical save cannot be masked by a legacy copy.
 5. **Live verification:** authenticated staging import/readback, patient-link readback, Patient Journey/report visibility and cross-organisation/permission denials remain unverified. Mocks/source guards do not satisfy these release gates.
 
 
-6. **AMR evidence fidelity:** the database currently has `gene`, `antibiotic_class`, `resistance_level`, numeric `confidence` and `database_version`, but no dedicated drug, mutation, source annotation, or textual-confidence columns. The current Bioinformatics UI also keeps richer TBProfiler variant evidence in the imported `bioRuns` payload. A faithful canonical/report contract must be agreed before extending or mapping these fields; do not mislabel an individual drug as an antibiotic class or coerce textual confidence to a number.
-7. **Mean-depth field mismatch:** the normaliser retains source mean depth as `meanDepth`; the canonical importer reads `coverageMean`. The canonical QC schema has `coverage_mean`, but the frontend currently does not populate it from `meanDepth`. Preserve the metric's source meaning and units if a supported mapping is added.
+6. **AMR evidence fidelity:** the branch now adds nullable source-evidence columns through `20261113210000_bioinformatics_amr_source_evidence.sql`. Migration is committed but not applied to staging. Existing imported rich payloads remain in `bioRuns`; canonical Patient Journey now reads the added fields.
+7. **Mean-depth field mismatch:** frontend import and retry now map `meanDepth` to canonical `coverageMean`; focused source guards were added.
 
 ## Completion loop
 
 - [ ] Trace every Bioinformatics UI action to its API/database source and back to its read path.
-- [ ] Resolve the confirmed result-mapping and persistence semantics without weakening tenant/workspace controls.
-- [ ] Add or update focused tests for each corrected contract.
-- [ ] Run the public TBProfiler reference/normalisation tests and relevant API/frontend tests.
+- [x] Resolve the confirmed result-mapping contract without weakening tenant/workspace controls (AMR migration still awaits staging review/application).
+- [x] Document QC/AMR upsert as current per-run snapshot replacement: a complete TBProfiler result represents the current run result; API replacement is transaction-scoped. Historical pipeline reruns remain separate run IDs.
+- [x] Add focused API and frontend source-guard tests for AMR evidence preservation and mean-depth mapping (CI result pending).
+- [ ] Run the public TBProfiler reference/normalisation tests and relevant API/frontend tests (awaiting current regression workflow).
 - [ ] Perform authenticated staging end-to-end verification using authorised test records only.
 - [ ] Verify Patient Journey and reports show the canonical, provenance-backed results.
 - [ ] Verify cross-organisation and insufficient-permission requests fail closed.
