@@ -2132,7 +2132,7 @@ async function linkTBProfilerRunToPatient(record, patientId) {
       database_version:String(record.databaseVersion || ''),
       qc:{
         status:String(record.qualityStatus || record.tbProfiler?.qc?.status || 'not_reported'),
-        coverageMean:record.tbProfiler?.qc?.coverageMean ?? null,
+        coverageMean:record.tbProfiler?.qc?.meanDepth ?? null,
         mappingRate:record.tbProfiler?.qc?.pctReadsMapped ?? null,
         qScore:record.tbProfiler?.qc?.qScore ?? null,
         dupRate:record.tbProfiler?.qc?.dupRate ?? null,
@@ -2910,7 +2910,7 @@ async function commitTBProfilerJson() {
             contamination:record.tbProfiler?.qc?.contamination ?? null
           },
           amr:(record.tbProfiler?.resistanceEvidence || []).map(x=>({
-            gene:x.gene,antibioticClass:x.antibioticClass || x.drugClass || null,confidence:x.confidence,resistanceLevel:x.resistanceLevel || x.interpretation || 'reported',
+            gene:x.gene,antibioticClass:x.antibioticClass || x.drugClass || null,drug:x.drug || null,mutation:x.mutation || null,annotationSource:x.source || null,sourceConfidence:x.confidence || null,confidence:x.confidence,resistanceLevel:x.resistanceLevel || x.interpretation || 'reported',
             databaseVersion:record.databaseVersion || ''
           }))
         })
@@ -2952,8 +2952,8 @@ async function retryTBProfilerCloudSync() {
         pipeline_version:String(record.pipelineVersion||''),
         database_version:String(record.databaseVersion||''),
         stage:'completed',
-        qc:{status:String(record.qualityStatus||'not_reported'),coverageMean:record.tbProfiler?.qc?.coverageMean??null,mappingRate:record.tbProfiler?.qc?.pctReadsMapped??null},
-        amr:(record.tbProfiler?.resistanceEvidence||[]).map(x=>({gene:x.gene,antibioticClass:x.antibioticClass || x.drugClass || null,confidence:x.confidence,resistanceLevel:x.resistanceLevel || x.interpretation || 'reported',databaseVersion:record.databaseVersion||''}))
+        qc:{status:String(record.qualityStatus||'not_reported'),coverageMean:record.tbProfiler?.qc?.meanDepth??null,mappingRate:record.tbProfiler?.qc?.pctReadsMapped??null},
+        amr:(record.tbProfiler?.resistanceEvidence||[]).map(x=>({gene:x.gene,antibioticClass:x.antibioticClass || x.drugClass || null,drug:x.drug || null,mutation:x.mutation || null,annotationSource:x.source || null,sourceConfidence:x.confidence || null,confidence:x.confidence,resistanceLevel:x.resistanceLevel || x.interpretation || 'reported',databaseVersion:record.databaseVersion||''}))
       })
       record.canonicalRunId=canonical.canonical_run_id
       record.canonicalAccessionId=canonical.canonical_accession_id
