@@ -102,8 +102,9 @@ def authenticated_request(db, *, resolver=None, payload=None):
                 "pipeline_version": "6.7.0",
                 "stage": "completed",
                 "qc": {"status": "review", "coverageMean": 35.2, "mappingRate": 97.1},
-                "amr": [{"gene": "rpoB", "antibioticClass": "rifamycins",
-                         "resistanceLevel": "resistance-associated", "confidence": 0.98}],
+                "amr": [{"gene": "rpoB", "antibioticClass": "rifamycins", "drug": "rifampicin",
+                         "mutation": "S450L", "annotationSource": "TBProfiler",
+                         "sourceConfidence": "high", "resistanceLevel": "resistance-associated", "confidence": 0.98}],
             },
             headers={
                 "Authorization": "Bearer synthetic-verified-token",
@@ -126,6 +127,14 @@ def test_run_upsert_persists_exact_patient_link_and_qc_amr():
     assert any("insert into public.jl_bio_runs" in q for q in queries)
     assert any("insert into public.jl_bio_qc" in q for q in queries)
     assert any("insert into public.jl_bio_amr" in q for q in queries)
+    amr_insert = next((q, p) for q, p in db.cursor_instance.executed
+                      if "insert into public.jl_bio_amr" in q.lower())
+    assert all(field in amr_insert[0].lower()
+               for field in ("drug", "mutation", "annotation_source", "source_confidence"))
+    assert "rifampicin" in amr_insert[1]
+    assert "S450L" in amr_insert[1]
+    assert "TBProfiler" in amr_insert[1]
+    assert "high" in amr_insert[1]
     assert db.commits == 1
     assert db.rollbacks == 0
 
