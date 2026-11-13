@@ -526,13 +526,17 @@ def api_bioinformatics_run_upsert():
                         confidence = None
                     cur.execute(
                         """INSERT INTO public.jl_bio_amr
-                           (org_id,run_id,gene,antibiotic_class,resistance_level,confidence,database_version,created_at)
-                           VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,now())""",
+                           (org_id,run_id,gene,antibiotic_class,resistance_level,confidence,database_version,drug,mutation,annotation_source,source_confidence,created_at)
+                           VALUES (%s::uuid,%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s,%s,now())""",
                         (org_id, run_uuid, gene,
                          str(finding.get("antibioticClass") or finding.get("drugClass") or "") or None,
                          str(finding.get("resistanceLevel") or "reported"),
                          confidence,
-                         str(finding.get("databaseVersion") or data.get("database_version") or "") or None),
+                         str(finding.get("databaseVersion") or data.get("database_version") or "") or None,
+                         str(finding.get("drug") or "") or None,
+                         str(finding.get("mutation") or "") or None,
+                         str(finding.get("annotationSource") or "") or None,
+                         str(finding.get("sourceConfidence") or "") or None),
                     )
             db.commit()
             return success({"run": dict(row), "canonical_run_id": row["id"],
@@ -793,7 +797,8 @@ def api_patient_journey(patient_id):
                         summary = "Bioinformatics QC" + "".join(" · %s: %s" % (k, v) for k,v in metrics if v is not None)
                         events.append(_journey_event("Bioinformatics", "quality_control", None, row["qc_status"], row["id"], summary))
                     cur.execute(
-                        """SELECT a.id,a.run_id,a.gene,a.antibiotic_class,a.resistance_level,a.confidence,a.database_version
+                        """SELECT a.id,a.run_id,a.gene,a.antibiotic_class,a.resistance_level,a.confidence,a.database_version,
+                                  a.drug,a.mutation,a.annotation_source,a.source_confidence
                            FROM public.jl_bio_amr a
                            JOIN public.jl_bio_runs r ON r.id=a.run_id AND r.org_id=a.org_id
                            WHERE a.org_id=%s::uuid AND r.patient_id=%s::uuid
@@ -803,6 +808,14 @@ def api_patient_journey(patient_id):
                     for row in cur.fetchall():
                         summary = (row.get("gene") or "Resistance finding") + " · " + (row.get("antibiotic_class") or "drug class") + \
                             " · " + (row.get("resistance_level") or "source call")
+                        if row.get("drug"):
+                            summary += " · drug: " + row["drug"]
+                        if row.get("mutation"):
+                            summary += " · mutation: " + row["mutation"]
+                        if row.get("annotation_source"):
+                            summary += " · annotation: " + row["annotation_source"]
+                        if row.get("source_confidence"):
+                            summary += " · source confidence: " + row["source_confidence"]
                         if row.get("confidence") is not None:
                             summary += " · confidence: " + str(row["confidence"])
                         if row.get("database_version"):
