@@ -26,6 +26,10 @@ JLIGHT's approved architecture treats specialist bioinformatics tools such as TB
 4. **Canonical versus compatibility persistence:** the importer saves canonical run data and then invokes the existing domain sync for `bioRuns`. Verify what the compatibility sync writes, which screens read each source, and that a failed canonical save cannot be masked by a legacy copy.
 5. **Live verification:** authenticated staging import/readback, patient-link readback, Patient Journey/report visibility and cross-organisation/permission denials remain unverified. Mocks/source guards do not satisfy these release gates.
 
+
+6. **AMR evidence fidelity:** the database currently has `gene`, `antibiotic_class`, `resistance_level`, numeric `confidence` and `database_version`, but no dedicated drug, mutation, source annotation, or textual-confidence columns. The current Bioinformatics UI also keeps richer TBProfiler variant evidence in the imported `bioRuns` payload. A faithful canonical/report contract must be agreed before extending or mapping these fields; do not mislabel an individual drug as an antibiotic class or coerce textual confidence to a number.
+7. **Mean-depth field mismatch:** the normaliser retains source mean depth as `meanDepth`; the canonical importer reads `coverageMean`. The canonical QC schema has `coverage_mean`, but the frontend currently does not populate it from `meanDepth`. Preserve the metric's source meaning and units if a supported mapping is added.
+
 ## Completion loop
 
 - [ ] Trace every Bioinformatics UI action to its API/database source and back to its read path.
