@@ -4783,20 +4783,21 @@ function genResultCard(r) {
   toast(isCrit?'Critical result received':'Lab result received', r.test+': '+r.releasedResult+' '+(r.releasedUnit||''), sev)
 }
 
-// ── SUPABASE BACKEND ──
-// Project: wrdwzpmpsbtkrwonejhp · Publishable key below
-const SB_URL  = 'https://wrdwzpmpsbtkrwonejhp.supabase.co'
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZHd6cG1wc2J0a3J3b25lamhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTI0MjksImV4cCI6MjA5MTc2ODQyOX0.MB_-3uRbYhnWvmNCREC1iFgm16X_Hp-4GZgh6X_YY1g'
-let _sb = null
-let _realtimeChannel = null
-
+// ── ENVIRONMENT-BOUND SUPABASE CLIENT ──
+// BACKEND is selected above from the current host. Staging previews must never
+// authenticate against production. Keep one client instance for all modules.
 function getSupabase() {
-  if (_sb) return _sb
-  if (!window.supabase) return null
-  _sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jl-auth-v9' }
+  if (_supa) return _supa
+  if (!window.supabase || !BACKEND?.url || !BACKEND?.key) return null
+  _supa = window.supabase.createClient(BACKEND.url, BACKEND.key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: 'jl-auth-v10'
+    }
   })
-  return _sb
+  return _supa
 }
 
 // ── BACKEND SYNC — write-through with localStorage fallback ──
