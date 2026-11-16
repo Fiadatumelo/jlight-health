@@ -49,7 +49,7 @@ class BioinformaticsReleaseGuards(unittest.TestCase):
         render = function_source(HTML, "function renderBioinformaticsTB()")
         report = function_source(HTML, "function generateTBProfilerGenomicReport(")
         self.assertIn("generateTBProfilerGenomicReport()", render)
-        self.assertIn("Generate full report", render)
+        self.assertIn("Generate local review report", render)
         self.assertIn("TB GENOMIC DRUG-RESISTANCE REPORT", report)
         self.assertIn("Genotypic predictions are not phenotypic DST", report)
         self.assertIn("no-call results are not evidence of susceptibility", report)
