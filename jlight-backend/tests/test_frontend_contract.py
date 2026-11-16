@@ -268,4 +268,22 @@ require("function exportLocalRecovery()" in html and
 require("Local records need review" in html and "Export recovery records" in html,
         "Settings must expose quarantined records for review and export")
 
+# Authenticated API requests must be host-aware: the production host reaches the
+# production backend, staging hosts reach the staging backend. Config overrides win.
+require("function jlightApiBase()" in html,
+        "A single host-aware backend API base resolver is required")
+require(html.count("jlightApiBase()") >= 4,
+        "All authenticated backend callers must use the shared host-aware API base")
+require("IS_PRODUCTION_HOST ? 'https://jlight-backend.onrender.com' : 'https://jlight-backend-staging.onrender.com'" in html,
+        "The API base must switch between production and staging by host")
+require(html.count("'https://jlight-backend-staging.onrender.com'") == 1,
+        "The staging backend URL must not be duplicated across call sites")
+require("window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl" in html and
+        "window.JLIGHT_API_BASE_URL" in html,
+        "Explicit deployment configuration must still take precedence")
+summary_start = html.index("async function requestJlightIntelligenceSummary(")
+summary_end = html.index("\nasync function requestJlightClinicalTrialsSummary", summary_start)
+require("'X-JLIGHT-Organisation': String(STATE.orgId || '')" in html[summary_start:summary_end],
+        "Intelligence summary requests must carry the organisation scope header")
+
 print("JLIGHT frontend contract checks passed.")

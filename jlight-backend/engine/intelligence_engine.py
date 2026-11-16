@@ -34,6 +34,8 @@ def _status(value: Any) -> str:
     candidate = str(value or "").strip().lower()
     aliases = {"pass": "pass", "passed": "pass", "ok": "pass",
                "warn": "review", "warning": "review", "review": "review",
+               "review_required": "review", "review_required_low_coverage": "review",
+               "qc_reported": "unknown", "qc_not_reported": "unknown",
                "fail": "fail", "failed": "fail", "unknown": "unknown"}
     return aliases.get(candidate, "unknown")
 

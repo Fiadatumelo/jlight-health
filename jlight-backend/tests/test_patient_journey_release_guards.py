@@ -4,7 +4,7 @@ from pathlib import Path
 import re
 import unittest
 
-HTML = Path("index.html").read_text(encoding="utf-8")
+HTML = (Path(__file__).resolve().parents[2] / "index.html").read_text(encoding="utf-8")
 
 
 class PatientJourneyReleaseGuards(unittest.TestCase):
@@ -35,7 +35,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertIn('id="page-trial-timeline"', HTML)
 
     def test_patient_events_require_exact_patient_id_and_tenant(self):
-        api = Path("jlight-backend/api/app.py").read_text(encoding="utf-8")
+        api = (Path(__file__).resolve().parents[2] / "jlight-backend" / "api" / "app.py").read_text(encoding="utf-8")
         self.assertIn("@app.route(\"/api/patient-journey/<uuid:patient_id>\"", api)
         self.assertIn("WHERE id=%s::uuid AND org_id=%s::uuid", api)
         self.assertIn("patient_id=%s::uuid", api)
@@ -67,7 +67,7 @@ class PatientJourneyReleaseGuards(unittest.TestCase):
         self.assertEqual(function.count("downloadJourneyJson("), 2)
 
     def test_patient_journey_includes_proposal_critical_action_and_bioinformatics_sources(self):
-        api = Path("jlight-backend/api/app.py").read_text(encoding="utf-8")
+        api = (Path(__file__).resolve().parents[2] / "jlight-backend" / "api" / "app.py").read_text(encoding="utf-8")
         for source in ("jl_clinical_orders", "clinical_action_at", "result_received_at",
                        "jl_bio_accessions", "jl_bio_runs", "jl_bio_qc", "jl_bio_amr"):
             with self.subTest(source=source):

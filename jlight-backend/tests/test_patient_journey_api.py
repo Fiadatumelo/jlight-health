@@ -62,9 +62,9 @@ class JourneyCursor:
         if "from public.jl_bio_runs" in q:
             return [{"id":"00000000-0000-4000-8000-000000000077","run_id":"SYNTH-RUN-001","analysis_type":"TBProfiler","pipeline":"TBProfiler","pipeline_version":"6.7.0","stage":"completed","submitted_at":"2026-11-01T09:05:00Z","completed_at":"2026-11-01T09:30:00Z"}]
         if "from public.jl_bio_qc" in q:
-            return [{"id":"bq-1","run_id":"00000000-0000-4000-8000-000000000077","coverage_mean":64,"mapping_rate":84.69,"q_score":30,"dup_rate":5,"gc_content":65,"contamination":0.1,"qc_status":"pass"}]
+            return [{"id":"bq-1","run_id":"00000000-0000-4000-8000-000000000077","coverage_mean":64,"mapping_rate":84.69,"q_score":30,"dup_rate":5,"gc_content":65,"contamination":0.1,"qc_status":"pass","created_at":"2026-11-01T09:31:00Z","pipeline":"TBProfiler","pipeline_version":"6.7.0"}]
         if "from public.jl_bio_amr" in q:
-            return [{"id":"amr-1","run_id":"00000000-0000-4000-8000-000000000077","gene":"rpoB","antibiotic_class":"rifampicin","resistance_level":"resistance-associated","confidence":0.98,"database_version":"WHO-v2"}]
+            return [{"id":"amr-1","run_id":"00000000-0000-4000-8000-000000000077","gene":"rpoB","antibiotic_class":"rifampicin","resistance_level":"resistance-associated","confidence":0.98,"database_version":"WHO-v2","created_at":"2026-11-01T09:31:00Z"}]
         if "from public.jlight_workflow_events" in q:
             return [{"event_id":"wf-1","domain":"laboratory","event_type":"critical_result_acknowledgement","observed_at":"2026-11-01T08:50:00Z","source_status":"acknowledged","source_record_id":"ACK-SYN-1"}]
         return []
@@ -130,6 +130,12 @@ def test_patient_journey_integrates_all_three_care_domains_and_clinical_action_g
             "critical_result_acknowledgement"}.issubset(types)
     pending = next(event for event in body["events"] if event["event_type"] == "clinical_action_pending")
     assert pending["status"] == "action_overdue_review"
+    qc = next(event for event in body["events"] if event["event_type"] == "quality_control")
+    assert qc["occurred_at"], "QC event must carry its persistence timestamp"
+    assert "pipeline: TBProfiler" in qc["summary"], "QC event summary must include pipeline provenance"
+    assert "version: 6.7.0" in qc["summary"]
+    resistance = next(event for event in body["events"] if event["event_type"] == "resistance_finding")
+    assert resistance["occurred_at"], "AMR finding event must carry its persistence timestamp"
     assert body["clinical_trials_included"] is False
 
 
