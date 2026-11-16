@@ -1493,23 +1493,63 @@ async function ensureJlightOrganisation(user, options = {}) {
 async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const sb = getSupabase();
   if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
-  const { data: organisations, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
-  if (error || !Array.isArray(organisations)) throw new Error("Could not securely discover your approved workspaces. Access remains closed.");
-  const organisation = organisations.find(x => String(x.organisation_id) === String(MODE.organisationId));
-  if (!organisation) throw new Error("No active organisation membership was found. Contact your organisation administrator.");
+
+  // Bind workspace discovery to the currently verified Supabase identity. Never
+  // trust cached metadata or a workspace selection as proof of membership.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  if (authError) throw new Error("Could not validate the active sign-in session: " + authError.message);
+  const authenticatedUser = authData?.user;
+  if (!authenticatedUser?.id || String(authenticatedUser.id) !== String(user.id)) {
+    throw new Error("The active sign-in identity does not match the verified account. Sign in again.");
+  }
+
+  const { data, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
+  if (error) {
+    const code = error.code ? " [" + String(error.code) + "]" : "";
+    throw new Error("Approved workspace lookup failed" + code + ": " + String(error.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+
+  // PostgREST normally returns the JSONB array directly. Accept the equivalent
+  // singleton/wrapped representations as well, without inventing permissions.
+  let organisations = data;
+  if (typeof organisations === "string") {
+    try { organisations = JSON.parse(organisations); } catch (_) {}
+  }
+  if (!Array.isArray(organisations) && organisations && typeof organisations === "object") {
+    if (Array.isArray(organisations.organisations)) organisations = organisations.organisations;
+    else if (Array.isArray(organisations.workspaces) && organisations.organisation_id) organisations = [organisations];
+  }
+  if (!Array.isArray(organisations)) {
+    const shape = data === null ? "null" : Array.isArray(data) ? "array" : typeof data;
+    throw new Error("Approved workspace lookup returned an unexpected response (" + shape + "). Access remains closed.");
+  }
+
+  const organisation = organisations.find(x =>
+    x && String(x.organisation_id || "") === String(MODE.organisationId)
+  );
+  if (!organisation) throw new Error("No active membership for this organisation was returned to the signed-in account. Access remains closed.");
+
   const pathByKey = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial" };
-  const permitted = (organisation.workspaces || []).map(x => pathByKey[x.key]).filter(Boolean);
+  const permitted = (Array.isArray(organisation.workspaces) ? organisation.workspaces : [])
+    .map(x => x && pathByKey[String(x.key || "")]).filter(Boolean);
   if (!permitted.length) throw new Error("Your account has no active workspace permissions. Contact your organisation administrator.");
+
   const requested = requestedPath || sessionStorage.getItem("jl_selected_path") || null;
   const verifiedPath = requested && permitted.includes(requested) ? requested : (!requested && permitted.length === 1 ? permitted[0] : null);
   if (!verifiedPath) throw new Error(requested
     ? "Your organisation or member account is not authorised for the selected workspace."
     : "Choose one of your approved workspaces to continue.");
+
   const permissionDomain = ({Hospital:"hospital",Laboratory:"laboratory",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[verifiedPath];
   const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
     p_organization_id: organisation.organisation_id, p_domain: permissionDomain, p_access: "read"
   });
-  if (permissionError || canRead !== true) throw new Error("Workspace permission could not be verified. Access remains closed.");
+  if (permissionError) {
+    const code = permissionError.code ? " [" + String(permissionError.code) + "]" : "";
+    throw new Error("Workspace permission check failed" + code + ": " + String(permissionError.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+  if (canRead !== true) throw new Error("The signed-in account is not authorised to read the selected workspace. Access remains closed.");
+
   MODE.organisationId = organisation.organisation_id;
   MODE.organisationName = organisation.organisation_name;
   MODE.organisationCode = organisation.organisation_code || MODE.organisationCode || "";
