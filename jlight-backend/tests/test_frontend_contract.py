@@ -37,7 +37,7 @@ require("Select one or more pathways for this organisation" in html and
         "Initial registration must allow one or multiple pathway selections")
 require('selectedPaths.map(x => ({Laboratory:"laboratory",Hospital:"hospital",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[x])' in html,
         "Initial registration must submit every selected pathway to the server")
-require("await loadVerifiedOrganisationPath(user, selectedPath)" in html and
+require("await loadVerifiedOrganisationPath(user, effectivePath)" in html and
         "Your organisation or member account is not authorised for the selected workspace." in html,
         "Returning users must have the selected pathway verified against server entitlements")
 require("Choose one of your approved workspaces to continue." in html,
@@ -267,5 +267,106 @@ require("function exportLocalRecovery()" in html and
         "Recovery export must be scoped to the active organisation and workspace")
 require("Local records need review" in html and "Export recovery records" in html,
         "Settings must expose quarantined records for review and export")
+
+# ── Environment-bound Supabase client contract ──
+require("const SB_URL" not in html and "const SB_KEY" not in html and "let _sb" not in html,
+        "The legacy hardcoded production Supabase client must not return; every module uses the environment-bound client")
+client_source = html[html.index("function getSupabase()"):]
+client_source = client_source[:client_source.index("// ── BACKEND SYNC")]
+require("_supa = window.supabase.createClient(BACKEND.url, BACKEND.key" in client_source,
+        "getSupabase must initialise the single client from the host-resolved BACKEND project")
+require(client_source.count("createClient") == 1,
+        "Supabase must be initialised exactly once; duplicate clients cross-contaminate sessions")
+require("storageKey: 'jl-auth-v10'" in client_source,
+        "The auth storage key must be versioned so a session stored for another project can never be reused")
+require("resolveJlightEnvironment" in html and "PRODUCTION_HOSTS" in html,
+        "Environment resolution must be explicit and host-based")
+require("'jlight-health.co.za', 'www.jlight-health.co.za'" in html,
+        "Production hostnames must resolve only to the production Supabase project")
+require("wrdwzpmpsbtkrwonejhp" in html and "ampkysrzliwjtvbigsvu" in html,
+        "Both Supabase project references must be declared per environment")
+require("if (host.endsWith('.netlify.app')) return 'staging'" in html,
+        "Netlify deploy previews must resolve to the staging project, never production")
+require("if (['localhost', '127.0.0.1', '[::1]'].includes(host)) return 'staging'" in html,
+        "Local development must resolve to the staging project")
+env_block = html[html.index("function resolveJlightEnvironment()"):]
+env_block = env_block[:env_block.index("const BACKEND =")]
+require("return null" in env_block,
+        "Unknown hosts must fail closed instead of silently choosing a Supabase project")
+require("if (!BACKEND?.url || !BACKEND?.key)" in client_source and "return null" in client_source,
+        "getSupabase must fail closed when the host has no approved project")
+require("console.info('[JLIGHT] Supabase bound to '" in client_source and
+        "BACKEND.url.replace('https://', '').split('.')[0]" in client_source,
+        "Diagnostics may expose the environment and project reference only, never keys")
+for secret_marker in ("sb_secret_", "service_role"):
+    require(secret_marker not in html, f"Browser JavaScript must never contain a {secret_marker} key")
+
+# ── Controlled OTP lifecycle contract ──
+require("let otpRequestInFlight = false" in html and "let otpRequestSeq = 0" in html and
+        "let otpVerifyInFlight = false" in html,
+        "The OTP lifecycle must track in-flight state and a request sequence")
+require("if (otpRequestInFlight) return;" in html,
+        "Duplicate login-code submissions (double click, Enter, automation) must be blocked while a request is in flight")
+require("const requestSeq = ++otpRequestSeq;" in html,
+        "Every login-code request must advance the request sequence")
+require("if (requestSeq !== otpRequestSeq) return;" in html,
+        "A stale asynchronous login-code response must not overwrite newer authentication state")
+require("pending.requestedAt = Date.now();" in html,
+        "A resend must supersede the previously issued code in the pending request context")
+otp_request_block = html[html.index("async function doSignIn("):]
+otp_request_block = otp_request_block[:otp_request_block.index("const requestSeq")]
+require("otpRequestInFlight = true" in otp_request_block and "resendBtn" in otp_request_block,
+        "The resend control must be disabled while a login-code request is in flight")
+require("codeInput.value = \"\";" in html or "codeInput.value = '';" in html,
+        "Requesting a new code must clear the previous token from the verification input")
+require('await sb.auth.verifyOtp({ email, token, type: "email" })' in html,
+        "Email-code verification must use the Supabase email OTP type against the same project")
+require("if (verifySeq !== otpRequestSeq) throw new Error(" in html,
+        "Verification of a superseded code must fail instead of opening a workspace")
+verify_block = html[html.index("async function verifyLoginCode("):]
+verify_block = verify_block[verify_block.index("otpVerifyInFlight = true;"):]
+verify_block = verify_block[:verify_block.index("const user = data.user;")]
+require("await sb.auth.getSession()" in verify_block and "await sb.auth.getUser()" in verify_block,
+        "A successful verifyOtp response must be proven with a persisted session and getUser() identity")
+require("if (otpVerifyInFlight) return;" in html,
+        "Duplicate verification submissions must be blocked while verification is in flight")
+require("let effectivePath = selectedPath;" in html and
+        "sessionStorage.setItem(\"jl_selected_path\", effectivePath);" in html,
+        "The selected workspace must survive a page refresh between requesting and entering the code")
+
+# ── Workspace discovery and distinct failure contract ──
+discovery_block = html[html.index("async function loadVerifiedOrganisationPath("):]
+discovery_block = discovery_block[:discovery_block.index("async function verifyLoginCode(")]
+require('await sb.auth.getUser()' in discovery_block and
+        "String(authenticatedUser.id) !== String(user.id)" in discovery_block,
+        "Workspace discovery must re-validate the signed-in identity, not cached metadata")
+require('sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId })' in discovery_block,
+        "Workspace discovery must use the secure membership RPC, not browser-supplied entitlements")
+require("Array.isArray(organisations.organisations)" in discovery_block and
+        'Array.isArray(organisations.workspaces) && organisations.organisation_id' in discovery_block,
+        "Discovery must parse the actual deployed JSONB response shapes without inventing permissions")
+require("Approved workspace lookup failed" in discovery_block and
+        "returned an unexpected response" in discovery_block,
+        "RPC failures and unexpected response shapes must be reported distinctly, not as one generic message")
+require("No active membership for this organisation was found" in discovery_block,
+        "Empty membership must be explained as a membership problem")
+require("no approved workspaces yet. JLIGHT Platform Administration must approve" in discovery_block,
+        "An organisation without approved workspaces must be explained as a Platform Administration approval gap")
+require("your member account does not yet have" in discovery_block and
+        "Ask your organisation administrator to grant it" in discovery_block,
+        "An entitled organisation with an unauthorised member must be explained as a member-permission gap")
+require('sb.rpc("jlight_has_domain_permission"' in discovery_block and
+        "if (canRead !== true) throw" in discovery_block,
+        "Workspace entry requires a successful organisation entitlement AND individual member permission check")
+require("Could not securely discover your approved workspaces" not in html,
+        "The generic discovery failure message that hid the real cause must not return")
+require('sb.rpc("jl_register_organisation_multi"' in html and
+        'sb.rpc("jl_accept_organisation_invitation"' in html and
+        'sb.rpc("jl_link_user_to_organisation"' in html,
+        "Registration, joining and membership must keep using the secure server RPCs")
+require('.eq("owner_user_id", user.id);' in html,
+        "Organisation ownership lookup must tolerate multiple owned organisations instead of failing or picking arbitrarily")
+require("This account is linked to several organisations" in html,
+        "Multiple organisation memberships must be surfaced explicitly instead of silently choosing one")
 
 print("JLIGHT frontend contract checks passed.")
