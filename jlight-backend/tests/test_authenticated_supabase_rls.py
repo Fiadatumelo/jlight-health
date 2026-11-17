@@ -594,13 +594,17 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c = self.conn.cursor()
         c.execute("SAVEPOINT workspace_approval_test")
         owner = str(uuid.uuid4())
+        org_admin = str(uuid.uuid4())
         c.execute(
             """INSERT INTO auth.users
                (id, aud, role, email, encrypted_password, email_confirmed_at,
                 raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
                VALUES (%s, 'authenticated', 'authenticated', %s, '', now(),
+                       '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now()),
+                      (%s, 'authenticated', 'authenticated', %s, '', now(),
                        '{"provider":"email","providers":["email"]}'::jsonb, '{}'::jsonb, now(), now())""",
-            (owner, "multi-path-owner-" + owner[:8] + "@invalid.example"),
+            (owner, "multi-path-owner-" + owner[:8] + "@invalid.example",
+             org_admin, "multi-path-admin-" + org_admin[:8] + "@invalid.example"),
         )
         c.execute("SET LOCAL ROLE authenticated")
         c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (owner,))
@@ -610,6 +614,14 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         )
         organisation = c.fetchone()[0]
         org_id = organisation["id"]
+        c.execute("RESET ROLE")
+        c.execute(
+            """INSERT INTO public.jl_org_memberships
+               (organisation_id, user_id, access_role, status, created_by)
+               VALUES (%s, %s, 'org_admin', 'active', %s)""",
+            (org_id, org_admin, owner),
+        )
+        c.execute("SET LOCAL ROLE authenticated")
         c.execute(
             """SELECT public.jl_request_additional_workspace(
                  %s, 'laboratory', %s, '2026-10-v1')""",
@@ -636,6 +648,14 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             (org_id,),
         )
         self.assertTrue(c.fetchone()[0])
+        # An org_admin membership is for organisation administration only.
+        # Additional workspace approval must not silently grant patient-data access.
+        c.execute("SELECT set_config('request.jwt.claim.sub', %s, true)", (org_admin,))
+        c.execute(
+            "SELECT public.jlight_has_domain_permission(%s, 'laboratory', 'read')",
+            (org_id,),
+        )
+        self.assertFalse(c.fetchone()[0])
         c.execute("ROLLBACK TO SAVEPOINT workspace_approval_test")
         c.execute("RELEASE SAVEPOINT workspace_approval_test")
 
