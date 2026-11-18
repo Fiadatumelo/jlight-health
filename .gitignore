@@ -1,0 +1,22 @@
+# Compiled Python artifacts and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated build output and dependencies
+node_modules/
+dist/
+*.egg-info/
+
+# Local agent/deployment state (never source-controlled)
+.netlify/
+
+# OS artifacts
+.DS_Store
+Thumbs.db

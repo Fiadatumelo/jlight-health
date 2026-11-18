@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/jlight-runtime-config.js"></script>
 
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -1070,6 +1071,32 @@ const BACKEND = IS_PRODUCTION_HOST
       url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
       key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
     }
+// The authenticated Flask backend is environment-specific and must fail closed:
+// explicit configuration wins; otherwise the runtime config binds approved
+// production/staging hosts, and unlisted hosts raise rather than guessing.
+function getJlightApiBaseUrl() {
+  const configured = (window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL;
+  if (typeof configured !== 'string' || !configured.trim()) {
+    throw new Error('JLIGHT API configuration is missing. Configure the API URL for this environment.');
+  }
+  const base = configured.trim().replace(/\/+$/, '');
+  let parsed;
+  try { parsed = new URL(base); } catch (_) {
+    throw new Error('JLIGHT API configuration must be an absolute HTTPS URL.');
+  }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+  const host = String(window.location?.hostname || '').toLowerCase();
+  const production = ['jlight-health.co.za', 'www.jlight-health.co.za',
+    'jlight-health.netlify.app', 'main--jlight-health.netlify.app'].includes(host);
+  if (production && parsed.hostname.includes('staging')) {
+    throw new Error('JLIGHT API configuration cannot use the staging backend on a production host.');
+  }
+  if ((parsed.protocol !== 'https:' && !(local && parsed.protocol === 'http:')) ||
+      parsed.username || parsed.password || parsed.search || parsed.hash) {
+    throw new Error('JLIGHT API configuration must use HTTPS without credentials, query parameters or a fragment.');
+  }
+  return base;
+}
 const MODE = { isOnline: true, organisationName: null, organisationType: null, isPlatformAdmin: false, signupMode: false, hasRestoredSession: false }
 let _supa = null
 
@@ -1466,23 +1493,63 @@ async function ensureJlightOrganisation(user, options = {}) {
 async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const sb = getSupabase();
   if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
-  const { data: organisations, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
-  if (error || !Array.isArray(organisations)) throw new Error("Could not securely discover your approved workspaces. Access remains closed.");
-  const organisation = organisations.find(x => String(x.organisation_id) === String(MODE.organisationId));
-  if (!organisation) throw new Error("No active organisation membership was found. Contact your organisation administrator.");
+
+  // Bind workspace discovery to the currently verified Supabase identity. Never
+  // trust cached metadata or a workspace selection as proof of membership.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  if (authError) throw new Error("Could not validate the active sign-in session: " + authError.message);
+  const authenticatedUser = authData?.user;
+  if (!authenticatedUser?.id || String(authenticatedUser.id) !== String(user.id)) {
+    throw new Error("The active sign-in identity does not match the verified account. Sign in again.");
+  }
+
+  const { data, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
+  if (error) {
+    const code = error.code ? " [" + String(error.code) + "]" : "";
+    throw new Error("Approved workspace lookup failed" + code + ": " + String(error.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+
+  // PostgREST normally returns the JSONB array directly. Accept the equivalent
+  // singleton/wrapped representations as well, without inventing permissions.
+  let organisations = data;
+  if (typeof organisations === "string") {
+    try { organisations = JSON.parse(organisations); } catch (_) {}
+  }
+  if (!Array.isArray(organisations) && organisations && typeof organisations === "object") {
+    if (Array.isArray(organisations.organisations)) organisations = organisations.organisations;
+    else if (Array.isArray(organisations.workspaces) && organisations.organisation_id) organisations = [organisations];
+  }
+  if (!Array.isArray(organisations)) {
+    const shape = data === null ? "null" : Array.isArray(data) ? "array" : typeof data;
+    throw new Error("Approved workspace lookup returned an unexpected response (" + shape + "). Access remains closed.");
+  }
+
+  const organisation = organisations.find(x =>
+    x && String(x.organisation_id || "") === String(MODE.organisationId)
+  );
+  if (!organisation) throw new Error("No active membership for this organisation was returned to the signed-in account. Access remains closed.");
+
   const pathByKey = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial" };
-  const permitted = (organisation.workspaces || []).map(x => pathByKey[x.key]).filter(Boolean);
+  const permitted = (Array.isArray(organisation.workspaces) ? organisation.workspaces : [])
+    .map(x => x && pathByKey[String(x.key || "")]).filter(Boolean);
   if (!permitted.length) throw new Error("Your account has no active workspace permissions. Contact your organisation administrator.");
+
   const requested = requestedPath || sessionStorage.getItem("jl_selected_path") || null;
   const verifiedPath = requested && permitted.includes(requested) ? requested : (!requested && permitted.length === 1 ? permitted[0] : null);
   if (!verifiedPath) throw new Error(requested
     ? "Your organisation or member account is not authorised for the selected workspace."
     : "Choose one of your approved workspaces to continue.");
+
   const permissionDomain = ({Hospital:"hospital",Laboratory:"laboratory",Bioinformatics:"bioinformatics",Trial:"clinical_trials"})[verifiedPath];
   const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
     p_organization_id: organisation.organisation_id, p_domain: permissionDomain, p_access: "read"
   });
-  if (permissionError || canRead !== true) throw new Error("Workspace permission could not be verified. Access remains closed.");
+  if (permissionError) {
+    const code = permissionError.code ? " [" + String(permissionError.code) + "]" : "";
+    throw new Error("Workspace permission check failed" + code + ": " + String(permissionError.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+  if (canRead !== true) throw new Error("The signed-in account is not authorised to read the selected workspace. Access remains closed.");
+
   MODE.organisationId = organisation.organisation_id;
   MODE.organisationName = organisation.organisation_name;
   MODE.organisationCode = organisation.organisation_code || MODE.organisationCode || "";
@@ -2003,7 +2070,7 @@ async function loadAuthoritativePatientJourney(patient) {
     const sessionResult = sb ? await sb.auth.getSession() : null;
     const session = sessionResult && sessionResult.data && sessionResult.data.session;
     if (!session || !session.access_token) throw new Error('A verified session is required.');
-    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/patient-journey/' + encodeURIComponent(patientId), {
       method: 'GET',
       headers: {
@@ -2038,6 +2105,132 @@ function filterJourneyPatients(value) {
     el.hidden=!!q&&!hay.includes(q);
   });
 }
+function getPatientLinkedBioinformaticsRuns(patient) {
+  if (!patient || !STATE.orgId || STATE.orgId === 'default') return [];
+  const patientId = String(patient.canonicalPatientId || patient.id || '');
+  const orgId = String(STATE.orgId);
+  return (STATE.bioRuns || []).map(hydrateTBProfilerRecord).filter(r =>
+    r && String(r.orgId || '') === orgId &&
+    String(r.patientId || r.canonicalPatientId || '') === patientId &&
+    String(r.patientLinkStatus || '').toLowerCase() === 'verified' &&
+    (r.pathogen === 'Mycobacterium tuberculosis complex' ||
+     r.analysisType === 'TBProfiler' || r.outputType === 'TBProfiler JSON summary')
+  );
+}
+
+
+function generateSelectedPatientBioinformaticsReport() {
+  const patient = (STATE.patients || []).find(p =>
+    String(p.id) === String(STATE.currentPatientId) &&
+    !p.archivedAt && String(p.orgId || '') === String(STATE.orgId || '')
+  );
+  if (!patient || STATE.patientJourneyApiStatus !== 'loaded' ||
+      !(STATE.patientJourneyAvailableDomains || []).includes('bioinformatics')) {
+    toast('Bioinformatics report unavailable', 'Load the authorised Patient Journey and Bioinformatics read permission first.', 'warn');
+    return;
+  }
+  const records = getPatientLinkedBioinformaticsRuns(patient);
+  if (!records.length) {
+    toast('No linked Bioinformatics run', 'No verified TBProfiler run is linked to this exact patient and organisation.', 'warn');
+    return;
+  }
+  generateTBProfilerGenomicReport(records);
+}
+
+
+async function jlightCanonicalApiRequest(path, method, payload) {
+  const sb = getSupabase()
+  if (!sb || !MODE.isOnline) throw new Error('A verified online workspace is required for canonical patient and Bioinformatics linking.')
+  const orgId = String(STATE.orgId || '')
+  const workspace = String(MODE.organisationType || '').toLowerCase()
+  const { data: { session }, error: sessionError } = await sb.auth.getSession()
+  if (sessionError) throw sessionError
+  if (!session || !session.access_token) throw new Error('A verified sign-in session is required.')
+  if (!orgId || orgId === 'default') throw new Error('Select an active organisation first.')
+  const baseUrl = getJlightApiBaseUrl()
+  const response = await fetch(baseUrl + path, {
+    method: method || 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + session.access_token,
+      'Content-Type': 'application/json',
+      'X-JLIGHT-Organisation': orgId,
+      'X-JLIGHT-Workspace': workspace
+    },
+    body: JSON.stringify(payload || {})
+  })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok || body.success !== true) throw new Error(body.error || ('JLIGHT API returned HTTP ' + response.status))
+  if (String(STATE.orgId || '') !== orgId || String(MODE.organisationType || '').toLowerCase() !== workspace) {
+    throw new Error('The active workspace changed during the request. Reload the authorised workspace before retrying.')
+  }
+  return body
+}
+
+
+function renderTBProfilerPatientLinkPanel(records) {
+  const canSeeIdentity = (STATE.patientJourneyAvailableDomains || []).some(d => d === 'hospital' || d === 'laboratory');
+  const patients = (STATE.patients || []).filter(p =>
+    p && p.canonicalPatientId && p.id &&
+    String(p.orgId || '') === String(STATE.orgId || '') &&
+    p.active !== false
+  );
+  if (!records.length) return '';
+  if (!patients.length) {
+    return '<section class="form-card" style="margin:14px 0"><h3>Verified patient links</h3><p class="form-help">Enter the exact canonical patient UUID supplied by an authorised patient registry. JLIGHT validates that it belongs to this organisation; it does not match names or demographics.</p>' +
+      records.map((r,i) => '<div class="form-row" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:10px;align-items:center"><label class="form-label">' + esc(r.sampleId || r.sourceRecordId || r.id || '') + ' · ' + esc(r.drtype || 'TBProfiler') + '</label><input class="form-input" type="text" inputmode="text" autocomplete="off" spellcheck="false" placeholder="Canonical patient UUID" data-tb-patient-id="' + i + '"><button class="btn btn-sm btn-primary" type="button" data-tb-link-save="' + i + '">Save link</button></div>').join('') +
+      '</section>';
+  }
+  return '<section class="form-card" style="margin:14px 0"><h3>Verified patient links</h3><p class="form-help">Choose an exact canonical patient record. JLIGHT never matches patients by name or demographics.</p>' +
+    records.map((r,i) => {
+      const runKey = String(r.sampleId || r.sourceRecordId || r.id || '');
+      const selected = String(r.patientId || r.canonicalPatientId || '');
+      return '<div class="form-row" style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,2fr) auto;gap:10px;align-items:center"><label class="form-label">' + esc(runKey) + ' · ' + esc(r.drtype || 'TBProfiler') + '</label><select class="form-input" data-tb-patient-link="' + i + '"><option value="">Not linked</option>' +
+        patients.map((p,index) => {
+          const id = String(p.canonicalPatientId);
+          const label = canSeeIdentity ? (String(p.fullName || 'Patient') + ' · ' + String(p.mrn || '')) : ('Patient record ' + (index + 1) + ' · ref …' + id.slice(-6));
+          return '<option value="' + esc(id) + '" ' + (selected === id ? 'selected' : '') + '>' + esc(label) + '</option>';
+        }).join('') +
+        '</select><button class="btn btn-sm btn-primary" type="button" data-tb-link-save="' + i + '">Save link</button></div>';
+    }).join('') + '</section>';
+}
+async function linkTBProfilerRunToPatient(record, patientId) {
+  if(!record||!patientId){toast('Select a patient','Choose an exact patient record before linking this run.','warn');return}
+  try {
+    const sampleId=String(record.sampleId||record.sourceRecordId||record.id||'')
+    const result=await jlightCanonicalApiRequest('/api/bioinformatics/runs/upsert','POST',{
+      run_id:sampleId,accession_no:sampleId,analysis_type:String(record.analysisType||'TBProfiler'),
+      pipeline:String(record.pipelineName||'TBProfiler'),pipeline_version:String(record.pipelineVersion||''),
+      stage:'completed',patient_id:String(patientId),
+      database_version:String(record.databaseVersion || ''),
+      qc:{
+        status:String(record.qualityStatus || record.tbProfiler?.qc?.status || 'not_reported'),
+        coverageMean:record.tbProfiler?.qc?.coverageMean ?? null,
+        mappingRate:record.tbProfiler?.qc?.pctReadsMapped ?? null,
+        qScore:record.tbProfiler?.qc?.qScore ?? null,
+        dupRate:record.tbProfiler?.qc?.dupRate ?? null,
+        gcContent:record.tbProfiler?.qc?.gcContent ?? null,
+        contamination:record.tbProfiler?.qc?.contamination ?? null
+      },
+      amr:(record.tbProfiler?.resistanceEvidence || []).map(x=>({
+        gene:x.gene,antibioticClass:x.antibioticClass || x.drugClass || null,confidence:x.confidence,resistanceLevel:x.resistanceLevel || x.interpretation || 'reported',
+        databaseVersion:record.databaseVersion || ''
+      }))
+    })
+    record.canonicalRunId=result.canonical_run_id
+    record.canonicalAccessionId=result.canonical_accession_id
+    record.patientId=String(patientId)
+    record.canonicalPatientId=String(patientId)
+    record.patientLinkStatus='verified'
+    if(record.provenance)record.provenance.patientLinkStatus='verified'
+    lsSet(BIORUN_KEY,STATE.bioRuns)
+    toast('Patient linked','Bioinformatics run and accession now reference the canonical patient UUID.','good')
+    renderBioinformaticsTB()
+  } catch(e) {
+    toast('Patient link failed',e.message||'The run was not linked.','crit')
+  }
+}
+
+
 function renderJourney() {
   const page=document.getElementById('page-journey');if(!page)return;
   const patients=(STATE.patients||[]).filter(p=>!p.archivedAt&&(!p.orgId||String(p.orgId)===String(STATE.orgId)));
@@ -2047,6 +2240,9 @@ function renderJourney() {
   const events=selected?buildPatientJourneyEvents(selected):[];
   const canSeePatientIdentity = STATE.patientJourneyApiStatus === 'loaded' &&
     (STATE.patientJourneyAvailableDomains || []).includes('hospital');
+  const patientBioRuns = selected && STATE.patientJourneyApiStatus === 'loaded' &&
+    (STATE.patientJourneyAvailableDomains || []).includes('bioinformatics')
+      ? getPatientLinkedBioinformaticsRuns(selected) : [];
   const counts=[
     {name:'Hospital',n:events.filter(e=>e.source==='Hospital').length},
     {name:'Laboratory',n:events.filter(e=>e.source==='Laboratory').length},
@@ -2069,7 +2265,9 @@ function renderJourney() {
     return '<article class="journey-event"><div class="journey-event-rail"><span class="journey-event-dot '+(open?'is-open':'')+'"></span>'+(i<events.length-1?'<span class="journey-event-line"></span>':'')+'</div><div class="journey-event-body"><div class="journey-event-top"><span class="journey-source source-'+e.source.toLowerCase().replace(/[^a-z]+/g,'-')+'">'+esc(e.source)+'</span><time>'+esc(date)+'</time></div><h4>'+esc(e.label)+'</h4><p>'+esc(e.summary||'Source record available; summary fields were not supplied.')+'</p><div class="journey-event-foot"><span class="journey-status '+(open?'status-open':'')+'">'+esc(status)+'</span><span>Source: '+esc(e.source)+(e.sourceRecordId?' · Record ref: '+esc(e.sourceRecordId):' · Source reference unavailable')+'</span></div></div></article>';
   }).join('')+'</div>':(STATE.patientJourneyApiStatus==='loading'?'<div class="journey-empty"><strong>Loading authorised source events</strong><p>Retrieving source records under your current workspace permissions.</p></div>':STATE.patientJourneyApiStatus==='error'?'<div class="journey-empty"><strong>Patient Journey could not load</strong><p>'+esc(STATE.patientJourneyApiError||'Authorised source records are unavailable.')+'</p></div>':'<div class="journey-empty"><strong>No linked events found</strong><p>Authorised source systems returned no exact patient-ID-linked events for the workspaces you can access. Missing events are unknown, not proof that care or testing did not occur.</p></div>');
   page.innerHTML=
-    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button><button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
+    '<div class="page-head"><div><div class="page-title">Patient Journey</div><div class="page-sub">A chronological, summary-only view of what happened across authorised healthcare systems and what JLIGHT detected.</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="generatePatientJourneyReports()">Generate Patient Journey Report</button>'+
+    (patientBioRuns.length ? '<button class="btn" onclick="generateSelectedPatientBioinformaticsReport()">Generate Bioinformatics Analysis Report</button>' : '')+
+    '<button class="btn" onclick="goPage(\'patients\')">Open Patient Registry</button></div></div>'+
     '<div class="journey-banner"><div><span class="journey-eyebrow">CONNECTED PATIENT SUMMARY</span><h3>'+(selected?(canSeePatientIdentity?esc(selected.fullName||'Patient'):'Patient record '+(patients.findIndex(p=>String(p.id)===String(selected.id))+1)):'No patient selected')+'</h3><p>'+(selected?(canSeePatientIdentity?'MRN: '+esc(selected.mrn||'—'):'Identity details are restricted by your workspace permissions')+' · Events are linked by exact patient ID; source systems remain authoritative.':'Register or import a patient before building a journey.')+'</p></div><span class="journey-badge">'+(MODE.isOnline?'Online session':'Device-only data')+'</span></div>'+
     '<div class="journey-metrics">'+countCards+'</div>'+
     '<div class="journey-layout"><aside class="journey-patient-list"><div class="section-title">Select patient</div><p class="journey-footnote">Only active patients in this workspace are listed.</p><input class="form-input" type="search" placeholder="Search name or MRN…" oninput="filterJourneyPatients(this.value)" aria-label="Search patients"/>'+(patientCards||'<p class="journey-footnote">No active patients found in this workspace.</p>')+'</aside>'+
@@ -2107,22 +2305,23 @@ async function requestJlightIntelligenceSummary(patient, events) {
   if (undated > 0) {
     checks.push({ check_id: 'source_data_incomplete', source: 'interoperability', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, undated) });
   }
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
   try {
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/intelligence/summary', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': 'Bearer ' + session.access_token,
-        'X-JLIGHT-Workspace': ({Hospital:'hospital',Laboratory:'laboratory',Bioinformatics:'bioinformatics'})[STATE.role] || ''
+        'X-JLIGHT-Workspace': ({Hospital:'hospital',Laboratory:'laboratory',Bioinformatics:'bioinformatics'})[STATE.role] || '',
+        'X-JLIGHT-Organisation': String(STATE.orgId || '')
       },
       body: JSON.stringify({ journey_checks: checks })
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Intelligence service returned HTTP ' + response.status) };
     return { success: true, summary: body.result, engine: body.result && body.result.engine_version || null };
-  } catch (_) {
-    return { success: false, message: 'Intelligence service could not be reached. The two local reports can still be generated.' };
+  } catch (error) {
+    return { success: false, message: error.message || 'Intelligence service could not be reached. The two local reports can still be generated.' };
   }
 }
 
@@ -2133,8 +2332,8 @@ async function requestJlightClinicalTrialsSummary() {
   const sessionResult = await sb.auth.getSession();
   const session = sessionResult && sessionResult.data && sessionResult.data.session;
   if (!session || !session.access_token) return { success: false, message: 'A verified Clinical Trials session is required.' };
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
   try {
+    const baseUrl = getJlightApiBaseUrl();
     const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
       method: 'POST',
       headers: {
@@ -2148,8 +2347,8 @@ async function requestJlightClinicalTrialsSummary() {
     const body = await response.json().catch(() => ({}));
     if (!response.ok || body.success !== true) return { success: false, message: body.error || ('Clinical Trials JC returned HTTP ' + response.status) };
     return { success: true, summary: body.result };
-  } catch (_) {
-    return { success: false, message: 'Clinical Trials JC could not reach the intelligence service.' };
+  } catch (error) {
+    return { success: false, message: error.message || 'Clinical Trials JC could not reach the intelligence service.' };
   }
 }
 
@@ -2328,6 +2527,11 @@ async function generatePatientJourneyReports() {
     return;
   }
   const events = buildPatientJourneyEvents(patient);
+  if (!events.length) {
+    if (status) status.textContent = 'No linked patient records are available. No reports have been generated. Reports will become available when authorised Hospital, Laboratory or Bioinformatics source records are linked to this patient.';
+    toast('No patient records yet', 'Both Patient Journey reports remain empty until authorised source records are available.', 'warn');
+    return;
+  }
   const participantLabel = 'Patient record ' + (Math.max(0, patients.findIndex(p => String(p.id) === String(patient.id))) + 1);
   const generatedAt = new Date().toISOString();
   const intelligence = await requestJlightIntelligenceSummary(patient, events);
@@ -2740,6 +2944,54 @@ function handleTBProfilerJsonFile(event) {
   reader.readAsText(file)
 }
 
+// Recovered PR #96 client contract; canonical writes remain on the existing API.
+// Each import must be confirmed in the canonical registry with verified run and
+// accession UUIDs before any workspace copy is treated as persisted.
+async function persistTBProfilerCanonicalRecords(records) {
+  try {
+    if (String(MODE.organisationType || '').toLowerCase() !== 'bioinformatics') throw new Error('Select the authorised Bioinformatics workspace.')
+    for (const original of records) {
+      const record = hydrateTBProfilerRecord(original)
+      if (String(record.orgId || '') !== String(STATE.orgId || '')) throw new Error('Import organisation does not match the active workspace.')
+      const runKey = String(record.sampleId || record.sourceRecordId || '')
+      if (!runKey) throw new Error('A source run identifier is required.')
+      const qc = record.tbProfiler?.qc || {}
+      const canonical = await jlightCanonicalApiRequest('/api/bioinformatics/runs/upsert', 'POST', {
+        run_id: runKey, accession_no: runKey,
+        analysis_type: String(record.analysisType || 'TBProfiler'),
+        pipeline: String(record.pipelineName || 'TBProfiler'),
+        pipeline_version: String(record.pipelineVersion || ''),
+        database_version: String(record.databaseVersion || ''),
+        stage: String(record.status || 'completed'),
+        // Imports never supply patient_id. A sample accession is not patient identity.
+        qc: {status: String(record.qualityStatus || qc.status || 'not_reported'),
+          coverageMean: qc.coverageMean ?? qc.meanDepth ?? null,
+          mappingRate: qc.pctReadsMapped ?? null, qScore: qc.qScore ?? null,
+          dupRate: qc.dupRate ?? null, gcContent: qc.gcContent ?? null,
+          contamination: qc.contamination ?? null},
+        amr: (record.tbProfiler?.resistanceEvidence || []).map(x => ({
+          gene: x.gene, antibioticClass: x.antibioticClass || x.drugClass || null,
+          confidence: x.confidence, resistanceLevel: x.resistanceLevel || x.interpretation || 'reported',
+          databaseVersion: record.databaseVersion || ''
+        }))
+      })
+      const saved = canonical.run
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!saved || !uuid.test(String(canonical.canonical_run_id || '')) ||
+          !uuid.test(String(canonical.canonical_accession_id || '')) ||
+          saved.id !== canonical.canonical_run_id || saved.accession_id !== canonical.canonical_accession_id ||
+          saved.run_id !== runKey) throw new Error('The API did not confirm the expected canonical run and accession.')
+      original.canonicalRunId = canonical.canonical_run_id
+      original.canonicalAccessionId = canonical.canonical_accession_id
+      original.patientLinkStatus = 'not linked'
+      // This acknowledgement never authorises a patient link or a cached report.
+    }
+    return {ok: true}
+  } catch (e) {
+    return {ok: false, reason: e && e.message ? e.message : 'Canonical Bioinformatics save is not confirmed. Check API configuration, session, permissions and connectivity; retry before relying on this result.'}
+  }
+}
+
 async function commitTBProfilerJson() {
   const records=TB_PROFILER_IMPORT_PREVIEW
   const preview=document.getElementById('tb-profiler-preview')
@@ -2758,29 +3010,38 @@ async function commitTBProfilerJson() {
   try{localStorage.setItem(jlightStorageKey(BIORUN_KEY),JSON.stringify(next.slice(-2000)))}catch(e){toast('Local save failed','No records were imported.','crit');return}
   STATE.bioRuns=next
   let sync={ok:false,reason:'offline'}
-  if(MODE.isOnline)sync=await syncDomainToBackend('bioRuns',imported)
+  if(MODE.isOnline) {
+    sync=await persistTBProfilerCanonicalRecords(imported)
+    if(sync.ok) sync=await syncDomainToBackend('bioRuns',imported)
+  }
   if(MODE.isOnline&&!sync.ok){
     window._tbProfilerPendingSync=imported
-    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>Local cache saved; retry cloud sync before relying on the server copy.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
+    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Cloud sync not confirmed</strong><p>'+esc(sync.reason || 'The workspace copy was not saved.')+' Local cache retained.</p><button class="btn btn-primary" onclick="retryTBProfilerCloudSync()">Retry cloud sync</button></div>'
     return
   }
-  await audit('TBProfiler result imported',imported.length+' profile(s); '+TB_PROFILER_IMPORT_NAME+'; no patient identity linked.')
+  if (!MODE.isOnline) {
+    if(preview)preview.innerHTML='<div class="source-import-result error"><strong>Saved on this device only</strong><p>Cloud persistence is not confirmed. Sign in online and synchronise before using this result in an authoritative patient report.</p></div>'
+    return
+  }
+  await audit('TBProfiler canonical save acknowledged',imported.length+' profile(s); '+TB_PROFILER_IMPORT_NAME+'; independent retrieval and patient linking not verified.')
   TB_PROFILER_IMPORT_PREVIEW=null
-  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>'+imported.length+' TB profile(s) imported</strong><p>Workspace sync confirmed. Open TB Intelligence to review compartments.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Canonical save acknowledged</strong><p>'+imported.length+' run/accession response(s) verified; workspace copies saved. Independent retrieval, full evidence readback and patient linking are not verified. These cached results do not authorise Patient Journey reports.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
   const button=document.getElementById('tb-profiler-import');if(button)button.disabled=true
   renderDashboard()
-  toast('TB profiles imported','External TBProfiler outputs imported; no sequence analysis or patient matching performed.','good')
+  toast('Canonical save acknowledged','Independent retrieval and patient linking are not verified.','warn')
 }
 
 async function retryTBProfilerCloudSync() {
   const pending=window._tbProfilerPendingSync||[]
   if(!pending.length||!MODE.isOnline){toast('No pending TB sync','No pending online import batch.','warn');return}
+  const canonical=await persistTBProfilerCanonicalRecords(pending)
+  if(!canonical.ok){toast('Canonical save failed',canonical.reason,'crit');return}
   const result=await syncDomainToBackend('bioRuns',pending)
   if(!result.ok){toast('Cloud sync failed',result.reason||'Check connectivity.','crit');return}
   window._tbProfilerPendingSync=null
-  await audit('TBProfiler cloud sync retried',pending.length+' profile(s) synchronised.')
+  await audit('TBProfiler canonical save retry acknowledged',pending.length+' run/accession responses verified; independent retrieval not verified.')
   const preview=document.getElementById('tb-profiler-preview')
-  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Cloud sync confirmed</strong><p>'+pending.length+' profile(s) synchronised.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
+  if(preview)preview.innerHTML='<div class="source-import-result success"><strong>Canonical save acknowledged</strong><p>'+pending.length+' run/accession response(s) verified; workspace copies saved. Independent retrieval and patient linking are not verified. This is not an authoritative patient result.</p><button class="btn btn-primary" onclick="goPage(\'tb\')">Open TB Intelligence</button></div>'
 }
 
 function hydrateTBProfilerRecord(record) {
@@ -2867,21 +3128,34 @@ function renderBioinformaticsTB() {
     const qcNotesHtml=qcNotes.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>QC warning / review note</th></tr></thead><tbody>'+qcNotes.map(x=>'<tr><td>'+esc(x.sample)+'</td><td>'+esc(x.note)+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No explicit QC warnings were supplied or generated for these profiles.</div>'
     body='<div class="form-card"><h3>QC and pipeline provenance</h3>'+(all.length?'<div class="tb-table-wrap"><table class="journey-table"><thead><tr><th>Sample</th><th>QC</th><th>Median depth</th><th>Reads mapped (%)</th><th>TBProfiler</th><th>TBDB</th><th>Source</th><th>Imported</th></tr></thead><tbody>'+all.map(r=>{const u=String(r.provenance?.sourceUrl||'');const source=/^https:\/\/tbdr\.lshtm\.ac\.uk\/results\/[A-Za-z0-9_-]+$/.test(u)?'<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">Open source</a>':'—';return '<tr><td>'+esc(r.sampleId||r.id)+'</td><td>'+esc(r.tbProfiler?.qc?.status||r.qualityStatus||'Not supplied')+'</td><td>'+esc(r.tbProfiler?.qc?.medianDepth??'—')+'</td><td>'+esc(r.tbProfiler?.qc?.pctReadsMapped??'—')+'</td><td>'+esc(r.pipelineVersion||'—')+'</td><td>'+esc(r.databaseVersion||'—')+'</td><td>'+source+'</td><td>'+esc(r.provenance?.importedAt||'—')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">No QC/provenance records available.</div>')+'</div><div class="form-card"><h3>QC warnings and review notes</h3>'+qcNotesHtml+'<p class="form-help">A low-coverage genotype call is not a definitive susceptible result. Review warnings with the source pipeline output and phenotypic DST where available.</p></div>'
   }
-  page.innerHTML='<div class="page-head"><div><div class="page-title">Tuberculosis Intelligence</div><div class="page-sub">External TBProfiler outputs across resistance, lineage, variant evidence, QC and provenance.</div></div><button class="btn" onclick="goPage(\'register\')">Import TBProfiler JSON</button><button class="btn btn-primary" onclick="generateTBProfilerGenomicReport()">Generate full report</button></div>'+tabbar+body+'<p class="journey-footnote">These are source-pipeline predictions, not phenotypic drug-susceptibility results or autonomous clinical conclusions. Review against the exact TBProfiler/TBDB version and laboratory evidence.</p>'
+  page.innerHTML='<div class="source-import-result error" role="status"><strong>Imported workspace copies</strong><p>These displays use locally cached imports. Patient Journey remains the authoritative retrieval path for canonical results; these workspace copies are not authoritative Patient Journey records.</p></div><div class="page-head"><div><div class="page-title">Tuberculosis Intelligence</div><div class="page-sub">External TBProfiler outputs across resistance, lineage, variant evidence, QC and provenance.</div></div><button class="btn" onclick="goPage(\'register\')">Import TBProfiler JSON</button><button class="btn btn-primary" onclick="generateTBProfilerGenomicReport()">Generate local review report</button></div>'+tabbar+renderTBProfilerPatientLinkPanel(all)+body+'<p class="journey-footnote">These are source-pipeline predictions, not phenotypic drug-susceptibility results or autonomous clinical conclusions. Review against the exact TBProfiler/TBDB version and laboratory evidence.</p>'
+  page.querySelectorAll('[data-tb-link-save]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      const index=Number(button.getAttribute('data-tb-link-save'))
+      const target=page.querySelector('[data-tb-patient-link="'+index+'"]') || page.querySelector('[data-tb-patient-id="'+index+'"]')
+      linkTBProfilerRunToPatient(all[index],target&&target.value)
+    })
+  })
 }
 
-function generateTBProfilerGenomicReport(){
-const records=(STATE.bioRuns||[]).map(hydrateTBProfilerRecord).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler'||r.outputType==='TBProfiler JSON summary');
+function generateTBProfilerGenomicReport(recordsOverride){
+const records=Array.isArray(recordsOverride)?recordsOverride:(STATE.bioRuns||[]).map(hydrateTBProfilerRecord).filter(r=>r.pathogen==='Mycobacterium tuberculosis complex'||r.analysisType==='TBProfiler'||r.outputType==='TBProfiler JSON summary');
 if(!records.length){toast('No TBProfiler results','Import validated results first.','warn');return}
 const esc=v=>String(v??'—').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const table=(h,rs)=>'<table><thead><tr>'+h.map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+(rs.length?rs:[h.map(()=> 'Not supplied')]).map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
 const body=records.map((r,i)=>{const p=r.tbProfiler||{},q=p.qc||{},vs=p.drVariants||[],ev=p.resistanceEvidence||[],drugs=[...new Set(ev.map(x=>x.drug).filter(Boolean))].sort();
 const variants=vs.map(v=>{const a=Array.isArray(v.annotation)?v.annotation:(v.annotation?[v.annotation]:[]);return [v.gene_name||v.gene_id||'—',[v.nucleotide_change,v.protein_change].filter(Boolean).join(' / ')||v.type||'—',v.depth??'—',v.freq??'—',a.map(x=>x.drug||x.comment||'').filter(Boolean).join(', '),a.map(x=>x.confidence||'').filter(Boolean).join(', ')]});
 const low=Number(q.medianDepth??q.targetMedianDepth??q.genomeMedianDepth??999)<30;
-return '<section><h2>Isolate '+String.fromCharCode(65+i)+'</h2><p><b>Classification:</b> '+esc(r.drtype||'Not reported')+' &nbsp; <b>Lineage:</b> '+esc(r.mainLineage||'Not reported')+' / '+esc(r.subLineage||'')+'</p><h3>Sequencing quality</h3>'+table(['Metric','Result'],[['QC status',q.status||r.qualityStatus],['Genome median depth',q.genomeMedianDepth??q.medianDepth],['Target median depth',q.targetMedianDepth],['Mapped reads',q.mappedReads],['Mapped reads (%)',q.pctReadsMapped],['QC notes',(q.notes||[]).join('; ')||'None supplied']])+(low?'<p class="warn">Low coverage: review required. Additional resistance may be missed; no-call results are not evidence of susceptibility.</p>':'')+'<h3>Resistance-associated variants</h3>'+table(['Gene','Nucleotide / protein change','Depth','Frequency','Associated drug(s)','Confidence'],variants)+'<h3>Drug resistance profile</h3>'+(drugs.length?table(['Drug named in detected variant annotations','Interpretation'],drugs.map(d=>[d,'Resistance-associated annotation reported; confirm by phenotypic DST'])):'<p>Drug-specific annotations not supplied. A complete drug-by-drug profile cannot be reconstructed from this record.</p>')+'<p class="note">Only drugs explicitly named in source annotations are listed. The complete evaluated drug panel and explicit no-call results may not be present in this import. Absence of a drug or mutation is not proof of susceptibility.</p><h3>Recommended confirmatory tests</h3><p>Perform phenotypic DST for implicated drugs under the national TB laboratory algorithm. Confirm fluoroquinolone resistance with moxifloxacin and levofloxacin DST where implicated. Consider expanded second-line DST as indicated. Repeat or augment sequencing for low-coverage profiles.</p></section>'}).join('<div class="break"></div>');
+return '<section><h2>Isolate '+String.fromCharCode(65+i)+'</h2><p><b>Classification:</b> '+esc(r.drtype||'Not reported')+' &nbsp; <b>Lineage:</b> '+esc(r.mainLineage||'Not reported')+' / '+esc(r.subLineage||'')+'</p><h3>Source provenance</h3>'+table(['Field','Value'],[['Pipeline',r.pipelineName||'TBProfiler'],['Pipeline version',r.pipelineVersion||'Not supplied'],['Database version',r.databaseVersion||'Not supplied'],['Import time',r.provenance?.importedAt||'Not supplied'],['Persistence','Local/workspace copy; canonical readback not verified']])+'<h3>Sequencing quality</h3>'+table(['Metric','Result'],[['QC status',q.status||r.qualityStatus],['Genome median depth',q.genomeMedianDepth??q.medianDepth],['Target median depth',q.targetMedianDepth],['Mapped reads',q.mappedReads],['Mapped reads (%)',q.pctReadsMapped],['QC notes',(q.notes||[]).join('; ')||'None supplied']])+(low?'<p class="warn">Low coverage: review required. Additional resistance may be missed; no-call results are not evidence of susceptibility.</p>':'')+'<h3>Resistance-associated variants</h3>'+table(['Gene','Nucleotide / protein change','Depth','Frequency','Associated drug(s)','Confidence'],variants)+'<h3>Drug resistance profile</h3>'+(drugs.length?table(['Drug named in detected variant annotations','Interpretation'],drugs.map(d=>[d,'Resistance-associated annotation reported; confirm by phenotypic DST'])):'<p>Drug-specific annotations not supplied. A complete drug-by-drug profile cannot be reconstructed from this record.</p>')+'<p class="note">Only drugs explicitly named in source annotations are listed. The complete evaluated drug panel and explicit no-call results may not be present in this import. Absence of a drug or mutation is not proof of susceptibility.</p><h3>Recommended confirmatory tests</h3><p>Perform phenotypic DST for implicated drugs under the national TB laboratory algorithm. Confirm fluoroquinolone resistance with moxifloxacin and levofloxacin DST where implicated. Consider expanded second-line DST as indicated. Repeat or augment sequencing for low-coverage profiles.</p></section>'}).join('<div class="break"></div>');
 const w=window.open('','_blank');if(!w){toast('Pop-up blocked','Allow pop-ups for JLIGHT and retry.','warn');return}
-w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>TB Genomic Drug-Resistance Report</title><style>body{font:10pt/1.5 Arial;color:#24313b;margin:32px}h1{font-size:22pt;color:#183247;border-bottom:3px solid #526d80;padding-bottom:12px}h2{color:#183247;border-bottom:1px solid #b9c7d0;padding-bottom:7px}h3{color:#29485c;margin:18px 0 6px}table{width:100%;border-collapse:collapse;margin:7px 0 14px;table-layout:fixed}th,td{border:1px solid #d4dde3;padding:6px;text-align:left;vertical-align:top;overflow-wrap:anywhere;font-size:8.5pt}th{background:#eaf0f3}.warn{background:#fff4e5;padding:10px;border-left:4px solid #b7791f}.note{background:#f5f7f8;padding:9px;color:#566671}.break{break-before:page}@media print{body{margin:15mm}tr{break-inside:avoid}}</style></head><body><h1>WHOLE-GENOME SEQUENCING<br>TB GENOMIC DRUG-RESISTANCE REPORT</h1><p>De-identified source-pipeline analysis · '+new Date().toLocaleString()+' · '+records.length+' isolate(s)</p><p><b>Interpretation:</b> Genotypic predictions are not phenotypic DST or a clinical diagnosis. No patient details or nucleotide sequences are included. A no-call or absent annotation is not proof of susceptibility.</p>'+body+'<p><b>Clinical limitation:</b> No treatment regimen or dose is recommended. Confirm results with phenotypic DST and current WHO/national guidance. Retain source files and pipeline/database provenance in the laboratory audit trail.</p></body></html>');
-w.document.close();w.focus();audit('TB genomic resistance report generated',records.length+' de-identified isolates');toast('Report generated','Print or save the report as PDF.','good');
+const linkedReport=Array.isArray(recordsOverride)&&recordsOverride.length>0
+const title=linkedReport?'TB Genomic Drug-Resistance Report':'TBProfiler Local Review Report'
+const headline=linkedReport?'WHOLE-GENOME SEQUENCING<br>TB GENOMIC DRUG-RESISTANCE REPORT':'TBPROFILER LOCAL REVIEW REPORT'
+const authorityNote=linkedReport
+  ?'<p>Patient Journey analysis report for a verified canonical patient link. Workspace copies remain the data source; Patient Journey is the authoritative retrieval path.</p>'
+  :'<p class="warn">Local/workspace import review only. Canonical database persistence, patient linking and backend readback are not verified. This is not an authoritative patient analysis report.</p>'
+w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>'+title+'</title><style>body{font:10pt/1.5 Arial;color:#24313b;margin:32px}h1{font-size:22pt;color:#183247;border-bottom:3px solid #526d80;padding-bottom:12px}h2{color:#183247;border-bottom:1px solid #b9c7d0;padding-bottom:7px}h3{color:#29485c;margin:18px 0 6px}table{width:100%;border-collapse:collapse;margin:7px 0 14px;table-layout:fixed}th,td{border:1px solid #b9c7d0;padding:6px;text-align:left;overflow-wrap:anywhere}td{vertical-align:top}.warn{background:#fff4e5;border-left:4px solid #d97706;padding:8px 12px;margin:10px 0}.break{page-break-after:always}h2{page-break-before:avoid}section{page-break-inside:avoid}}</style></head><body><h1>'+headline+'</h1>'+authorityNote+'<p>De-identified source-pipeline analysis · '+new Date().toLocaleString()+' · '+records.length+' isolate(s)</p><p><b>Interpretation:</b> Genotypic predictions are not phenotypic DST or a clinical diagnosis. No patient details or nucleotide sequences are included. A no-call or absent annotation is not proof of susceptibility.</p>'+body+'<p><b>Clinical limitation:</b> No treatment regimen or dose is recommended. Confirm results with phenotypic DST and current WHO/national guidance. Retain source files and pipeline/database provenance in the laboratory audit trail.</p></body></html>');
+w.document.close();w.focus();audit(linkedReport?'Patient-linked TB genomic resistance report generated':'TBProfiler local review report generated',records.length+' de-identified isolates; canonical persistence and patient linking not verified');toast(linkedReport?'Report generated':'Local review generated',linkedReport?'Print or save the report as PDF.':'This is not an authoritative patient report.',linkedReport?'good':'warn');
 }
 
 function setBioinformaticsTBTab(tab) {
@@ -4549,20 +4823,21 @@ function genResultCard(r) {
   toast(isCrit?'Critical result received':'Lab result received', r.test+': '+r.releasedResult+' '+(r.releasedUnit||''), sev)
 }
 
-// ── SUPABASE BACKEND ──
-// Project: wrdwzpmpsbtkrwonejhp · Publishable key below
-const SB_URL  = 'https://wrdwzpmpsbtkrwonejhp.supabase.co'
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZHd6cG1wc2J0a3J3b25lamhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTI0MjksImV4cCI6MjA5MTc2ODQyOX0.MB_-3uRbYhnWvmNCREC1iFgm16X_Hp-4GZgh6X_YY1g'
-let _sb = null
-let _realtimeChannel = null
-
+// ── ENVIRONMENT-BOUND SUPABASE CLIENT ──
+// BACKEND is selected above from the current host. Staging previews must never
+// authenticate against production. Keep one client instance for all modules.
 function getSupabase() {
-  if (_sb) return _sb
-  if (!window.supabase) return null
-  _sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jl-auth-v9' }
+  if (_supa) return _supa
+  if (!window.supabase || !BACKEND?.url || !BACKEND?.key) return null
+  _supa = window.supabase.createClient(BACKEND.url, BACKEND.key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: 'jl-auth-v10'
+    }
   })
-  return _sb
+  return _supa
 }
 
 // ── BACKEND SYNC — write-through with localStorage fallback ──
@@ -5618,31 +5893,61 @@ function buildPatientForm(existing) {
     '</div></div>'
 }
 
-function savePatient(existingId) {
+async function savePatient(existingId) {
   const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : '' }
   const name = get('pf-name')
   if (!name) { toast('Required', 'Patient name required', 'crit'); return }
   let mrn = get('pf-mrn')
   if (!mrn) mrn = 'MRN-' + Date.now().toString(36).toUpperCase().slice(-6)
-  // Check MRN uniqueness
-  const existing = STATE.patients.find(p => p.mrn === mrn && p.id !== existingId)
+  const existing = STATE.patients.find(p => p.mrn === mrn && String(p.id) !== String(existingId))
   if (existing) { toast('Duplicate MRN', 'MRN ' + mrn + ' already exists', 'crit'); return }
   const allergies = get('pf-allergies').split(',').map(s=>s.trim()).filter(Boolean)
-  const chronic   = get('pf-chronic').split(',').map(s=>s.trim()).filter(Boolean)
-  if (existingId) {
-    const p = STATE.patients.find(x => x.id === existingId)
-    if (!p) return
-    Object.assign(p, { fullName: name, mrn, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, updatedAt: Date.now() })
+  const chronic = get('pf-chronic').split(',').map(s=>s.trim()).filter(Boolean)
+  const patient = existingId ? STATE.patients.find(x => String(x.id) === String(existingId)) : null
+  if (existingId && !patient) return
+  const payload = {
+    mrn, full_name:name, id_number:get('pf-id'), date_of_birth:get('pf-dob'),
+    gender:get('pf-gender'), blood_group:get('pf-blood'), phone:get('pf-phone'),
+    address:get('pf-address'), next_of_kin:get('pf-nok'),
+    next_of_kin_phone:get('pf-nok-phone'), allergies, chronic_conditions:chronic
+  }
+  if (patient && patient.canonicalPatientId) payload.patient_id = patient.canonicalPatientId
+  let canonicalId = patient && patient.canonicalPatientId ? patient.canonicalPatientId : null
+  if (MODE.isOnline) {
+    try {
+      const saved = await jlightCanonicalApiRequest('/api/patients/upsert', 'POST', payload)
+      canonicalId = saved.canonical_patient_id
+      if (!canonicalId) throw new Error('The server did not return a canonical patient UUID.')
+    } catch (e) {
+      toast('Canonical save failed', e.message || 'Patient was not saved to the authoritative registry.', 'crit')
+      return
+    }
+  }
+  if (patient) {
+    Object.assign(patient, {
+      id:canonicalId || patient.id, canonicalPatientId:canonicalId || patient.canonicalPatientId || null,
+      orgId:STATE.orgId, fullName:name, mrn, idNumber:payload.id_number,
+      dateOfBirth:payload.date_of_birth, gender:payload.gender, bloodGroup:payload.blood_group,
+      phone:payload.phone, address:payload.address, nextOfKin:payload.next_of_kin,
+      nextOfKinPhone:payload.next_of_kin_phone, allergies, chronicConditions:chronic, updatedAt:Date.now()
+    })
     audit('Patient updated', name + ' · ' + mrn)
-    toast('Patient updated', name, 'good')
+    toast('Patient updated', MODE.isOnline ? 'Saved to the canonical patient registry.' : name, 'good')
   } else {
-    const p = { id: uid(), orgId: STATE.orgId, mrn, fullName: name, idNumber: get('pf-id'), dateOfBirth: get('pf-dob'), gender: get('pf-gender'), bloodGroup: get('pf-blood'), phone: get('pf-phone'), address: get('pf-address'), nextOfKin: get('pf-nok'), nextOfKinPhone: get('pf-nok-phone'), allergies, chronicConditions: chronic, active: true, createdAt: Date.now() }
+    const p = {
+      id:canonicalId || uid(), canonicalPatientId:canonicalId, orgId:STATE.orgId, mrn,
+      fullName:name, idNumber:payload.id_number, dateOfBirth:payload.date_of_birth,
+      gender:payload.gender, bloodGroup:payload.blood_group, phone:payload.phone,
+      address:payload.address, nextOfKin:payload.next_of_kin,
+      nextOfKinPhone:payload.next_of_kin_phone, allergies, chronicConditions:chronic,
+      active:true, createdAt:Date.now()
+    }
     STATE.patients.push(p)
     audit('Patient registered', name + ' · ' + mrn)
-    toast('Patient registered', name, 'good')
-    syncDomainToBackend('patients', STATE.patients)
+    toast('Patient registered', MODE.isOnline ? 'Canonical patient UUID created and saved.' : 'Saved locally; not yet linked to the cloud registry.', 'good')
   }
   lsSet(PATIENT_KEY, STATE.patients)
+  if (MODE.isOnline) await syncDomainToBackend('patients', STATE.patients)
   showRegisterPatient()
   renderPatients()
 }
@@ -5813,8 +6118,24 @@ async function loadDomainDataFromBackend() {
     const allowedDomainsByPath = {
       hospital: ['patients', 'admissions', 'wards', 'clinicalOrders', 'infections', 'reports'],
       laboratory: ['patients', 'labOrders', 'results', 'qcRuns', 'samples', 'reports'],
-      bioinformatics: ['patients', 'bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
+      bioinformatics: ['bioRuns', 'bioAccessions', 'bioQc', 'bioAmr', 'reports'],
       clinical_trials: ['protocols', 'participants', 'visits', 'adverseEvents', 'consents', 'deviations', 'reports']
+    }
+    // Patient demographics are not part of Bioinformatics workspace data.
+    // Load the patients domain only when the member independently has
+    // Hospital or Laboratory read permission.
+    if (MODE.organisationType === 'bioinformatics') {
+      const [hospitalRead, laboratoryRead] = await Promise.all([
+        sb.rpc('jlight_has_domain_permission', {
+          p_organization_id: STATE.orgId, p_domain: 'hospital', p_access: 'read'
+        }),
+        sb.rpc('jlight_has_domain_permission', {
+          p_organization_id: STATE.orgId, p_domain: 'laboratory', p_access: 'read'
+        })
+      ])
+      if (hospitalRead.data === true || laboratoryRead.data === true) {
+        allowedDomainsByPath.bioinformatics.unshift('patients')
+      }
     }
     const allowedDomains = allowedDomainsByPath[MODE.organisationType]
     if (!allowedDomains) throw new Error('No verified organisation path is available for data loading.')
