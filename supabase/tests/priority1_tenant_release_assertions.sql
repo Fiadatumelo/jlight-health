@@ -29,12 +29,19 @@ begin
       and contype='f' and pg_get_constraintdef(oid) like '%target_org_id%'
   ) then raise exception 'jl_requests.target_org_id foreign key is missing'; end if;
 
-  if (select count(*) from pg_policies where schemaname='public' and tablename='jl_requests') <> 3
+  -- Reconciled 2026-11-18: expect the hardened four-policy set (three
+  -- organisation-scoped policies plus the authenticated-only membership fence).
+  if (select count(*) from pg_policies where schemaname='public' and tablename='jl_requests') <> 4
+     or not exists (
+       select 1 from pg_policies
+       where schemaname='public' and tablename='jl_requests'
+         and policyname='jlight_request_membership_fence' and cmd='ALL'
+     )
      or exists (
        select 1 from pg_policies
        where schemaname='public' and tablename='jl_requests'
          and not (roles @> array['authenticated']::name[])
-     ) then raise exception 'jl_requests policies are not the expected authenticated-only set'; end if;
+     ) then raise exception 'jl_requests policies are not the expected hardened authenticated-only set'; end if;
 
   if not exists (
     select 1 from pg_trigger
@@ -54,11 +61,35 @@ begin
       and p.prosecdef and p.proconfig @> array['search_path=public, pg_temp']
   ) then raise exception 'Tenant role resolver must have pinned search_path'; end if;
 
+  -- Reconciled 2026-11-18: the applied staging hardening added a per-table
+  -- jlight_tenant_membership_fence ALL policy (jl_is_org_member(org_id)) on top
+  -- of the base Trial-organisation policy on every Clinical Trials table. The
+  -- hardened expectation is therefore: the base Trial-org policy still present,
+  -- the membership fence present, and every policy authenticated-only.
   if exists (
     select 1 from pg_policies
     where schemaname='public'
       and tablename in ('jl_participants','jl_visits','jl_protocols','jl_consents','jl_adverse_events','jl_deviations')
-      and (not (roles @> array['authenticated']::name[]) or qual not like '%private.jl_current_org_role%Trial%' or with_check not like '%private.jl_current_org_role%Trial%')
+      and (not (roles @> array['authenticated']::name[]))
+  ) then raise exception 'Clinical-trial table policy is not authenticated-only'; end if;
+
+  if exists (
+    select 1 from unnest(array['jl_participants','jl_visits','jl_protocols','jl_consents','jl_adverse_events','jl_deviations']) t(tablename)
+    where not exists (
+      select 1 from pg_policies
+      where schemaname='public' and tablename=t.tablename
+        and policyname='jlight_tenant_membership_fence' and cmd='ALL'
+        and qual like '%jl_is_org_member(org_id)%' and with_check like '%jl_is_org_member(org_id)%'
+    )
+  ) then raise exception 'Clinical-trial table is missing the jlight_tenant_membership_fence policy'; end if;
+
+  if exists (
+    select 1 from unnest(array['jl_participants','jl_visits','jl_protocols','jl_consents','jl_adverse_events','jl_deviations']) t(tablename)
+    where not exists (
+      select 1 from pg_policies
+      where schemaname='public' and tablename=t.tablename
+        and qual like '%private.jl_current_org_role%Trial%' and with_check like '%private.jl_current_org_role%Trial%'
+    )
   ) then raise exception 'Clinical-trial table policy does not require a Trial organisation'; end if;
 
   if has_table_privilege('authenticated','public.jl_organisations','truncate')
