@@ -1,0 +1,12 @@
+name: jlight-tb-research
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  # pathogen-profiler 5.2.1, required by TBProfiler 6.7.0, is built for Python 3.10.
+  # Pin the compatible interpreter to prevent an unsatisfiable conda environment.
+  - python=3.10
+  - fastqc=0.12.1
+  - multiqc=1.33
+  - tb-profiler=6.7.0

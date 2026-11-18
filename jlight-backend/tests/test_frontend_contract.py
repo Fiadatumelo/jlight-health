@@ -268,4 +268,38 @@ require("function exportLocalRecovery()" in html and
 require("Local records need review" in html and "Export recovery records" in html,
         "Settings must expose quarantined records for review and export")
 
+# Authenticated API requests must fail closed: the API base must come from
+# explicit configuration (runtime config or deployment config) — never a
+# silent default that could route a production host to the staging backend.
+require("function getJlightApiBaseUrl()" in html,
+        "A single fail-closed backend API base resolver is required")
+require(html.count("getJlightApiBaseUrl()") >= 4,
+        "All authenticated backend callers must use the shared fail-closed API base resolver")
+require(html.count("jlight-backend-staging.onrender.com") == 0,
+        "The staging backend URL must be bound in runtime configuration only, never hardcoded in the application")
+require("jlight-backend.onrender.com" not in html,
+        "The production backend URL must be bound in runtime configuration only, never hardcoded in the application")
+require("API configuration is missing" in html,
+        "The resolver must fail closed when no API configuration is supplied")
+require("cannot use the staging backend on a production host" in html,
+        "The resolver must reject staging backends on production hosts")
+require("must use HTTPS without credentials" in html,
+        "The resolver must require HTTPS and reject embedded credentials")
+require("window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl" in html and
+        "window.JLIGHT_API_BASE_URL" in html,
+        "Explicit deployment configuration must still take precedence")
+runtime_config = (ROOT / "jlight-runtime-config.js").read_text(encoding="utf-8")
+require("jlight-health.co.za" in runtime_config and
+        "jlight-backend.onrender.com" in runtime_config,
+        "Production hosts must be bound to the production API in runtime configuration")
+require(".netlify.app" in runtime_config and
+        "jlight-backend-staging.onrender.com" in runtime_config,
+        "Non-production Netlify hosts must be bound to the staging API in runtime configuration")
+require('<script src="/jlight-runtime-config.js"></script>' in html,
+        "The runtime configuration must be loaded before the application bundle")
+summary_start = html.index("async function requestJlightIntelligenceSummary(")
+summary_end = html.index("\nasync function requestJlightClinicalTrialsSummary", summary_start)
+require("'X-JLIGHT-Organisation': String(STATE.orgId || '')" in html[summary_start:summary_end],
+        "Intelligence summary requests must carry the organisation scope header")
+
 print("JLIGHT frontend contract checks passed.")
