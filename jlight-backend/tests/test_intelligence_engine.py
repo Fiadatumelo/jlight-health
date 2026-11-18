@@ -49,6 +49,16 @@ class IntelligenceEngineTests(unittest.TestCase):
         self.assertEqual(result["findings"][0]["severity"], "high")
         self.assertTrue(result["human_review_required"])
 
+    def test_tbprofiler_review_and_unreported_statuses_are_normalized(self):
+        low = build_intelligence_summary(bioinformatics={"qc_status": "review_required_low_coverage"})
+        self.assertEqual(low["findings"][0]["status"], "review")
+        self.assertTrue(low["human_review_required"])
+        for status in ("qc_reported", "qc_not_reported"):
+            with self.subTest(status=status):
+                result = build_intelligence_summary(bioinformatics={"qc_status": status})
+                self.assertEqual(result["findings"][0]["status"], "unknown")
+                self.assertTrue(result["human_review_required"])
+
     def test_accepts_only_allowlisted_journey_metadata(self):
         result = build_intelligence_summary(journey_checks=[
             {"check_id": "missing_lab_result", "source": "laboratory", "status": "review",

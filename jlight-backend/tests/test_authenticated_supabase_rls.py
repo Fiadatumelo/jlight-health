@@ -50,6 +50,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         cls.b = str(uuid.uuid4())
         cls.platform_admin = str(uuid.uuid4())
         cls.hospital_only = str(uuid.uuid4())
+        cls.bioinformatics_only = str(uuid.uuid4())
         cls.org_code_only = str(uuid.uuid4())
         cls.new_registrant = str(uuid.uuid4())
         cls.invited_target = str(uuid.uuid4())
@@ -79,6 +80,7 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         for uid, email in ((cls.a, "rls-a@invalid.example"), (cls.b, "rls-b@invalid.example"),
                           (cls.platform_admin, "rls-platform-admin@invalid.example"),
                           (cls.hospital_only, "rls-hospital-only@invalid.example"),
+                          (cls.bioinformatics_only, "rls-bioinformatics-only@invalid.example"),
                           (cls.org_code_only, "rls-org-code-only@invalid.example"),
                           (cls.new_registrant, "rls-new-registrant@invalid.example"),
                           (cls.invited_target, "rls-invited-target@invalid.example")):
@@ -130,14 +132,29 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                (organization_id, auth_subject, role, active, created_by)
                VALUES (%s, %s, 'owner', true, %s),
                       (%s, %s, 'owner', true, %s),
+                      (%s, %s, 'clinician', true, %s),
                       (%s, %s, 'clinician', true, %s)
                ON CONFLICT (organization_id, auth_subject)
                DO UPDATE SET role = EXCLUDED.role, active = true""",
-            (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b, cls.org_a, cls.hospital_only, cls.a),
+            (cls.org_a, cls.a, cls.a, cls.org_b, cls.b, cls.b,
+             cls.org_a, cls.hospital_only, cls.a,
+             cls.org_a, cls.bioinformatics_only, cls.a),
         )
+        # Seed legacy memberships as well: the restrictive tenant fence
+        # checks jl_org_memberships, while the sync trigger maintains the newer model.
+        for uid, access_role in (
+            (cls.bioinformatics_only, "bioinformatics"),
+            (cls.hospital_only, "hospital"),
+        ):
+            c.execute(
+                """INSERT INTO public.jl_org_memberships
+                   (id, organisation_id, user_id, access_role, status, created_by)
+                   VALUES (%s, %s, %s, %s, 'active', %s)""",
+                (str(uuid.uuid4()), cls.org_a, uid, access_role, cls.a),
+            )
         # The patients_org policy additionally requires a current organisation
         # in jl_user_profiles; use one active profile per synthetic user.
-        for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b), (cls.hospital_only, cls.org_a)):
+        for uid, org_id in ((cls.a, cls.org_a), (cls.b, cls.org_b), (cls.hospital_only, cls.org_a), (cls.bioinformatics_only, cls.org_a)):
             c.execute(
                 """INSERT INTO public.jl_user_profiles
                    (user_id, org_id, full_name, workspace_role, active)
@@ -164,6 +181,15 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
                ON CONFLICT (organization_id, auth_subject, domain)
                DO UPDATE SET can_read=true, can_write=true, can_report=true""",
             (cls.org_a, cls.hospital_only, cls.a),
+        )
+        # This member has Bioinformatics permission only, not Hospital or Laboratory.
+        c.execute(
+            """INSERT INTO public.jlight_membership_domain_permissions
+               (organization_id, auth_subject, domain, can_read, can_write, can_report, granted_by)
+               VALUES (%s, %s, 'bioinformatics', true, true, true, %s)
+               ON CONFLICT (organization_id, auth_subject, domain)
+               DO UPDATE SET can_read=true, can_write=true, can_report=true""",
+            (cls.org_a, cls.bioinformatics_only, cls.a),
         )
         # Seed normalized Bioinformatics rows with synthetic data and no patient link.
         c.execute(
@@ -221,6 +247,15 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
             """INSERT INTO public.jl_patients (id, org_id, mrn, full_name)
                VALUES (%s, %s, 'PATION-001', 'PATION-001'), (%s, %s, 'PATION-001', 'PATION-001')""",
             (cls.patient_a, cls.org_a, cls.patient_b, cls.org_b),
+        )
+        c.execute(
+            """INSERT INTO public.jl_entries
+               (id, jl_id, user_id, organisation, role, ts, payload, created_at, org_id, domain)
+               VALUES (%s, 'RLS-PATIENT-IDENTITY-001', %s, 'RLS Org A', 'Hospital',
+                       now(), %s::jsonb, now(), %s, 'patients')""",
+            (str(uuid.uuid4()), cls.a,
+             json.dumps({"id": "RLS-PATIENT-IDENTITY-001", "fullName": "Synthetic Patient"}),
+             cls.org_a),
         )
         for enc_id, org_id, patient_id, uid, ref in (
             (cls.encounter_a, cls.org_a, cls.patient_a, cls.a, "SYNTH-A"),
@@ -281,6 +316,50 @@ class AuthenticatedSupabaseRLSGates(unittest.TestCase):
         c = self._as_user(self.a)
         c.execute("SELECT id FROM public.jl_patients WHERE mrn = 'PATION-001'")
         self.assertEqual([row[0] for row in c.fetchall()], [self.patient_a])
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_bioinformatics_only_cannot_read_or_write_patient_identity(self):
+        c = self._as_user(self.bioinformatics_only)
+        c.execute("SELECT id, mrn, full_name FROM public.jl_patients WHERE id=%s", (self.patient_a,))
+        self.assertEqual(c.fetchall(), [], "Bioinformatics-only member read canonical patient demographics")
+        c.execute(
+            """SELECT jl_id FROM public.jl_entries
+               WHERE org_id=%s AND domain='patients' AND jl_id='RLS-PATIENT-IDENTITY-001'""",
+            (self.org_a,),
+        )
+        self.assertEqual(c.fetchall(), [], "Bioinformatics-only member read legacy patient identity")
+        c.execute("SELECT id FROM public.jl_bio_runs WHERE org_id=%s", (self.org_a,))
+        self.assertEqual([row[0] for row in c.fetchall()], [self.bio_run],
+                         "Bioinformatics member lost access to Bioinformatics runs")
+
+        c.execute("SAVEPOINT patient_identity_insert_denial")
+        with self.assertRaises(psycopg2.errors.InsufficientPrivilege):
+            c.execute(
+                """INSERT INTO public.jl_patients (id, org_id, mrn, full_name)
+                   VALUES (%s, %s, 'BIO-ONLY-UNAUTHORISED', 'Must not be inserted')""",
+                (str(uuid.uuid4()), self.org_a),
+            )
+        c.execute("ROLLBACK TO SAVEPOINT patient_identity_insert_denial")
+        c.execute(
+            """UPDATE public.jl_patients SET full_name='Unauthorised update'
+               WHERE id=%s RETURNING id""",
+            (self.patient_a,),
+        )
+        self.assertEqual(c.fetchall(), [], "Bioinformatics-only member updated patient demographics")
+        c.execute("ROLLBACK TO SAVEPOINT rls_test")
+        c.execute("RELEASE SAVEPOINT rls_test")
+
+    def test_hospital_only_member_retains_patient_identity_access(self):
+        c = self._as_user(self.hospital_only)
+        c.execute("SELECT id, mrn, full_name FROM public.jl_patients WHERE id=%s", (self.patient_a,))
+        self.assertEqual(c.fetchall(), [(self.patient_a, "PATION-001", "PATION-001")])
+        c.execute(
+            """SELECT jl_id FROM public.jl_entries
+               WHERE org_id=%s AND domain='patients' AND jl_id='RLS-PATIENT-IDENTITY-001'""",
+            (self.org_a,),
+        )
+        self.assertEqual(c.fetchall(), [("RLS-PATIENT-IDENTITY-001",)])
         c.execute("ROLLBACK TO SAVEPOINT rls_test")
         c.execute("RELEASE SAVEPOINT rls_test")
 
