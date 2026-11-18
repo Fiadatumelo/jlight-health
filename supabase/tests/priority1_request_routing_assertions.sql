@@ -18,9 +18,26 @@ begin
     raise exception 'RLS must be enabled for jl_requests';
   end if;
 
-  if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'jl_requests') <> 3 then
-    raise exception 'Expected exactly three organisation-scoped jl_requests policies';
+  -- Reconciled 2026-11-18: the applied staging hardening added the
+  -- jlight_request_membership_fence ALL policy on top of the three
+  -- organisation-scoped policies. The expected set is now exactly four,
+  -- all authenticated-only, and the fence must be present.
+  if (select count(*) from pg_policies where schemaname = 'public' and tablename = 'jl_requests') <> 4 then
+    raise exception 'Expected exactly four hardened jl_requests policies (three organisation-scoped plus the membership fence)';
   end if;
+
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'jl_requests'
+      and policyname = 'jlight_request_membership_fence'
+      and cmd = 'ALL' and roles @> array['authenticated']::name[]
+  ) then raise exception 'Missing jlight_request_membership_fence on jl_requests'; end if;
+
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'jl_requests'
+      and not (roles @> array['authenticated']::name[])
+  ) then raise exception 'All jl_requests policies must be authenticated-only'; end if;
 
   if exists (
     select 1 from pg_policies

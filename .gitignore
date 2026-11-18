@@ -1,0 +1,4 @@
+# Python bytecode artifacts must never be committed; they caused accidental
+# inclusions in agent-generated pull requests (see PR #98 review note).
+__pycache__/
+*.pyc

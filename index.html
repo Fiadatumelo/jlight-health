@@ -1058,20 +1058,54 @@ function showScreen(name) {
   else console.warn('[JLIGHT] screen not found:', id)
 }
 // ─── Supabase client (lazy init) ───
-// Never point deploy previews or local development at production auth/data.
-const PRODUCTION_HOSTS = new Set(['jlight-health.co.za', 'www.jlight-health.co.za'])
-const IS_PRODUCTION_HOST = PRODUCTION_HOSTS.has(window.location.hostname.toLowerCase())
-const BACKEND = IS_PRODUCTION_HOST
-  ? {
-      url: 'https://wrdwzpmpsbtkrwonejhp.supabase.co',
-      key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ',
-    }
-  : {
-      url: 'https://ampkysrzliwjtvbigsvu.supabase.co',
-      key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a',
-    }
+// Exactly one environment-bound Supabase project per host. Production hosts
+// resolve only to production, approved staging/preview hosts resolve only to
+// staging, and any unknown host fails closed instead of guessing.
+const PRODUCTION_HOSTS = new Set([
+  'jlight-health.co.za', 'www.jlight-health.co.za',
+  'jlight-health.netlify.app', 'main--jlight-health.netlify.app',
+])
+const SUPABASE_PROJECTS = {
+  production: { ref: 'wrdwzpmpsbtkrwonejhp', key: 'sb_publishable_UfDgLqLadzAFGpf1uEQSiw_APZ3suXZ' },
+  staging: { ref: 'ampkysrzliwjtvbigsvu', key: 'sb_publishable_mDEvzOyHx3sM1_mVxz-bxw_FzN1lS8a' },
+}
+function resolveJlightEnvironment() {
+  const host = String(window.location?.hostname || '').toLowerCase()
+  if (PRODUCTION_HOSTS.has(host)) return 'production'
+  // Netlify deploy previews and branch deploys are staging contexts.
+  if (host.endsWith('.netlify.app')) return 'staging'
+  if (['localhost', '127.0.0.1', '[::1]'].includes(host)) return 'staging'
+  return null
+}
+const BACKEND = (() => {
+  const env = resolveJlightEnvironment()
+  if (!env) return null
+  const project = SUPABASE_PROJECTS[env]
+  return { env, url: 'https://' + project.ref + '.supabase.co', key: project.key }
+})()
+// The application API base must agree with the Supabase environment: production
+// hosts call the production backend, staging previews and local development call
+// the staging backend, and unknown hosts resolve no API base at all.
+const JLIGHT_API_DEFAULTS = {
+  production: 'https://jlight-backend.onrender.com',
+  staging: 'https://jlight-backend-staging.onrender.com',
+}
+function resolveJlightApiBase() {
+  const override = (window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL
+  if (override) return String(override).replace(/\/+$/, '')
+  if (!BACKEND || !BACKEND.env || !JLIGHT_API_DEFAULTS[BACKEND.env]) return null
+  return JLIGHT_API_DEFAULTS[BACKEND.env]
+}
 const MODE = { isOnline: true, organisationName: null, organisationType: null, isPlatformAdmin: false, signupMode: false, hasRestoredSession: false }
 let _supa = null
+// ── Single controlled OTP lifecycle ──
+// otpRequestSeq increments on every login-code request; asynchronous handlers
+// compare against it so a stale response can never overwrite newer auth state.
+// The in-flight flags block duplicate submissions (double click, Enter key or
+// browser automation) from issuing or verifying the same code twice.
+let otpRequestInFlight = false
+let otpRequestSeq = 0
+let otpVerifyInFlight = false
 
 
 // ─── Cryptographic audit hash ───
@@ -1310,7 +1344,14 @@ async function doSignIn(resend = false) {
   }
 
   const btn = document.getElementById("si-btn");
+  const resendBtn = document.getElementById("si-resend-btn");
+  const verifyBtn = document.getElementById("si-verify-btn");
+  if (otpRequestInFlight) return;
+  otpRequestInFlight = true;
+  const requestSeq = ++otpRequestSeq;
   if (btn) { btn.disabled = true; btn.textContent = "Sending code…"; }
+  if (resendBtn) { resendBtn.disabled = true; resendBtn.textContent = "Sending…"; }
+  if (verifyBtn) { verifyBtn.disabled = true; }
   showStatus("", "");
   try {
     const options = { shouldCreateUser: !!pending.signup };
@@ -1321,23 +1362,30 @@ async function doSignIn(resend = false) {
       jl_join_type: pending.joinType
     };
     const { error } = await sb.auth.signInWithOtp({ email, options });
+    if (requestSeq !== otpRequestSeq) return;
     if (error) throw error;
+    pending.requestedAt = Date.now();
+    sessionStorage.setItem("jl_pending_auth", JSON.stringify(pending));
     MODE.loginCodeSent = true;
     const codeRow = document.getElementById("si-login-code-row");
-    const verifyBtn = document.getElementById("si-verify-btn");
-    const resendBtn = document.getElementById("si-resend-btn");
     if (codeRow) codeRow.style.display = "flex";
     if (verifyBtn) verifyBtn.style.display = "flex";
     if (resendBtn) resendBtn.style.display = "flex";
     if (btn) btn.style.display = "none";
-    showStatus("A one-time login code has been requested. Check your inbox and spam folder.", "success");
+    // A newly requested code supersedes any earlier one: clear the old token.
     const codeInput = document.getElementById("si-login-code");
-    if (codeInput) codeInput.focus();
+    if (codeInput) { codeInput.value = ""; codeInput.focus(); }
+    showStatus(resend
+      ? "A new one-time login code was sent. The previous code is no longer valid."
+      : "A one-time login code has been requested. Check your inbox and spam folder.", "success");
   } catch (e) {
     console.error("[JLIGHT] login code request failed:", e);
-    showStatus(e.message || "Could not request a login code. Please try again.");
+    if (requestSeq === otpRequestSeq) showStatus(e.message || "Could not request a login code. Please try again.");
   } finally {
+    otpRequestInFlight = false;
     if (btn) { btn.disabled = false; if (btn.style.display !== "none") btn.textContent = pending?.signup ? "Email me a code to create workspace" : "Email me a login code"; }
+    if (resendBtn) { resendBtn.disabled = false; resendBtn.textContent = "Send a new code"; }
+    if (verifyBtn) verifyBtn.disabled = false;
   }
 }
 
@@ -1395,13 +1443,20 @@ async function ensureJlightOrganisation(user, options = {}) {
     return;
   }
 
-  // Recover a workspace already owned by this verified account.
-  const { data: owned, error: ownedError } = await sb
+  // Recover a workspace already owned by this verified account. Never pick an
+  // arbitrary organisation when the account owns or belongs to several.
+  const { data: ownedList, error: ownedError } = await sb
     .from("jl_organisations")
     .select("id,name,org_code,role,owner_user_id,owner_email")
-    .eq("owner_user_id", user.id)
-    .maybeSingle();
+    .eq("owner_user_id", user.id);
   if (ownedError) throw new Error("Could not check your existing workspace: " + ownedError.message);
+  let owned = Array.isArray(ownedList) && ownedList.length === 1 ? ownedList[0]
+    : Array.isArray(ownedList) && ownedList.length > 1
+      ? (orgName && ownedList.find(x => x.name === orgName)) || null
+      : null;
+  if (Array.isArray(ownedList) && ownedList.length > 1 && !owned) {
+    throw new Error("This account is linked to several organisations. Sign in from the organisation you intend to open, or contact JLIGHT support to confirm the correct workspace.");
+  }
   if (owned) {
     MODE.organisationId = owned.id;
     MODE.organisationName = owned.name;
@@ -1466,13 +1521,45 @@ async function ensureJlightOrganisation(user, options = {}) {
 async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const sb = getSupabase();
   if (!sb || !user?.id || !MODE.organisationId) throw new Error("A verified organisation is required before opening a workspace.");
-  const { data: organisations, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
-  if (error || !Array.isArray(organisations)) throw new Error("Could not securely discover your approved workspaces. Access remains closed.");
-  const organisation = organisations.find(x => String(x.organisation_id) === String(MODE.organisationId));
-  if (!organisation) throw new Error("No active organisation membership was found. Contact your organisation administrator.");
+
+  // Bind workspace discovery to the currently verified Supabase identity. Never
+  // trust cached metadata or a workspace selection as proof of membership.
+  const { data: authData, error: authError } = await sb.auth.getUser();
+  if (authError) throw new Error("Could not validate the active sign-in session: " + authError.message);
+  const authenticatedUser = authData?.user;
+  if (!authenticatedUser?.id || String(authenticatedUser.id) !== String(user.id)) {
+    throw new Error("The active sign-in identity does not match the verified account. Sign in again.");
+  }
+
+  // jl_list_my_workspaces is SECURITY DEFINER and returns a JSONB array of
+  // organisation objects. PostgREST normally returns that array directly;
+  // accept the equivalent wrapped representations without inventing access.
+  const { data, error } = await sb.rpc("jl_list_my_workspaces", { p_org_id: MODE.organisationId });
+  if (error) {
+    const code = error.code ? " [" + String(error.code) + "]" : "";
+    throw new Error("Approved workspace lookup failed" + code + ": " + String(error.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+  let organisations = data;
+  if (typeof organisations === "string") {
+    try { organisations = JSON.parse(organisations); } catch (_) {}
+  }
+  if (!Array.isArray(organisations) && organisations && typeof organisations === "object") {
+    if (Array.isArray(organisations.organisations)) organisations = organisations.organisations;
+    else if (Array.isArray(organisations.workspaces) && organisations.organisation_id) organisations = [organisations];
+  }
+  if (!Array.isArray(organisations)) {
+    const shape = data === null ? "null" : Array.isArray(data) ? "array" : typeof data;
+    throw new Error("Approved workspace lookup returned an unexpected response (" + shape + "). Access remains closed.");
+  }
+
+  const organisation = organisations.find(x =>
+    x && String(x.organisation_id || "") === String(MODE.organisationId)
+  );
+  if (!organisation) throw new Error("No active membership for this organisation was found for your signed-in account. Contact your organisation administrator.");
   const pathByKey = { hospital:"Hospital", laboratory:"Laboratory", bioinformatics:"Bioinformatics", clinical_trials:"Trial" };
-  const permitted = (organisation.workspaces || []).map(x => pathByKey[x.key]).filter(Boolean);
-  if (!permitted.length) throw new Error("Your account has no active workspace permissions. Contact your organisation administrator.");
+  const permitted = (Array.isArray(organisation.workspaces) ? organisation.workspaces : [])
+    .map(x => x && pathByKey[String(x.key || "")]).filter(Boolean);
+  if (!permitted.length) throw new Error("Your organisation has no approved workspaces yet. JLIGHT Platform Administration must approve the requested pathway.");
   const requested = requestedPath || sessionStorage.getItem("jl_selected_path") || null;
   const verifiedPath = requested && permitted.includes(requested) ? requested : (!requested && permitted.length === 1 ? permitted[0] : null);
   if (!verifiedPath) throw new Error(requested
@@ -1482,7 +1569,11 @@ async function loadVerifiedOrganisationPath(user, requestedPath = null) {
   const { data: canRead, error: permissionError } = await sb.rpc("jlight_has_domain_permission", {
     p_organization_id: organisation.organisation_id, p_domain: permissionDomain, p_access: "read"
   });
-  if (permissionError || canRead !== true) throw new Error("Workspace permission could not be verified. Access remains closed.");
+  if (permissionError) {
+    const code = permissionError.code ? " [" + String(permissionError.code) + "]" : "";
+    throw new Error("Workspace permission check failed" + code + ": " + String(permissionError.message || "Unknown Supabase error") + ". Access remains closed.");
+  }
+  if (canRead !== true) throw new Error("The organisation is approved for " + verifiedPath + ", but your member account does not yet have " + verifiedPath + " permission. Ask your organisation administrator to grant it.");
   MODE.organisationId = organisation.organisation_id;
   MODE.organisationName = organisation.organisation_name;
   MODE.organisationCode = organisation.organisation_code || MODE.organisationCode || "";
@@ -1506,7 +1597,18 @@ async function verifyLoginCode() {
   if (!/^\d{6,8}$/.test(token)) { showStatus("Enter the numeric code from your email."); return; }
   let pending = null;
   try { pending = JSON.parse(sessionStorage.getItem("jl_pending_auth") || "null"); } catch (_) {}
-  if (!pending || pending.email !== email || (!pending.signup && pending.role !== selectedPath)) {
+  if (!pending || pending.email !== email) {
+    showStatus("Your sign-in request has expired. Request a new email code."); return;
+  }
+  // Survive a page refresh between requesting and entering the code: restore
+  // the selected path recorded with the pending request instead of failing.
+  let effectivePath = selectedPath;
+  if (!effectivePath && pending.role && ROLES[pending.role]) {
+    effectivePath = pending.role;
+    sessionStorage.setItem("jl_selected_path", effectivePath);
+    try { selectJlightPath(effectivePath); } catch (_) {}
+  }
+  if (!pending.signup && pending.role && effectivePath !== pending.role) {
     showStatus("Your sign-in request has expired. Request a new email code."); return;
   }
   if (pending.signup && pending.joinType === "new" &&
@@ -1515,12 +1617,23 @@ async function verifyLoginCode() {
   }
   const sb = getSupabase();
   if (!sb) { showStatus("Authentication service is unavailable. Please try again shortly."); return; }
+  if (otpVerifyInFlight) return;
+  otpVerifyInFlight = true;
+  const verifySeq = otpRequestSeq;
   if (verifyBtn) { verifyBtn.disabled = true; verifyBtn.textContent = "Verifying…"; }
   showStatus("", "");
   try {
     const { data, error } = await sb.auth.verifyOtp({ email, token, type: "email" });
+    if (verifySeq !== otpRequestSeq) throw new Error("A newer login code was requested. Use the latest code from your email.");
     if (error) throw error;
     if (!data?.session || !data?.user) throw new Error("Code verification did not establish a secure session. Request a new code and try again.");
+    // Prove the session before continuing: a successful verifyOtp response is
+    // not accepted on its own; the persisted session must resolve a user.
+    const { data: sessionCheck, error: sessionError } = await sb.auth.getSession();
+    if (sessionError || !sessionCheck?.session) throw new Error("The verified session could not be restored. Sign in again with a fresh code.");
+    if (String(sessionCheck.session.user?.id || "") !== String(data.user.id)) throw new Error("The restored session does not match the verified account. Sign in again.");
+    const { data: userCheck, error: userError } = await sb.auth.getUser();
+    if (userError || String(userCheck?.user?.id || "") !== String(data.user.id)) throw new Error("Supabase could not confirm the authenticated identity. Sign in again.");
     const user = data.user;
     MODE.isOnline = true; STATE.user = user.email || email;
     await refreshPlatformAdminStatus();
@@ -1530,12 +1643,12 @@ async function verifyLoginCode() {
       setTimeout(() => enterPlatformAdminApp(user), 300);
       return;
     }
-    if (selectedPath && !ROLES[selectedPath]) throw new Error("Choose a valid JLIGHT workspace.");
+    if (effectivePath && !ROLES[effectivePath]) throw new Error("Choose a valid JLIGHT workspace.");
     const orgOptions = pending.signup
-      ? { org: pending.joinType === "new" ? pending.orgName : "", role: selectedPath || pending.role, workspaceKeys: pending.workspaceKeys || [], orgCode: pending.joinType === "join" ? pending.orgCode : "" }
-      : { org: user.user_metadata?.org_name || "", role: selectedPath, orgCode: user.user_metadata?.org_code || "" };
+      ? { org: pending.joinType === "new" ? pending.orgName : "", role: effectivePath || pending.role, workspaceKeys: pending.workspaceKeys || [], orgCode: pending.joinType === "join" ? pending.orgCode : "" }
+      : { org: user.user_metadata?.org_name || "", role: effectivePath, orgCode: user.user_metadata?.org_code || "" };
     await ensureJlightOrganisation(user, orgOptions);
-    await loadVerifiedOrganisationPath(user, selectedPath);
+    await loadVerifiedOrganisationPath(user, effectivePath);
     await loadOrCreateProfile(user);
     await refreshPlatformAdminStatus();
     const codeButton = document.getElementById("si-send-org-code");
@@ -1571,6 +1684,7 @@ async function verifyLoginCode() {
       showStatus(e.message || "The code could not be verified. Request a new code and try again.");
     }
   } finally {
+    otpVerifyInFlight = false;
     if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = "Verify code and continue"; }
   }
 }
@@ -2003,7 +2117,8 @@ async function loadAuthoritativePatientJourney(patient) {
     const sessionResult = sb ? await sb.auth.getSession() : null;
     const session = sessionResult && sessionResult.data && sessionResult.data.session;
     if (!session || !session.access_token) throw new Error('A verified session is required.');
-    const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+    const baseUrl = resolveJlightApiBase();
+    if (!baseUrl) throw new Error('No approved application API is bound to this host. Access stays closed.');
     const response = await fetch(baseUrl + '/api/patient-journey/' + encodeURIComponent(patientId), {
       method: 'GET',
       headers: {
@@ -2107,7 +2222,8 @@ async function requestJlightIntelligenceSummary(patient, events) {
   if (undated > 0) {
     checks.push({ check_id: 'source_data_incomplete', source: 'interoperability', status: 'review', severity: 'medium', evidence_count: Math.min(1000000, undated) });
   }
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+  const baseUrl = resolveJlightApiBase();
+  if (!baseUrl) return { success: false, message: 'No approved application API is bound to this host.' };
   try {
     const response = await fetch(baseUrl + '/api/intelligence/summary', {
       method: 'POST',
@@ -2133,7 +2249,8 @@ async function requestJlightClinicalTrialsSummary() {
   const sessionResult = await sb.auth.getSession();
   const session = sessionResult && sessionResult.data && sessionResult.data.session;
   if (!session || !session.access_token) return { success: false, message: 'A verified Clinical Trials session is required.' };
-  const baseUrl = String((window.JLIGHT_CONFIG && window.JLIGHT_CONFIG.apiBaseUrl) || window.JLIGHT_API_BASE_URL || 'https://jlight-backend-staging.onrender.com').replace(/\/+$/, '');
+  const baseUrl = resolveJlightApiBase();
+  if (!baseUrl) return { success: false, message: 'No approved application API is bound to this host.' };
   try {
     const response = await fetch(baseUrl + '/api/intelligence/clinical-trials-summary', {
       method: 'POST',
@@ -4549,20 +4666,29 @@ function genResultCard(r) {
   toast(isCrit?'Critical result received':'Lab result received', r.test+': '+r.releasedResult+' '+(r.releasedUnit||''), sev)
 }
 
-// ── SUPABASE BACKEND ──
-// Project: wrdwzpmpsbtkrwonejhp · Publishable key below
-const SB_URL  = 'https://wrdwzpmpsbtkrwonejhp.supabase.co'
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndyZHd6cG1wc2J0a3J3b25lamhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTI0MjksImV4cCI6MjA5MTc2ODQyOX0.MB_-3uRbYhnWvmNCREC1iFgm16X_Hp-4GZgh6X_YY1g'
-let _sb = null
-let _realtimeChannel = null
-
+// ── ENVIRONMENT-BOUND SUPABASE CLIENT ──
+// BACKEND is resolved from the current host only. Staging previews must never
+// authenticate against production and unknown hosts must fail closed. One
+// client instance serves every authentication, RPC and data module, so OTP
+// request and verification always hit the same project.
 function getSupabase() {
-  if (_sb) return _sb
+  if (_supa) return _supa
   if (!window.supabase) return null
-  _sb = window.supabase.createClient(SB_URL, SB_KEY, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'jl-auth-v9' }
+  if (!BACKEND?.url || !BACKEND?.key) {
+    console.error('[JLIGHT] No approved Supabase project for host "' + window.location.hostname + '". Access stays closed.')
+    return null
+  }
+  _supa = window.supabase.createClient(BACKEND.url, BACKEND.key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: 'jl-auth-v10'
+    }
   })
-  return _sb
+  // Safe diagnostic: environment name and project reference only, never keys.
+  console.info('[JLIGHT] Supabase bound to ' + BACKEND.env + ' project ' + BACKEND.url.replace('https://', '').split('.')[0])
+  return _supa
 }
 
 // ── BACKEND SYNC — write-through with localStorage fallback ──
